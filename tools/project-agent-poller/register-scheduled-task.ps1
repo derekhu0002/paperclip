@@ -43,9 +43,21 @@ foreach ($ghVar in @("GH_TOKEN", "GITHUB_TOKEN")) {
   }
 }
 
+# A console app started directly by Task Scheduler flashes a window on every
+# run. Launch node through a VBScript that opens it with a hidden window (style
+# 0) so the poller runs silently in the background.
+$vbs = Join-Path $ScriptDir "run-poller.vbs"
+$vbsContent = @"
+Set sh = CreateObject("WScript.Shell")
+sh.CurrentDirectory = "$ScriptDir"
+sh.Run """$Node"" ""$poller"" --config ""$Config""", 0, False
+"@
+Set-Content -Path $vbs -Value $vbsContent -Encoding ASCII
+
+$wscript = Join-Path $env:SystemRoot "System32\wscript.exe"
 $action = New-ScheduledTaskAction `
-  -Execute $Node `
-  -Argument "`"$poller`" --config `"$Config`"" `
+  -Execute $wscript `
+  -Argument "//Nologo //B `"$vbs`"" `
   -WorkingDirectory $ScriptDir
 
 $trigger = New-ScheduledTaskTrigger `
@@ -58,6 +70,7 @@ $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
   -DontStopIfGoingOnBatteries `
   -StartWhenAvailable `
+  -Hidden `
   -MultipleInstances IgnoreNew
 
 Register-ScheduledTask `
