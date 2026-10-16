@@ -1,0 +1,35 @@
+{
+  "paperclipBaseUrl": "http://100.66.122.62:3100",
+  "companyId": "735a7199-2a2b-465d-b8de-81d7ca0a34b0",
+  "busyWindowMinutes": 15,
+  "opencodeBin": "opencode",
+  "logFile": "poller.log",
+  "doneLabel": "pm:done",
+  "routingLabelSuffix": "pm",
+  "projects": [
+    {
+      "project": "paperclip",
+      "repo": "derekhu0002/paperclip",
+      "dir": "D:\\Projects\\paperclip",
+      "agentId": "a8c8490e-d30c-4667-998d-d8958981b83b",
+      "projectId": "bda1fa8f-4006-46cb-b3e1-1f066c3626d3",
+      "routingLabel": "pm:paperclip"
+    },
+    {
+      "project": "my-army",
+      "repo": "derekhu0002/my-army",
+      "dir": "D:\\Projects\\my-army",
+      "agentId": "6ef5622a-1329-4841-a447-829d34164fb9",
+      "projectId": "c9d7f14b-64ae-4c3a-a2db-2b18a980355d",
+      "routingLabel": "pm:my-army"
+    },
+    {
+      "project": "archgraph",
+      "repo": "derekhu0002/archgraph",
+      "dir": "D:\\Projects\\archgraph",
+      "agentId": "76abf45b-3155-405e-b7fb-66bb2f2059f5",
+      "projectId": "9362c8b8-64cb-4370-9c19-8c8f8912471f",
+      "routingLabel": "pm:archgraph"
+    }
+  ]
+}
