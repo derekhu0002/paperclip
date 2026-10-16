@@ -1,128 +1,223 @@
 {
-    "name": "System",
-    "description": "Exported from EA package System",
-    "elements": [
+  "name": "System",
+  "description": "Exported from EA package System",
+  "elements": [
+    {
+      "id": "1240",
+      "name": "Application Cooperation Viewpoint",
+      "alias": "1211",
+      "type": "Grouping",
+      "subdiagram_views": [
         {
-            "id": "1240",
-            "name": "Application Cooperation Viewpoint",
-            "alias": "1211",
-            "type": "Grouping",
-            "subdiagram_views": [
-                {
-                    "view_id": "169",
-                    "view_name": "Application Cooperation"
-                }
-            ]
-        },
-        {
-            "id": "1249",
-            "name": "Implementation and Migration Viewpoint",
-            "alias": "1211",
-            "type": "Grouping",
-            "subdiagram_views": [
-                {
-                    "view_id": "176",
-                    "view_name": "AgentCapabilities"
-                },
-                {
-                    "view_id": "174",
-                    "view_name": "Implementation and Migration"
-                }
-            ]
-        },
-        {
-            "id": "project-manager-001",
-            "name": "项目经理",
-            "type": "Business Actor",
-            "description": "新项目的默认主 Business Actor：任何由框架默认模板初始化的项目，其意图图中都内置本『项目经理』角色，作为该项目默认的负责人与主 Agent 身份。当人类伙伴未指定具体角色时，默认以项目经理身份进行对话、规划与决策，并按需把工作委派给项目内的其他 Business Actor。",
-            "subdiagram_views": [
-                {
-                    "view_id": "project-manager-001-wm-001",
-                    "view_name": "项目经理工作记忆"
-                },
-                {
-                    "view_id": "project-manager-001-ltm-001",
-                    "view_name": "项目经理长期记忆"
-                },
-                {
-                    "view_id": "project-manager-001-archive-001",
-                    "view_name": "项目经理档案"
-                }
-            ]
+          "view_id": "169",
+          "view_name": "Application Cooperation"
         }
-    ],
-    "relationships": [
+      ]
+    },
+    {
+      "id": "1249",
+      "name": "Implementation and Migration Viewpoint",
+      "alias": "1211",
+      "type": "Grouping",
+      "subdiagram_views": [
         {
-            "id": "1161",
-            "statement": "Implementation and Migration Viewpoint --(Association)--> Application Cooperation Viewpoint",
-            "name": "Association",
-            "type": "Association",
-            "source_id": "1249",
-            "target_id": "1240",
-            "source_name": "Implementation and Migration Viewpoint",
-            "target_name": "Application Cooperation Viewpoint"
+          "view_id": "176",
+          "view_name": "AgentCapabilities"
+        },
+        {
+          "view_id": "174",
+          "view_name": "Implementation and Migration"
         }
-    ],
-    "views": [
+      ]
+    },
+    {
+      "id": "project-manager-001",
+      "name": "项目经理",
+      "type": "Business Actor",
+      "description": "新项目的默认主 Business Actor：任何由框架默认模板初始化的项目，其意图图中都内置本『项目经理』角色，作为该项目默认的负责人与主 Agent 身份。当人类伙伴未指定具体角色时，默认以项目经理身份进行对话、规划与决策，并按需把工作委派给项目内的其他 Business Actor。",
+      "subdiagram_views": [
         {
-            "view_id": "176",
-            "view_name": "AgentCapabilities",
-            "parent_element_id": "1249",
-            "parent_element_name": "Implementation and Migration Viewpoint",
-            "included_elements": [],
-            "included_relationships": []
+          "view_id": "project-manager-001-wm-001",
+          "view_name": "项目经理工作记忆"
         },
         {
-            "view_id": "174",
-            "view_name": "Implementation and Migration",
-            "parent_element_id": "1249",
-            "parent_element_name": "Implementation and Migration Viewpoint",
-            "included_elements": [],
-            "included_relationships": []
+          "view_id": "project-manager-001-ltm-001",
+          "view_name": "项目经理长期记忆"
         },
         {
-            "view_id": "169",
-            "view_name": "Application Cooperation",
-            "parent_element_id": "1240",
-            "parent_element_name": "Application Cooperation Viewpoint",
-            "included_elements": [],
-            "included_relationships": []
-        },
-        {
-            "view_id": "project-manager-001-wm-001",
-            "view_name": "项目经理工作记忆",
-            "parent_element_id": "project-manager-001",
-            "parent_element_name": "项目经理",
-            "included_elements": [],
-            "included_relationships": []
-        },
-        {
-            "view_id": "project-manager-001-ltm-001",
-            "view_name": "项目经理长期记忆",
-            "parent_element_id": "project-manager-001",
-            "parent_element_name": "项目经理",
-            "included_elements": [],
-            "included_relationships": []
-        },
-        {
-            "view_id": "project-manager-001-archive-001",
-            "view_name": "项目经理档案",
-            "parent_element_id": "project-manager-001",
-            "parent_element_name": "项目经理",
-            "included_elements": [],
-            "included_relationships": []
-        },
-        {
-            "view_id": "170",
-            "view_name": "SystemArchitecture",
-            "included_elements": [
-                "1249",
-                "1240",
-                "project-manager-001"
-            ],
-            "included_relationships": [
-                "1161"
-            ]
+          "view_id": "project-manager-001-archive-001",
+          "view_name": "项目经理档案"
         }
-    ]
+      ],
+      "attributes": [
+        {
+          "name": "paperclipAgent",
+          "value": "a8c8490e-d30c-4667-998d-d8958981b83b | name=项目经理 · paperclip | role=pm | harness=opencode_local | model=paperclip/deepseek-chat | company=735a7199-2a2b-465d-b8de-81d7ca0a34b0"
+        },
+        {
+          "name": "paperclipProject",
+          "value": "bda1fa8f-4006-46cb-b3e1-1f066c3626d3 | name=paperclip | cwd=D:\\Projects\\paperclip | leadAgent=项目经理"
+        },
+        {
+          "name": "paperclipAgentMyArmy",
+          "value": "6ef5622a-1329-4841-a447-829d34164fb9 | name=项目经理 · my-army | role=pm | harness=opencode_local | model=paperclip/deepseek-chat | company=735a7199-2a2b-465d-b8de-81d7ca0a34b0"
+        },
+        {
+          "name": "paperclipProjectMyArmy",
+          "value": "c9d7f14b-64ae-4c3a-a2db-2b18a980355d | name=my-army | cwd=D:\\Projects\\my-army | leadAgent=项目经理 · my-army | workspaceId=ddb5fe5b-f7fe-4c22-964c-40d5871f289b"
+        }
+      ]
+    },
+    {
+      "id": "paperclip-local-windows-deepseek-setup",
+      "type": "Requirement",
+      "name": "Paperclip 本机安装(Windows)+DeepSeek 接入经验",
+      "description": "场景：在本仓 fork 的 dev 分支上，于 Windows 本机（node 24.15、Tailscale 100.66.122.62）安装并运行一个可用 Paperclip 实例（2026-10-16）。\n\n步骤：fork 已存在 origin=derekhu0002/paperclip；分支 dev/local-install。corepack enable 需管理员→改用 npm i -g pnpm@9.15.4；opencode CLI 用 npm i -g opencode-ai（1.19.1）。实例在 ~/.paperclip/instances/default；onboard --bind tailnet → authenticated/private；嵌入式 Postgres 54329。启动命令：pnpm --filter @paperclipai/server dev:watch（设 PAPERCLIP_UI_DEV_MIDDLEWARE=true）。\n\n坑与解决：\n1) core.autocrlf=true 使 patches/acpx@0.13.1.patch 变 CRLF，内容哈希校验失败 → git config core.autocrlf false + 整树重检出为 LF。\n2) win32 不支持原生 Rust Runner，但 enableNativeRunner 默认 true，迫使 pnpm dev 构建 runnerd（需 cargo）→ 在 instance_settings.experimental 设 enableNativeRunner=false。\n3) @paperclipai/shared / plugin-sdk 的 build 脚本用 mkdir -p / cp，Windows cmd 下失败 → pnpm dev 仍不可用；绕过办法：直接跑 server dev:watch（dev-runner 最终也是调用它）。\n4) 浏览器打不开 tailnet IP：系统代理 127.0.0.1:7890 未绕过 100.* → 将 100.* 加入 ProxyOverride。\n\nDeepSeek 接入（Paperclip 无原生 deepseek provider）：\n- 走“自定义 Chat Completions 网关”：provider=openai, method=api_key, routing={kind:gateway, protocol:chat, baseUrl:https://api.deepseek.com, auth:bearer, models:[deepseek-chat,deepseek-reasoner]}；harness 必须为 opencode_local（或 hermes_local）。\n- 因原生 Runner 已关，需本机装 opencode CLI；agent.adapterConfig.model 用 paperclip/deepseek-chat（provider/model 格式，运行时会注入 OPENCODE_CONFIG_CONTENT 与 baseURL）。\n- 已验证 test-environment 返回 pass（hello 探测成功）。\n- 实例对象 id：company=735a7199-2a2b-465d-b8de-81d7ca0a34b0；ai-connection=897633de-3d2b-4c43-91ae-b1a33ce52374；agent=2a77e436-c31c-4522-bfe1-beeac51bf2c2（idle/ready）。\n\n安全：用户密码不入库不写盘。DeepSeek key 存于 Paperclip 加密 vault。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "topic",
+          "value": "paperclip-local-install"
+        },
+        {
+          "name": "platform",
+          "value": "windows"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-16"
+        },
+        {
+          "name": "paperclipProject",
+          "value": "bda1fa8f-4006-46cb-b3e1-1f066c3626d3 | name=paperclip | cwd=D:\\Projects\\paperclip | workspaceId=66637d69-c761-4acc-9b32-bf75b9f28d53"
+        },
+        {
+          "name": "pitfall_nonascii_api",
+          "value": "在 Windows 上用 PowerShell/curl 发含中文的 JSON 会因控制台代码页导致名字损坏（如 项目经理 存成 6 个 ?）。修复：用 Node 脚本发请求，中文用 String.fromCodePoint(...) 构造（纯 ASCII 源码），避免 shell 编码。"
+        },
+        {
+          "name": "pmAgent",
+          "value": "a8c8490e-d30c-4667-998d-d8958981b83b | 项目经理 | role=pm | opencode_local | paperclip/deepseek-chat"
+        },
+        {
+          "name": "agentsCurrent",
+          "value": "2026-10-16: 删除未关联项目的 DeepSeek agent(2a77e436)。剩余两个 PM agent 均 opencode_local + DeepSeek 连接，且 instructions 改为 external 指向各自项目目录：项目经理(a8c8490e)->D:\\Projects\\paperclip\\AGENTS.md；项目经理·my-army(6ef5622a)->D:\\Projects\\my-army\\AGENTS.md（该文件由本次创建，占位待改）。"
+        }
+      ]
+    },
+    {
+      "id": "project-agent-poller",
+      "type": "Deliverable",
+      "name": "Project Agent Poller (tools/project-agent-poller)",
+      "description": "Host-side poller that activates a project's Paperclip agent when that project has new, unhandled GitHub issues and no active session. It lists GitHub issues by a per-project routing label (e.g. pm:<project>), skips issues already labelled pm:done, gates on activity with a bias-to-busy check of the OpenCode session DB (an unfinished assistant turn OR a running tool part within the busy window) plus a Paperclip queued/running heartbeat-run check, and only then creates a carrier Paperclip issue assigned to the project agent. The carrier issue body is the task prompt; the poller never writes agent instructions, skills, or global memory. Runs from a Windows Scheduled Task every 5 minutes.",
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "9c7a399efd0b0f356b5027b567312a6fe7c72e2c"
+        },
+        {
+          "name": "commit",
+          "value": "0ad76a78b54be34747bff3681f4db920d0ae230c"
+        },
+        {
+          "name": "files",
+          "value": "tools/project-agent-poller/poller.mjs, tools/project-agent-poller/poller.test.mjs, tools/project-agent-poller/projects.example.json, tools/project-agent-poller/register-scheduled-task.ps1, tools/project-agent-poller/README.md, tools/project-agent-poller/.gitignore"
+        },
+        {
+          "name": "runtime",
+          "value": "Windows Scheduled Task 'PaperclipProjectAgentPoller' every 5 minutes"
+        }
+      ],
+      "testcases": [
+        {
+          "name": "Project Agent Poller acceptance",
+          "description": "Verify the poller's pure decision helpers: path normalization, the pm:done filter, the bias-to-busy OpenCode session SQL, and the carrier-issue payload that carries from/to project, repo and GitHub issue reference.",
+          "type": "Acceptance Test",
+          "Input": "node --test tools/project-agent-poller/poller.test.mjs",
+          "acceptanceCriteria": "tools/project-agent-poller/poller.test.mjs"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "1161",
+      "statement": "Implementation and Migration Viewpoint --(Association)--> Application Cooperation Viewpoint",
+      "name": "Association",
+      "type": "Association",
+      "source_id": "1249",
+      "target_id": "1240",
+      "source_name": "Implementation and Migration Viewpoint",
+      "target_name": "Application Cooperation Viewpoint"
+    }
+  ],
+  "views": [
+    {
+      "view_id": "176",
+      "view_name": "AgentCapabilities",
+      "parent_element_id": "1249",
+      "parent_element_name": "Implementation and Migration Viewpoint",
+      "included_elements": [],
+      "included_relationships": []
+    },
+    {
+      "view_id": "174",
+      "view_name": "Implementation and Migration",
+      "parent_element_id": "1249",
+      "parent_element_name": "Implementation and Migration Viewpoint",
+      "included_elements": [
+        "project-agent-poller"
+      ],
+      "included_relationships": []
+    },
+    {
+      "view_id": "169",
+      "view_name": "Application Cooperation",
+      "parent_element_id": "1240",
+      "parent_element_name": "Application Cooperation Viewpoint",
+      "included_elements": [],
+      "included_relationships": []
+    },
+    {
+      "view_id": "project-manager-001-wm-001",
+      "view_name": "项目经理工作记忆",
+      "parent_element_id": "project-manager-001",
+      "parent_element_name": "项目经理",
+      "included_elements": [],
+      "included_relationships": []
+    },
+    {
+      "view_id": "project-manager-001-ltm-001",
+      "view_name": "项目经理长期记忆",
+      "parent_element_id": "project-manager-001",
+      "parent_element_name": "项目经理",
+      "included_elements": [
+        "paperclip-local-windows-deepseek-setup"
+      ],
+      "included_relationships": []
+    },
+    {
+      "view_id": "project-manager-001-archive-001",
+      "view_name": "项目经理档案",
+      "parent_element_id": "project-manager-001",
+      "parent_element_name": "项目经理",
+      "included_elements": [],
+      "included_relationships": []
+    },
+    {
+      "view_id": "170",
+      "view_name": "SystemArchitecture",
+      "included_elements": [
+        "1249",
+        "1240",
+        "project-manager-001"
+      ],
+      "included_relationships": [
+        "1161"
+      ]
+    }
+  ]
 }
