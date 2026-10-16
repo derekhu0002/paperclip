@@ -26,85 +26,29 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-function argValue(flag) {
-  const i = process.argv.indexOf(flag);
-  return i >= 0 ? process.argv[i + 1] : undefined;
-}
+// ---- pure helpers (exported for the acceptance test) -------------------------
 
-const configPath = resolve(argValue("--config") ?? process.env.POLLER_CONFIG ?? resolve(HERE, "projects.json"));
-if (!existsSync(configPath)) {
-  console.error(`[poller] config not found: ${configPath} (copy projects.example.json to projects.json)`);
-  process.exit(1);
-}
-const config = JSON.parse(readFileSync(configPath, "utf8"));
-
-const baseUrl = String(process.env.PAPERCLIP_API_BASE ?? config.paperclipBaseUrl ?? "http://127.0.0.1:3100").replace(/\/+$/, "");
-const token = process.env.PAPERCLIP_BOARD_TOKEN ?? config.boardToken;
-const companyId = config.companyId;
-const busyWindowMinutes = Number(process.env.POLLER_BUSY_WINDOW_MINUTES ?? config.busyWindowMinutes ?? 15);
-const opencodeBin = process.env.OPENCODE_BIN ?? config.opencodeBin ?? "opencode";
-// On Windows the CLI is an npm shim (opencode.cmd), not a .exe.
-const opencodeCommand =
-  process.platform === "win32" && !/\.[a-z0-9]+$/i.test(opencodeBin) ? `${opencodeBin}.cmd` : opencodeBin;
-const routingLabelSuffix = config.routingLabelSuffix ?? "pm";
-const doneLabel = config.doneLabel ?? "pm:done";
-
-const logFile = config.logFile ? resolve(isAbsolute(config.logFile) ? config.logFile : resolve(HERE, config.logFile)) : null;
-if (logFile) mkdirSync(dirname(logFile), { recursive: true });
-
-function log(message) {
-  const line = `[${new Date().toISOString()}] ${message}`;
-  console.log(line);
-  if (logFile) {
-    try { appendFileSync(logFile, line + "\n"); } catch { /* ignore */ }
-  }
-}
-
-if (!token) {
-  console.error("[poller] missing board token: set PAPERCLIP_BOARD_TOKEN");
-  process.exit(1);
-}
-if (!companyId) {
-  console.error("[poller] missing companyId in config");
-  process.exit(1);
-}
-
-function run(cmd, args) {
-  return execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-}
-
-function normDir(dir) {
+export function normDir(dir) {
   return String(dir).replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
-// ---- GitHub -----------------------------------------------------------------
-
-function routingLabel(project) {
-  return project.routingLabel ?? `${routingLabelSuffix}:${project.project}`;
+export function routingLabelFor(project, suffix) {
+  return project.routingLabel ?? `${suffix}:${project.project}`;
 }
 
-function listUnhandledIssues(project) {
-  const issues = JSON.parse(
-    run("gh", [
-      "issue", "list",
-      "--repo", project.repo,
-      "--state", "open",
-      "--label", routingLabel(project),
-      "--json", "number,title,url,labels",
-      "--limit", "50",
-    ]) || "[]",
-  );
+export function filterUnhandled(issues, doneLabel) {
   return issues.filter((issue) => !(issue.labels ?? []).some((label) => label.name === doneLabel));
 }
 
-// ---- OpenCode session activity (bias to BUSY) --------------------------------
-
-function opencodeBusy(project) {
-  const dir = normDir(project.dir).replace(/'/g, "''");
+// SQL that returns a row when the project directory has an ACTIVE OpenCode
+// session: an unfinished assistant turn OR a running tool part, updated within
+// the busy window. Biased to BUSY so a long step is never mistaken for idle.
+export function opencodeBusySql(dir, busyWindowMinutes) {
+  const normalized = normDir(dir).replace(/'/g, "''");
   const windowMs = busyWindowMinutes * 60 * 1000;
-  const sql = [
+  return [
     "SELECT s.id FROM session s",
-    `WHERE lower(replace(s.directory,'\\\\','/')) = lower('${dir}')`,
+    `WHERE lower(replace(s.directory,'\\\\','/')) = lower('${normalized}')`,
     "  AND s.time_archived IS NULL",
     `  AND s.time_updated > (cast(strftime('%s','now') as integer) * 1000 - ${windowMs})`,
     "  AND (",
@@ -117,39 +61,9 @@ function opencodeBusy(project) {
     "  )",
     "LIMIT 1",
   ].join("\n");
-  try {
-    const out = run(opencodeCommand, ["db", sql]);
-    const rows = out.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    return rows.length > 1; // header + at least one row
-  } catch (error) {
-    log(`  opencode db check failed (${error.message}); treating as BUSY (safe default).`);
-    return true;
-  }
 }
 
-// ---- Paperclip run activity --------------------------------------------------
-
-async function paperclipBusy(project) {
-  const url = `${baseUrl}/api/companies/${companyId}/heartbeat-runs?agentId=${encodeURIComponent(project.agentId)}&limit=20`;
-  let res;
-  try {
-    res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  } catch (error) {
-    log(`  paperclip runs check failed (${error.message}); treating as BUSY (safe default).`);
-    return true;
-  }
-  if (!res.ok) {
-    log(`  paperclip runs check HTTP ${res.status}; treating as BUSY (safe default).`);
-    return true;
-  }
-  const body = await res.json();
-  const runs = Array.isArray(body) ? body : (body.runs ?? body.items ?? []);
-  return runs.some((entry) => entry.status === "queued" || entry.status === "running");
-}
-
-// ---- carrier issue (the task prompt) -----------------------------------------
-
-async function createCarrier(project, issue) {
+export function buildCarrierIssue(project, issue) {
   const title = `[from:${project.project} -> to:${project.project}] GitHub #${issue.number}: ${issue.title}`;
   const description = [
     `to_project=${project.project}`,
@@ -161,58 +75,110 @@ async function createCarrier(project, issue) {
     `Work on exactly this one issue in this project's working directory, then reply on the GitHub issue and finish.`,
     `Do not start another issue in the same session (serial).`,
   ].join("\n");
-  const res = await fetch(`${baseUrl}/api/companies/${companyId}/issues`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      title,
-      description,
-      status: "todo",
-      priority: "medium",
-      projectId: project.projectId,
-      assigneeAgentId: project.agentId,
-    }),
-  });
-  if (!res.ok) {
-    log(`  carrier create failed HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`);
-    return false;
-  }
-  const created = await res.json().catch(() => null);
-  log(`  carrier issue created: ${created?.id ?? created?.issue?.id ?? "(unknown id)"}`);
-  return true;
+  return { title, description };
 }
 
-// ---- main --------------------------------------------------------------------
+// ---- CLI ---------------------------------------------------------------------
+
+function argValue(flag) {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
+}
+
+function run(cmd, args) {
+  return execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
 
 async function main() {
-  const projects = config.projects ?? [];
-  if (projects.length === 0) {
-    log("no projects configured");
-    return;
+  const configPath = resolve(argValue("--config") ?? process.env.POLLER_CONFIG ?? resolve(HERE, "projects.json"));
+  if (!existsSync(configPath)) {
+    console.error(`[poller] config not found: ${configPath} (copy projects.example.json to projects.json)`);
+    process.exit(1);
   }
+  const config = JSON.parse(readFileSync(configPath, "utf8"));
+
+  const baseUrl = String(process.env.PAPERCLIP_API_BASE ?? config.paperclipBaseUrl ?? "http://127.0.0.1:3100").replace(/\/+$/, "");
+  const token = process.env.PAPERCLIP_BOARD_TOKEN ?? config.boardToken;
+  const companyId = config.companyId;
+  const busyWindowMinutes = Number(process.env.POLLER_BUSY_WINDOW_MINUTES ?? config.busyWindowMinutes ?? 15);
+  const opencodeBin = process.env.OPENCODE_BIN ?? config.opencodeBin ?? "opencode";
+  const opencodeCommand =
+    process.platform === "win32" && !/\.[a-z0-9]+$/i.test(opencodeBin) ? `${opencodeBin}.cmd` : opencodeBin;
+  const routingLabelSuffix = config.routingLabelSuffix ?? "pm";
+  const doneLabel = config.doneLabel ?? "pm:done";
+
+  const logFile = config.logFile ? resolve(isAbsolute(config.logFile) ? config.logFile : resolve(HERE, config.logFile)) : null;
+  if (logFile) mkdirSync(dirname(logFile), { recursive: true });
+  const log = (message) => {
+    const line = `[${new Date().toISOString()}] ${message}`;
+    console.log(line);
+    if (logFile) { try { appendFileSync(logFile, line + "\n"); } catch { /* ignore */ } }
+  };
+
+  if (!token) { console.error("[poller] missing board token: set PAPERCLIP_BOARD_TOKEN"); process.exit(1); }
+  if (!companyId) { console.error("[poller] missing companyId in config"); process.exit(1); }
+
+  const listUnhandledIssues = (project) =>
+    filterUnhandled(
+      JSON.parse(
+        run("gh", [
+          "issue", "list",
+          "--repo", project.repo,
+          "--state", "open",
+          "--label", routingLabelFor(project, routingLabelSuffix),
+          "--json", "number,title,url,labels",
+          "--limit", "50",
+        ]) || "[]",
+      ),
+      doneLabel,
+    );
+
+  const opencodeBusy = (project) => {
+    try {
+      const out = run(opencodeCommand, ["db", opencodeBusySql(project.dir, busyWindowMinutes)]);
+      return out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).length > 1; // header + >=1 row
+    } catch (error) {
+      log(`  opencode db check failed (${error.message}); treating as BUSY (safe default).`);
+      return true;
+    }
+  };
+
+  const paperclipBusy = async (project) => {
+    const url = `${baseUrl}/api/companies/${companyId}/heartbeat-runs?agentId=${encodeURIComponent(project.agentId)}&limit=20`;
+    let res;
+    try { res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } }); }
+    catch (error) { log(`  paperclip runs check failed (${error.message}); treating as BUSY (safe default).`); return true; }
+    if (!res.ok) { log(`  paperclip runs check HTTP ${res.status}; treating as BUSY (safe default).`); return true; }
+    const body = await res.json();
+    const runs = Array.isArray(body) ? body : (body.runs ?? body.items ?? []);
+    return runs.some((entry) => entry.status === "queued" || entry.status === "running");
+  };
+
+  const createCarrier = async (project, issue) => {
+    const payload = buildCarrierIssue(project, issue);
+    const res = await fetch(`${baseUrl}/api/companies/${companyId}/issues`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...payload, status: "todo", priority: "medium", projectId: project.projectId, assigneeAgentId: project.agentId }),
+    });
+    if (!res.ok) { log(`  carrier create failed HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}`); return false; }
+    const created = await res.json().catch(() => null);
+    log(`  carrier issue created: ${created?.id ?? created?.issue?.id ?? "(unknown id)"}`);
+    return true;
+  };
+
+  const projects = config.projects ?? [];
+  if (projects.length === 0) { log("no projects configured"); return; }
   for (const project of projects) {
     log(`project=${project.project} repo=${project.repo} dir=${project.dir}`);
     let issues;
-    try {
-      issues = listUnhandledIssues(project);
-    } catch (error) {
-      log(`  gh issue list failed: ${error.message}`);
-      continue;
-    }
-    if (issues.length === 0) {
-      log("  no unhandled issues");
-      continue;
-    }
+    try { issues = listUnhandledIssues(project); }
+    catch (error) { log(`  gh issue list failed: ${error.message}`); continue; }
+    if (issues.length === 0) { log("  no unhandled issues"); continue; }
     log(`  unhandled: ${issues.map((issue) => `#${issue.number}`).join(", ")}`);
 
-    if (opencodeBusy(project)) {
-      log("  BUSY (opencode session active) -> skip");
-      continue;
-    }
-    if (await paperclipBusy(project)) {
-      log("  BUSY (paperclip run active) -> skip");
-      continue;
-    }
+    if (opencodeBusy(project)) { log("  BUSY (opencode session active) -> skip"); continue; }
+    if (await paperclipBusy(project)) { log("  BUSY (paperclip run active) -> skip"); continue; }
 
     const issue = issues[0];
     log(`  idle -> triggering carrier for #${issue.number}`);
@@ -220,7 +186,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((error) => { console.error(error); process.exit(1); });
+}
