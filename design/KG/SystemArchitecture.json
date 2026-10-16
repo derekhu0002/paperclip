@@ -204,6 +204,30 @@
       "id": "project-manager-session-summary",
       "name": "T1 会话总结 2026-10-16（本机 Paperclip + DeepSeek + 多项目 PM 触发）",
       "type": "Requirement"
+    },
+    {
+      "id": "opencode-desktop-crash-incident-20261016",
+      "name": "OpenCode 桌面版崩溃事故与处置（2026-10-16）",
+      "type": "Requirement",
+      "description": "事故：本机 Windows 的 OpenCode 桌面版（1.19.3，亦见 1.19.0/1.19.2）「打不开」。\n\n根因链：桌面版冷启动需恢复本地历史数据 → 内置 opencode server（Electron node.mojom.NodeService sidecar）原生 fail-fast 崩溃（0xC0000409 / 退出码 3221226505，多在 55–310 s 内）→ 渲染进程继续请求已死端口 → 报 TypeError: Failed to fetch（loadMessages / fetchMessage，人类实测报错），窗口活着但 UI 全死；旧主进程不退还被单实例锁挡住 → 表现为「完全打不开」。\n\n判决性证据（均为实测）：空数据目录 + 真实辅助目录（log/snapshot/auth）→ 稳跑 5 分钟、内存平坦 244 MB；真实库 7.14 GB / 1.86 GB / 1.27 GB 三档 → 每次启动必崩。\n已排除：全局 argo MCP/插件注入（临时移开仍崩）、DB 完整性（quick_check ok）、磁盘空间、应用版本（1.19.0/1.19.2/1.19.3 都崩）、Paperclip 每 5 分钟写入风暴（停掉仍崩）、49.92 MB 巨型 payload（剪掉仍崩）、项目数（0 项目仍崩）、旧会话与 3.94 GB 旧事件（按应用自身 prune=7.days 清掉仍崩）。触发点在库内，但尚未定位到具体表/行。\n事故起点线索：崩溃自 2026-10-16 14:06 起 100% 复现；此前 26 次启动均为干净退出（exit 0）。\n\n处置：① 桌面版干净卸载 + 重装 1.19.3；② 库整体移开，让应用新建空库 → 当前可用（sidecar 稳定、内存 244 MB）；③ 全部数据留档：~/.local/share/opencode/db-archive-2026-10-16/opencode.db（1.27 GB，77 会话）、~/.local/share/opencode/db-moved-aside/opencode.db（1.86 GB，336 会话）、D:\\backups\\opencode-2026-10-16\\data\\opencode.db（7.13 GB 原始 22:12 快照）、同目录 config/ 与 project-rows.json（21 个项目行原值，已逐行还原到库）。\n\n同时按人类要求卸载本地 Paperclip 工作台：注销计划任务 PaperclipProjectAgentPoller（5 分钟周期）、停 dev server（3100）、归档 ~/.paperclip 到 D:\\backups\\paperclip-local-workbench-2026-10-16\\.paperclip、清除用户级 PAPERCLIP_BOARD_TOKEN、删 tools/project-agent-poller/run-poller.vbs、清 WSL 残留 paperclip-bridge 与 opencode run 进程；仓库源码未改。\n\n遗留待办：① 用留档库二分定位触发崩溃的具体表/行（候选：part 表大 tool-output、message 残余 summary.diffs），定位后按需回填老会话（opencode import）；② 防复发：把 .argo/temp/agent-cost-log.ndjson 排除在 opencode 的 diff/snapshot 之外（它是 49.92 MB summary.diffs 的来源），并考虑将 argo cost/wakeup 插件从全局 opencode 配置摘出（当前它作用于本机每个 opencode 会话）；③ 结论：与 WSL ocpc 里的 opencode web(4096) 无关（桌面版用随机端口且日志 server ready；WSL 用独立数据目录 /root/.local/share/opencode）。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "topic",
+          "value": "opencode-desktop-crash"
+        },
+        {
+          "name": "platform",
+          "value": "windows"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-16"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -261,7 +285,8 @@
       "parent_element_id": "project-manager-001",
       "parent_element_name": "项目经理",
       "included_elements": [
-        "paperclip-local-windows-deepseek-setup"
+        "paperclip-local-windows-deepseek-setup",
+        "opencode-desktop-crash-incident-20261016"
       ],
       "included_relationships": []
     },
