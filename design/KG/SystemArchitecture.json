@@ -105,6 +105,14 @@
         {
           "name": "agentsCurrent",
           "value": "2026-10-16: 删除未关联项目的 DeepSeek agent(2a77e436)。剩余两个 PM agent 均 opencode_local + DeepSeek 连接，且 instructions 改为 external 指向各自项目目录：项目经理(a8c8490e)->D:\\Projects\\paperclip\\AGENTS.md；项目经理·my-army(6ef5622a)->D:\\Projects\\my-army\\AGENTS.md（该文件由本次创建，占位待改）。"
+        },
+        {
+          "name": "deepseekEndpoint",
+          "value": "https://api.deepseek.com (OpenAI-compatible). 实测 /models 返回真实模型：deepseek-flash (DeepSeek-V4.1-Flash; 1M 上下文; 支持图片输入; effort low/high/max) 与 deepseek-v4-pro (DeepSeek-V4-Pro)。注意：deepseek-chat 是别名，实际路由到 deepseek-flash（响应体 model=deepseek-flash），故并无 chat 模型。"
+        },
+        {
+          "name": "modelCorrection20261016",
+          "value": "2026-10-16 修正：3 个 PM agent 的 adapterConfig.model 由 paperclip/deepseek-chat 改为 paperclip/deepseek-flash；连接 'DeepSeek Chat Completions'(897633de-...) 的 config.ai.routing.models 已在库中直接更新为 [deepseek-flash, deepseek-v4-pro]（连接 id/grant 未变，无需重绑）。test-environment 探测通过。"
         }
       ]
     },
