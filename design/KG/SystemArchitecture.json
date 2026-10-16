@@ -52,7 +52,7 @@
       "attributes": [
         {
           "name": "paperclipAgent",
-          "value": "a8c8490e-d30c-4667-998d-d8958981b83b | name=项目经理 · paperclip | role=pm | harness=opencode_local | model=paperclip/deepseek-chat | company=735a7199-2a2b-465d-b8de-81d7ca0a34b0"
+          "value": "a8c8490e-d30c-4667-998d-d8958981b83b | name=项目经理 · paperclip | role=pm | harness=opencode_local | model=paperclip/deepseek-flash | company=735a7199-2a2b-465d-b8de-81d7ca0a34b0"
         },
         {
           "name": "paperclipProject",
@@ -60,11 +60,27 @@
         },
         {
           "name": "paperclipAgentMyArmy",
-          "value": "6ef5622a-1329-4841-a447-829d34164fb9 | name=项目经理 · my-army | role=pm | harness=opencode_local | model=paperclip/deepseek-chat | company=735a7199-2a2b-465d-b8de-81d7ca0a34b0"
+          "value": "6ef5622a-1329-4841-a447-829d34164fb9 | name=项目经理 · my-army | role=pm | harness=opencode_local | model=paperclip/deepseek-flash"
         },
         {
           "name": "paperclipProjectMyArmy",
           "value": "c9d7f14b-64ae-4c3a-a2db-2b18a980355d | name=my-army | cwd=D:\\Projects\\my-army | leadAgent=项目经理 · my-army | workspaceId=ddb5fe5b-f7fe-4c22-964c-40d5871f289b"
+        },
+        {
+          "name": "paperclipAgentArchgraph",
+          "value": "76abf45b-3155-405e-b7fb-66bb2f2059f5 | name=项目经理 · archgraph | role=pm | harness=opencode_local | model=paperclip/deepseek-flash"
+        },
+        {
+          "name": "paperclipProjectArchgraph",
+          "value": "9362c8b8-64cb-4370-9c19-8c8f8912471f | name=archgraph | cwd=D:\\Projects\\archgraph | leadAgent=项目经理 · archgraph | repo=derekhu0002/archgraph"
+        },
+        {
+          "name": "paperclipModelNote",
+          "value": "三个 PM agent 均 model=paperclip/deepseek-flash（端点真实模型 deepseek-flash/deepseek-v4-pro；deepseek-chat 为别名→flash）。"
+        },
+        {
+          "name": "paperclipPoller",
+          "value": "tools/project-agent-poller；Windows 计划任务 PaperclipProjectAgentPoller，每 5 分钟；GitHub label pm:<project> 路由，pm:done 去重。"
         }
       ]
     },
@@ -148,6 +164,26 @@
           "acceptanceCriteria": "tools/project-agent-poller/poller.test.mjs"
         }
       ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-16"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T1"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        }
+      ],
+      "description": "目标：在本仓 fork 的 dev 分支上，把 Paperclip 装到本机、接 DeepSeek，并为多项目建立『各自 PM agent + GitHub issue 触发轮询』的协作。\n\n成果：\n1) 分支 dev/local-install；本机实例 authenticated/private（tailnet 100.66.122.62:3100）跑通。\n2) DeepSeek 连接（Chat Completions 网关，baseUrl=https://api.deepseek.com）；三个项目各一个 PM agent：paperclip / my-army / archgraph（opencode_local，model=paperclip/deepseek-flash）。\n3) 端侧轮询器 tools/project-agent-poller（B2 方案）：读 GitHub issue（label pm:<project>）→ 判空（OpenCode session DB 宁忙勿闲 + Paperclip run）→ 建 carrier issue 唤醒对应 agent；已注册 Windows 计划任务每 5 分钟。\n4) 已提交：9c7a399ef(feat)、0ad76a78b(test)、a89135789(chore argo)、c13850d4a(chore argo)。\n\n关键决策：不改动 agent 全局指令；任务提示词走 carrier issue 正文（逐任务）。并发不可接受：判空用 OpenCode DB（未完成 assistant 消息或 running tool part + 窗口），宁忙勿闲。模型用 paperclip/deepseek-flash。\n\n教训/坑：core.autocrlf=true 破坏 patches 哈希→改 false；win32 不支持原生 Rust Runner 但默认开→关 enableNativeRunner；@paperclipai/shared 构建脚本用 Unix 命令→pnpm dev 本机不可用，改用 server dev:watch；PowerShell/curl 传中文会损坏→用 Node 码点；浏览器访问 tailnet IP 需把 100.* 加入系统代理绕过。\n\n遗留/TODO：archgraph agent instructions 仍指实例内置 bundle；carrier issue 正文模板可再打磨；可做一次真·端到端演练；未落地 agent 相互咨询的约束策略。",
+      "id": "project-manager-session-summary",
+      "name": "T1 会话总结 2026-10-16（本机 Paperclip + DeepSeek + 多项目 PM 触发）",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -194,7 +230,9 @@
       "view_name": "项目经理工作记忆",
       "parent_element_id": "project-manager-001",
       "parent_element_name": "项目经理",
-      "included_elements": [],
+      "included_elements": [
+        "project-manager-session-summary"
+      ],
       "included_relationships": []
     },
     {
