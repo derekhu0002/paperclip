@@ -193,7 +193,7 @@
         },
         {
           "name": "uncommittedWork",
-          "value": "ui/src/pages/IssueDetail.tsx 有未提交的 bug 修复（chat: guard）；待人类决定是否提交 + 补回归测试 + ARGO 登记。"
+          "value": "已回退（2026-10-16）：人类决定不使用 Agent Chat，故 ui/src/pages/IssueDetail.tsx 的 chat: guard 改动已 git checkout 撤销，工作区干净。不再补测试/提交。"
         },
         {
           "name": "pollerSilentFix",
