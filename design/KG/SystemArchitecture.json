@@ -382,6 +382,14 @@
         {
           "name": "files",
           "value": "ui/src/pages/agent-detail-navigation.ts, ui/src/pages/AgentDetail.tsx, ui/src/components/AgentConfigForm.tsx, ui/src/components/ReportsToPicker.tsx, packages/shared/src/validators/agent.ts, server/src/services/agent-configuration.ts, server/src/services/agent-assignability.ts, doc/execution-semantics.md"
+        },
+        {
+          "name": "commit",
+          "value": "9c9a958d9beeec6a073e24f12c86d9ea41bded6f"
+        },
+        {
+          "name": "memoryFiles",
+          "value": "design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
