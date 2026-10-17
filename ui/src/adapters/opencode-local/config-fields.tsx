@@ -69,6 +69,24 @@ export function OpenCodeLocalConfigFields({
             : mark("adapterConfig", "dangerouslySkipPermissions", v)
         }
       />
+      <ToggleField
+        label="Direct remote workspace"
+        hint="Run OpenCode in the execution environment's existing project directory instead of staging a per-run copy. Use when the agent's remote environment points at the real project checkout."
+        checked={
+          isCreate
+            ? Boolean(values!.directRemoteWorkspace)
+            : eff(
+                "adapterConfig",
+                "directRemoteWorkspace",
+                Boolean(config.directRemoteWorkspace),
+              )
+        }
+        onChange={(v) =>
+          isCreate
+            ? set!({ directRemoteWorkspace: v })
+            : mark("adapterConfig", "directRemoteWorkspace", v)
+        }
+      />
     </>
   ));
 }

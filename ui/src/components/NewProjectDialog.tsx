@@ -1,10 +1,11 @@
 import { useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { PROJECT_COLORS, type ProjectRepository } from "@paperclipai/shared";
 import { X } from "lucide-react";
 import { useDialog } from "../context/DialogContext";
 import { useCompany } from "../context/CompanyContext";
 import { projectsApi } from "../api/projects";
+import { agentsApi } from "../api/agents";
 import { queryKeys } from "../lib/queryKeys";
 import { trackRecentProject } from "../lib/recent-projects";
 import { ProjectTile } from "./ProjectTile";
@@ -25,10 +26,16 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
   const [name, setName] = useState("");
   const [color] = useState(() => PROJECT_COLORS[Math.floor(Math.random() * PROJECT_COLORS.length)]!);
   const [repos, setRepos] = useState<ProjectRepository[]>([]);
+  const [agentId, setAgentId] = useState("");
   const [connecting, setConnecting] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const { data: agents = [] } = useQuery({
+    queryKey: queryKeys.agents.list(companyId),
+    queryFn: () => agentsApi.list(companyId),
+    enabled: Boolean(companyId),
+  });
   const create = useMutation({
-    mutationFn: () => projectsApi.create(companyId, { name: name.trim(), color, status: "planned", repositoryIds: repos.map((repo) => repo.id) }),
+    mutationFn: () => projectsApi.create(companyId, { name: name.trim(), color, status: "planned", leadAgentId: agentId, repositoryIds: repos.map((repo) => repo.id) }),
     onSuccess: (project) => {
       trackRecentProject(project.id, companyId);
       void client.invalidateQueries({ queryKey: queryKeys.projects.all(companyId) });
@@ -45,7 +52,7 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
           void client.invalidateQueries({ queryKey: repositoryOptionsKey(companyId) });
           setConnecting(false);
         }} />
-      </div> : <form className="flex min-h-0 flex-col overflow-hidden" onSubmit={(event) => { event.preventDefault(); if (name.trim() && !create.isPending) create.mutate(); }}>
+      </div> : <form className="flex min-h-0 flex-col overflow-hidden" onSubmit={(event) => { event.preventDefault(); if (name.trim() && agentId && !create.isPending) create.mutate(); }}>
         <div className="flex shrink-0 flex-col gap-4 px-5 pb-4 pt-5">
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="text-lg font-semibold">Create project</DialogTitle>
@@ -56,6 +63,22 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
             <input ref={input} aria-label="Project name" value={name} disabled={create.isPending} onChange={(event) => setName(event.target.value)} placeholder="Project name" required
               className="h-10 w-full min-w-0 border-0 bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-sm" />
           </div>
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="text-muted-foreground">Bound agent</span>
+            <select
+              aria-label="Bound agent"
+              value={agentId}
+              disabled={create.isPending}
+              onChange={(event) => setAgentId(event.target.value)}
+              className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+              required
+            >
+              <option value="">Select an agent…</option>
+              {agents.map((agent) => (
+                <option key={agent.id} value={agent.id}>{agent.name}</option>
+              ))}
+            </select>
+          </label>
         </div>
         <div role="region" aria-label="Source repositories" tabIndex={0} className="min-h-0 overflow-y-auto overscroll-contain px-5 pb-1 outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring">
           <ProjectRepositoryInput companyId={companyId} selected={repos} onChange={setRepos} onConnect={() => setConnecting(true)} disabled={create.isPending} />
@@ -63,7 +86,7 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
         {create.isError && <p role="alert" className="px-5 pt-3 text-sm text-destructive">{create.error.message}</p>}
         <div className="flex shrink-0 justify-end gap-2 px-5 py-5">
           <Button type="button" variant="ghost" disabled={create.isPending} onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={!name.trim() || create.isPending}>{create.isPending ? "Creating…" : "Create project"}</Button>
+          <Button type="submit" disabled={!name.trim() || !agentId || create.isPending}>{create.isPending ? "Creating…" : "Create project"}</Button>
         </div>
       </form>}
     </DialogContent>

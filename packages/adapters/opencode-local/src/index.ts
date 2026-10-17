@@ -98,6 +98,7 @@ Core fields:
 - promptTemplate (string, optional): run prompt template
 - command (string, optional): defaults to "opencode"
 - extraArgs (string[], optional): additional CLI args
+- directRemoteWorkspace (boolean, optional): when the agent uses a remote environment, run OpenCode in that environment's existing project directory (remote cwd) with no per-run workspace staging or sync-back. This makes the run behave like the host's own OpenCode TUI: the real checkout, AGENTS.md, and cwd-derived MCP workspace roots are used. The execution host must already contain the project at its remote workspace path.
 - env (object, optional): KEY=VALUE environment variables
 
 Operational fields:

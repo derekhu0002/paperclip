@@ -3510,10 +3510,16 @@ export function createHeartbeatWorkspaceResolver(db: Db) {
           continue;
         }
         hasConfiguredProjectCwd = true;
-        const projectCwdExists = await fs
-          .stat(projectCwd)
-          .then((stats) => stats.isDirectory())
-          .catch(() => false);
+        // remote_path workspaces live on the execution host, not on the
+        // Paperclip host, so their cwd cannot be stat'ed here. The adapter
+        // (direct remote workspace mode) validates it on the target.
+        const projectCwdExists =
+          workspace.sourceType === "remote_path"
+            ? true
+            : await fs
+                .stat(projectCwd)
+                .then((stats) => stats.isDirectory())
+                .catch(() => false);
         if (projectCwdExists) {
           return {
             cwd: projectCwd,

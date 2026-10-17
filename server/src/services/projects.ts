@@ -3,6 +3,7 @@ import { and, asc, desc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   projects,
+  agents,
   executionWorkspaces,
   projectAccessMembers,
   projectGoals,
@@ -47,6 +48,42 @@ export async function lockProjectRootMutation(tx: ProjectTransaction, projectId:
   if (!identity) return null;
   await lockExecutionWorkspaceRootProvenance(tx, identity.companyId);
   return tx.select().from(projects).where(eq(projects.id, projectId)).for("update").then(rows => rows[0] ?? null);
+}
+
+/**
+ * Validate the one-to-one project <-> agent binding.
+ *
+ * `projects.lead_agent_id` is unique, so an agent can lead at most one
+ * project. Validate proactively to return a useful 409 instead of a raw
+ * unique-violation, and to reject agents from another company.
+ */
+async function assertProjectLeadAgentBinding(
+  dbOrTx: Db,
+  companyId: string,
+  leadAgentId: string,
+  projectId?: string | null,
+) {
+  const [agent] = await dbOrTx
+    .select({ id: agents.id, name: agents.name })
+    .from(agents)
+    .where(and(eq(agents.id, leadAgentId), eq(agents.companyId, companyId)))
+    .limit(1);
+  if (!agent) throw unprocessable("Lead agent must belong to the same company");
+  const [bound] = await dbOrTx
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .where(
+      and(
+        eq(projects.leadAgentId, leadAgentId),
+        projectId ? sql`${projects.id} <> ${projectId}` : undefined,
+      ),
+    )
+    .limit(1);
+  if (bound) {
+    throw conflict(
+      `Agent "${agent.name}" is already bound to project "${bound.name}". A project and an agent are one-to-one.`,
+    );
+  }
 }
 
 type ProjectRow = typeof projects.$inferSelect;
@@ -671,6 +708,13 @@ export function projectService(db: Db, options: { captureWorkspaceUpdates?: bool
 
     return db.transaction(async (tx) => {
       const txDb = tx as unknown as Db;
+      if (projectData.leadAgentId) {
+        await assertProjectLeadAgentBinding(
+          txDb,
+          companyId,
+          projectData.leadAgentId,
+        );
+      }
       const row = await tx
         .insert(projects)
         .values({ ...projectData, goalId: legacyGoalId, companyId })
@@ -990,6 +1034,15 @@ export function projectService(db: Db, options: { captureWorkspaceUpdates?: bool
             excludeProjectId: id,
           });
         }
+      }
+
+      if (projectData.leadAgentId) {
+        await assertProjectLeadAgentBinding(
+          db,
+          existingProject.companyId,
+          projectData.leadAgentId,
+          id,
+        );
       }
 
       // Keep legacy goalId column in sync

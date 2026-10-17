@@ -736,6 +736,7 @@ export interface CreateConfigValues {
   thinkingEffort: string;
   chrome: boolean;
   dangerouslySkipPermissions: boolean;
+  directRemoteWorkspace?: boolean;
   claudeEngine?: "auto" | "cli" | "acp";
   claudeAcpAgentCommand?: string;
   claudeAcpMode?: "persistent" | "oneshot";

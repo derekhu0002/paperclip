@@ -35,5 +35,9 @@ export const projects = pgTable(
     personalOwnerUq: uniqueIndex("projects_company_personal_owner_uq")
       .on(table.companyId, table.personalOwnerUserId)
       .where(sql`${table.personalOwnerUserId} is not null`),
+    // One-to-one project <-> agent binding: an agent may lead at most one project.
+    leadAgentUq: uniqueIndex("projects_lead_agent_uq")
+      .on(table.leadAgentId)
+      .where(sql`${table.leadAgentId} is not null`),
   }),
 );

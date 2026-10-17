@@ -79,7 +79,7 @@ export function selectionKey(workspaceId: string, path: string): string {
 }
 
 export function isScannableWorkspace(workspace: ProjectWorkspace): boolean {
-  if (workspace.sourceType === "remote_managed") return false;
+  if (workspace.sourceType === "remote_managed" || workspace.sourceType === "remote_path") return false;
   return typeof workspace.cwd === "string" && workspace.cwd.trim().length > 0;
 }
 

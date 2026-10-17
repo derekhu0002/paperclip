@@ -28,6 +28,7 @@ import {
   startAdapterExecutionTargetPaperclipBridge,
 } from "@paperclipai/adapter-utils/execution-target";
 import {
+  asBoolean,
   asString,
   asNumber,
   asStringArray,
@@ -257,10 +258,43 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     : [];
   const configuredCwd = asString(config.cwd, "");
   const useConfiguredInsteadOfAgentHome = workspaceSource === "agent_home" && configuredCwd.length > 0;
-  const effectiveWorkspaceCwd = useConfiguredInsteadOfAgentHome ? "" : workspaceCwd;
+  // Direct remote workspace: execute on the remote host in its existing project
+  // directory (the environment's remote cwd) instead of staging a per-run copy.
+  // This is what lets an out-of-process OpenCode run behave like the host's own
+  // TUI: the project checkout, its AGENTS.md, and any cwd-derived tool (e.g. an
+  // MCP that resolves its workspace from process.cwd()) all see the real tree.
+  const directRemoteWorkspace =
+    executionTargetIsRemote && asBoolean(config.directRemoteWorkspace, false);
+  // The remote environment's workspace path is the real project checkout. One
+  // environment per project keeps this unambiguous; a task's resolved cwd is
+  // deliberately not used here because it may be a staged copy or agent home.
+  const directWorkspaceCwd =
+    directRemoteWorkspace && executionTarget?.kind === "remote"
+      ? executionTarget.remoteCwd
+      : "";
+  const effectiveWorkspaceCwd = directRemoteWorkspace
+    ? directWorkspaceCwd
+    : useConfiguredInsteadOfAgentHome
+      ? ""
+      : workspaceCwd;
+  if (directRemoteWorkspace && effectiveWorkspaceCwd) {
+    // Keep the run context (prompt/task markdown/onMeta) consistent with the
+    // directory the process actually runs in.
+    context.paperclipWorkspace = {
+      ...parseObject(context.paperclipWorkspace),
+      cwd: effectiveWorkspaceCwd,
+      source: "project_primary",
+    };
+  }
   const cwd = effectiveWorkspaceCwd || configuredCwd || process.cwd();
-  let effectiveExecutionCwd = adapterExecutionTargetRemoteCwd(executionTarget, cwd);
-  await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
+  let effectiveExecutionCwd = directRemoteWorkspace
+    ? directWorkspaceCwd
+    : adapterExecutionTargetRemoteCwd(executionTarget, cwd);
+  // A direct remote path exists on the execution host, not on the Paperclip
+  // host; creating it here would either fail or create an unrelated directory.
+  if (!directRemoteWorkspace) {
+    await ensureAbsoluteDirectory(cwd, { createIfMissing: true });
+  }
   const openCodeSkillEntries = await readPaperclipRuntimeSkillEntries(config, __moduleDir);
   const desiredOpenCodeSkillNames = resolveLegacyPaperclipDesiredSkillNames(config, openCodeSkillEntries);
   if (!executionTargetIsRemote) {
@@ -397,6 +431,11 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         adapterKey: "opencode",
         timeoutSec,
         workspaceLocalDir: cwd,
+        // Direct mode uses the remote project directory as-is: no workspace
+        // upload, no per-run copy, and no sync-back.
+        ...(directRemoteWorkspace
+          ? { syncWorkspace: false, workspaceRemoteDir: cwd }
+          : {}),
         installCommand: SANDBOX_INSTALL_COMMAND,
         detectCommand: command,
         onProgress: (line) => onLog("stdout", line),
@@ -525,9 +564,14 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       );
     }
     const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
-    const resolvedInstructionsFilePath = instructionsFilePath
-      ? path.resolve(cwd, instructionsFilePath)
-      : "";
+    // Direct remote mode runs in the real checkout, so OpenCode loads the
+    // project's own AGENTS.md exactly like the host TUI. Do not read a
+    // host-local instructions path from the Paperclip server.
+    const resolvedInstructionsFilePath = directRemoteWorkspace
+      ? ""
+      : instructionsFilePath
+        ? path.resolve(cwd, instructionsFilePath)
+        : "";
     const instructionsDir = resolvedInstructionsFilePath ? `${path.dirname(resolvedInstructionsFilePath)}/` : "";
     let instructionsPrefix = "";
     if (resolvedInstructionsFilePath) {
@@ -548,6 +592,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
 
     const commandNotes = (() => {
       const notes = [...preparedRuntimeConfig.notes];
+      if (directRemoteWorkspace) {
+        notes.push(
+          "Direct remote workspace: OpenCode runs in the execution host's real project directory; no workspace staging or sync-back.",
+        );
+        if (instructionsFilePath) {
+          notes.push(
+            `instructionsFilePath "${instructionsFilePath}" is not read by the Paperclip host in direct mode; the execution host resolves instructions from the real workspace (e.g. AGENTS.md).`,
+          );
+        }
+        return notes;
+      }
       if (!resolvedInstructionsFilePath) return notes;
       if (instructionsPrefix.length > 0) {
         notes.push(`Loaded agent instructions from ${resolvedInstructionsFilePath}`);

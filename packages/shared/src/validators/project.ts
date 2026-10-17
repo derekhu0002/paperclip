@@ -45,7 +45,7 @@ export const projectWorkspaceRuntimeConfigSchema = z.object({
   serviceStates: z.record(z.string(), z.enum(["running", "stopped", "manual"])).optional().nullable(),
 }).strict();
 
-const projectWorkspaceSourceTypeSchema = z.enum(["local_path", "git_repo", "remote_managed", "non_git_path"]);
+const projectWorkspaceSourceTypeSchema = z.enum(["local_path", "git_repo", "remote_managed", "non_git_path", "remote_path"]);
 const projectWorkspaceVisibilitySchema = z.enum(["default", "advanced"]);
 
 const projectWorkspaceFields = {
@@ -70,6 +70,19 @@ function validateProjectWorkspace(value: Record<string, unknown>, ctx: z.Refinem
   const hasCwd = typeof value.cwd === "string" && value.cwd.trim().length > 0;
   const hasRepo = typeof value.repoUrl === "string" && value.repoUrl.trim().length > 0;
   const hasRemoteRef = typeof value.remoteWorkspaceRef === "string" && value.remoteWorkspaceRef.trim().length > 0;
+
+  // A path that exists only on the execution host (for example an SSH
+  // environment's real project checkout). The control plane cannot stat it.
+  if (sourceType === "remote_path") {
+    if (!hasCwd) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Remote-path workspace requires the absolute cwd on the execution host.",
+        path: ["cwd"],
+      });
+    }
+    return;
+  }
 
   if (sourceType === "remote_managed") {
     if (!hasRemoteRef && !hasRepo) {

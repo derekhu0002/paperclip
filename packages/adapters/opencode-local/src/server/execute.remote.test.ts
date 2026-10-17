@@ -434,4 +434,74 @@ describe("opencode remote execution", () => {
     expect(call?.[2].slice(-2)).toEqual(["--dir", "/operator-supplied"]);
     expect(call?.[2].filter((arg) => arg === "--dir" || arg.startsWith("--dir="))).toHaveLength(1);
   });
+
+  it("runs in the real remote project directory without staging when directRemoteWorkspace is enabled", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-opencode-direct-"));
+    cleanupDirs.push(rootDir);
+    const workspaceDir = path.join(rootDir, "workspace");
+    await mkdir(workspaceDir, { recursive: true });
+
+    await execute({
+      runId: "run-direct",
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "OpenCode Builder",
+        adapterType: "opencode_local",
+        adapterConfig: {},
+      },
+      runtime: {
+        sessionId: null,
+        sessionParams: null,
+        sessionDisplayId: null,
+        taskKey: null,
+      },
+      config: {
+        command: "opencode",
+        model: "opencode/gpt-5-nano",
+        directRemoteWorkspace: true,
+        // Avoid host symlinks in this Windows test environment; the direct
+        // workspace assertion does not depend on skill materialization.
+        paperclipRuntimeSkills: [],
+        env: { XDG_CONFIG_HOME: path.join(rootDir, "config") },
+      },
+      context: {
+        paperclipWorkspace: {
+          cwd: workspaceDir,
+          source: "project_primary",
+        },
+      },
+      executionTransport: {
+        remoteExecution: {
+          host: "127.0.0.1",
+          port: 2222,
+          username: "fixture",
+          remoteWorkspacePath: "/real/project",
+          remoteCwd: "/real/project",
+          privateKey: "PRIVATE KEY",
+          knownHosts: "[127.0.0.1]:2222 ssh-ed25519 AAAA",
+          strictHostKeyChecking: true,
+        },
+      },
+      onLog: async () => {},
+    });
+
+    // Direct mode never uploads or restores a per-run workspace copy.
+    expect(prepareWorkspaceForSshExecution).not.toHaveBeenCalled();
+    expect(restoreWorkspaceFromSshExecution).not.toHaveBeenCalled();
+    const runCall = runChildProcess.mock.calls.find(
+      (entry) => Array.isArray(entry[2]) && entry[2].includes("run"),
+    ) as
+      | [string, string, string[], { env: Record<string, string> }]
+      | undefined;
+    expect(runCall?.[2]).toContain("--dir");
+    expect(runCall?.[2]).toContain("/real/project");
+    expect(runCall?.[3].env.PAPERCLIP_WORKSPACE_CWD).toBe("/real/project");
+    // Runtime assets still land under the real project's .paperclip-runtime.
+    expect(syncDirectoryToSsh).toHaveBeenCalledWith(
+      expect.objectContaining({
+        remoteDir: "/real/project/.paperclip-runtime/opencode/xdgConfig",
+      }),
+    );
+  });
 });

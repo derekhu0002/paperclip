@@ -6658,6 +6658,42 @@ export async function readIssueCommentRunLogText(run: {
   return content;
 }
 
+/**
+ * One-to-one project <-> agent binding: an agent may lead at most one project
+ * (enforced by projects_lead_agent_uq). A task assigned to a bound agent always
+ * runs in that project, so the project's workspace/environment resolution is
+ * deterministic.
+ */
+async function findAgentProjectBinding(
+  dbOrTx: Db | DbTransaction,
+  companyId: string,
+  agentId: string,
+) {
+  const [bound] = await dbOrTx
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .where(and(eq(projects.companyId, companyId), eq(projects.leadAgentId, agentId)))
+    .limit(1);
+  return bound ?? null;
+}
+
+async function applyAgentProjectBinding(
+  dbOrTx: Db | DbTransaction,
+  companyId: string,
+  issueData: { assigneeAgentId?: string | null; projectId?: string | null },
+) {
+  const agentId = issueData.assigneeAgentId;
+  if (!agentId) return;
+  const bound = await findAgentProjectBinding(dbOrTx, companyId, agentId);
+  if (!bound) return;
+  if (issueData.projectId && issueData.projectId !== bound.id) {
+    throw unprocessable(
+      `The assigned agent is bound to project "${bound.name}" and cannot work on another project`,
+    );
+  }
+  issueData.projectId = bound.id;
+}
+
 export function issueService(db: Db) {
   const instanceSettings = instanceSettingsService(db);
   const treeControlSvc = issueTreeControlService(db);
@@ -9909,6 +9945,7 @@ export function issueService(db: Db) {
           kind: "work",
         });
       }
+      await applyAgentProjectBinding(dbOrTx, companyId, issueData);
       if (data.assigneeUserId) {
         await assertAssignableUser(companyId, data.assigneeUserId);
       }
@@ -11014,6 +11051,23 @@ export function issueService(db: Db) {
         issueData.projectId !== undefined
           ? issueData.projectId
           : existing.projectId;
+      if (nextAssigneeAgentId) {
+        const bound = await findAgentProjectBinding(
+          dbOrTx,
+          existing.companyId,
+          nextAssigneeAgentId,
+        );
+        if (bound) {
+          if (nextProjectId && nextProjectId !== bound.id) {
+            throw unprocessable(
+              `The assigned agent is bound to project "${bound.name}" and cannot work on another project`,
+            );
+          }
+          nextProjectId = bound.id;
+          issueData.projectId = bound.id;
+          patch.projectId = bound.id;
+        }
+      }
       const nextProjectWorkspaceId =
         issueData.projectWorkspaceId !== undefined
           ? issueData.projectWorkspaceId

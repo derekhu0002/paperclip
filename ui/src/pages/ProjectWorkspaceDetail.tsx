@@ -77,6 +77,7 @@ const SOURCE_TYPE_OPTIONS: Array<{ value: ProjectWorkspaceSourceType; label: str
   { value: "non_git_path", label: "Local non-git path", description: "A local folder without git semantics." },
   { value: "git_repo", label: "Remote git repo", description: "A repo URL with optional refs and local checkout." },
   { value: "remote_managed", label: "Remote-managed workspace", description: "A hosted workspace tracked by external reference." },
+  { value: "remote_path", label: "Remote execution path", description: "An existing checkout path on the execution host (for example an SSH environment)." },
 ];
 
 const VISIBILITY_OPTIONS: Array<{ value: ProjectWorkspaceVisibility; label: string }> = [

@@ -1740,7 +1740,7 @@ function OnboardingWizardInner({
         } else {
           const project = await projectsApi.create(
             createdCompanyId,
-            buildOnboardingProjectPayload(goalId)
+            buildOnboardingProjectPayload(goalId, createdAgentId)
           );
           projectId = project.id;
           queryClient.invalidateQueries({
