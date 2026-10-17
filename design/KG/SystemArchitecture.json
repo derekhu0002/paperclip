@@ -169,7 +169,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-16"
+          "value": "2026-10-17"
         },
         {
           "name": "memoryTier",
@@ -200,16 +200,16 @@
           "value": "2026-10-16: 计划任务每 5 分钟弹控制台窗口 → 改为经 run-poller.vbs（WScript.Shell.Run 窗口样式 0）由 wscript //B 隐藏启动，任务设 Hidden=true。register-scheduled-task.ps1 自动生成 run-poller.vbs（已 gitignore）。commit a636364a0。验证：任务静默跑完并退出，无 node 残留。"
         }
       ],
-      "description": "目标：在本仓 fork 的 dev 分支上，把 Paperclip 装到本机、接 DeepSeek，并为多项目建立『各自 PM agent + GitHub issue 触发轮询』的协作。\n\n成果：\n1) 分支 dev/local-install；本机实例 authenticated/private（tailnet 100.66.122.62:3100）跑通。\n2) DeepSeek 连接（Chat Completions 网关，baseUrl=https://api.deepseek.com）；三个项目各一个 PM agent：paperclip / my-army / archgraph（opencode_local，model=paperclip/deepseek-flash）。\n3) 端侧轮询器 tools/project-agent-poller（B2 方案）：读 GitHub issue（label pm:<project>）→ 判空（OpenCode session DB 宁忙勿闲 + Paperclip run）→ 建 carrier issue 唤醒对应 agent；已注册 Windows 计划任务每 5 分钟。\n4) 已提交：9c7a399ef(feat)、0ad76a78b(test)、a89135789(chore argo)、c13850d4a(chore argo)。\n\n关键决策：不改动 agent 全局指令；任务提示词走 carrier issue 正文（逐任务）。并发不可接受：判空用 OpenCode DB（未完成 assistant 消息或 running tool part + 窗口），宁忙勿闲。模型用 paperclip/deepseek-flash。\n\n教训/坑：core.autocrlf=true 破坏 patches 哈希→改 false；win32 不支持原生 Rust Runner 但默认开→关 enableNativeRunner；@paperclipai/shared 构建脚本用 Unix 命令→pnpm dev 本机不可用，改用 server dev:watch；PowerShell/curl 传中文会损坏→用 Node 码点；浏览器访问 tailnet IP 需把 100.* 加入系统代理绕过。\n\n遗留/TODO：archgraph agent instructions 仍指实例内置 bundle；carrier issue 正文模板可再打磨；可做一次真·端到端演练；未落地 agent 相互咨询的约束策略。\n\n【阶段收尾/交接 2026-10-16】\n- 人类伙伴将转到 Paperclip UI 与本『项目经理』agent 对话；该 agent 是同一角色的新 OpenCode 会话，应通过 ARGO 记忆（本 T1 + T2『paperclip-local-windows-deepseek-setup』）对齐上下文，而非假设拥有原对话。\n- 最终对象 id：company=735a7199-2a2b-465d-b8de-81d7ca0a34b0；DeepSeek 连接=897633de-3d2b-4c43-91ae-b1a33ce52374；PM agent：paperclip=a8c8490e/d30c/46d7/998d/d8958981b83b（完整 uuid a8c8490e-d30c-4667-998d-d8958981b83b）、my-army=6ef5622a-1329-4841-a447-829d34164fb9、archgraph=76abf45b-3155-405e-b7fb-66bb2f2059f5；项目：paperclip=bda1fa8f-4006-46cb-b3e1-1f066c3626d3、my-army=c9d7f14b-64ae-4c3a-a2db-2b18a980355d、archgraph=9362c8b8-64cb-4370-9c19-8c8f8912471f；repo=derekhu0002/{paperclip,my-army,archgraph}。\n- 启动：pnpm --filter @paperclipai/server dev:watch（UI http://100.66.122.62:3100）。\n- Agent Chat 实验开关 enableAgentChat 未开（默认关）；UI 直接对话需先在 Instance Settings → Experimental 打开。\n- 追加提交：10e48d51c（T1 总结 + 项目经理映射）。",
+      "description": "【阶段收尾/交接 2026-10-17】本会话三件事：\n1) 核验 Paperclip 内置 heartbeat 触发条件是否满足既定原则——结论：timer 到点默认会调模型；无 issue 前置闸 skipTimerWhenNoActionableWork 默认关；忙碌判定基于 Paperclip 自身 heartbeat_runs.status='running' 与 maxConcurrentRuns（默认20），不读 opencode 运行时。详见 T2『Paperclip Heartbeat 触发条件核验（2026-10-17）』。\n2) 按人类决定改用 Paperclip 自身能力：对 47 实例 3 个 PM agent 统一 heartbeat={enabled:true, intervalSec:300, maxConcurrentRuns:1, skipTimerWhenNoActionableWork:true}（my-army 原 enabled=false 且缺 intervalSec，已修正）。详见 T2『Paperclip 47 实例 heartbeat 配置（maxConcurrentRuns=1 + skipTimerWhenNoActionableWork）』。\n3) 人类授予长期规则：以后所有新增项目都要经过项目经理；新增 agent 必须统一上述 heartbeat 配置。详见 T2『长期规则：新增项目/Agent 统一 heartbeat 配置（项目经理负责）』。人类明确表示：不改 fork 默认值、不在 47 加 reconciler，新增项目时走项目经理手工配置。\n\n稳定事实：实例 47.107.161.168（systemd paperclip.service，dashboard paperclip.derekworkspacev5.com，跑上游发行版 paperclipai@2026.1015.0-nightly.0）；company=54b2a2a2-fca9-4262-9688-8db4e0688a06；agent 均为 opencode_local PM：archgraph=c6f768c5-b6e8-4d19-b4e1-76a7ae7faf5d、paperclip=91ccc3f1-162d-4264-8331-c5e6e4f55353、my-army=82f67f31-d365-4db7-9b69-8896dead96d4。注意：旧本机实例的 company=735a7199-...、agent a8c8490e... 等在 47 实例不存在，勿再使用。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结 2026-10-16（本机 Paperclip + DeepSeek + 多项目 PM 触发）",
+      "name": "T1 会话总结 2026-10-17（heartbeat 核验 + 47 实例配置 + 新增项目规则）",
       "type": "Requirement"
     },
     {
       "id": "opencode-desktop-crash-incident-20261016",
       "name": "OpenCode 桌面版崩溃事故与处置（2026-10-16）",
       "type": "Requirement",
-      "description": "事故：本机 Windows 的 OpenCode 桌面版（1.19.3，亦见 1.19.0/1.19.2）「打不开」。\n\n根因链：桌面版冷启动需恢复本地历史数据 → 内置 opencode server（Electron node.mojom.NodeService sidecar）原生 fail-fast 崩溃（0xC0000409 / 退出码 3221226505，多在 55–310 s 内）→ 渲染进程继续请求已死端口 → 报 TypeError: Failed to fetch（loadMessages / fetchMessage，人类实测报错），窗口活着但 UI 全死；旧主进程不退还被单实例锁挡住 → 表现为「完全打不开」。\n\n判决性证据（均为实测）：空数据目录 + 真实辅助目录（log/snapshot/auth）→ 稳跑 5 分钟、内存平坦 244 MB；真实库 7.14 GB / 1.86 GB / 1.27 GB 三档 → 每次启动必崩。\n已排除：全局 argo MCP/插件注入（临时移开仍崩）、DB 完整性（quick_check ok）、磁盘空间、应用版本（1.19.0/1.19.2/1.19.3 都崩）、Paperclip 每 5 分钟写入风暴（停掉仍崩）、49.92 MB 巨型 payload（剪掉仍崩）、项目数（0 项目仍崩）、旧会话与 3.94 GB 旧事件（按应用自身 prune=7.days 清掉仍崩）。触发点在库内，但尚未定位到具体表/行。\n事故起点线索：崩溃自 2026-10-16 14:06 起 100% 复现；此前 26 次启动均为干净退出（exit 0）。\n\n处置：① 桌面版干净卸载 + 重装 1.19.3；② 库整体移开，让应用新建空库 → 当前可用（sidecar 稳定、内存 244 MB）；③ 全部数据留档：~/.local/share/opencode/db-archive-2026-10-16/opencode.db（1.27 GB，77 会话）、~/.local/share/opencode/db-moved-aside/opencode.db（1.86 GB，336 会话）、D:\\backups\\opencode-2026-10-16\\data\\opencode.db（7.13 GB 原始 22:12 快照）、同目录 config/ 与 project-rows.json（21 个项目行原值，已逐行还原到库）。\n\n同时按人类要求卸载本地 Paperclip 工作台：注销计划任务 PaperclipProjectAgentPoller（5 分钟周期）、停 dev server（3100）、归档 ~/.paperclip 到 D:\\backups\\paperclip-local-workbench-2026-10-16\\.paperclip、清除用户级 PAPERCLIP_BOARD_TOKEN、删 tools/project-agent-poller/run-poller.vbs、清 WSL 残留 paperclip-bridge 与 opencode run 进程；仓库源码未改。\n\n遗留待办：① 用留档库二分定位触发崩溃的具体表/行（候选：part 表大 tool-output、message 残余 summary.diffs），定位后按需回填老会话（opencode import）；② 防复发：把 .argo/temp/agent-cost-log.ndjson 排除在 opencode 的 diff/snapshot 之外（它是 49.92 MB summary.diffs 的来源），并考虑将 argo cost/wakeup 插件从全局 opencode 配置摘出（当前它作用于本机每个 opencode 会话）；③ 结论：与 WSL ocpc 里的 opencode web(4096) 无关（桌面版用随机端口且日志 server ready；WSL 用独立数据目录 /root/.local/share/opencode）。",
+      "description": "事故：本机 Windows 版 OpenCode 桌面版（1.19.0/1.19.2/1.19.3）打不开：主进程存活但 UI 全挂，TypeError: Failed to fetch（loadMessages / fetchMessage）。真因是 opencode server sidecar 原生崩溃，渲染进程再请求已死端口即报 Failed to fetch。\n\n【真因（2026-10-17 02:30 实验确认，取代此前 tabs 假说）】崩溃进程＝Electron utility「opencode server」sidecar（serviceName node.mojom.NodeService，--service-sandbox-type=none），退出码 0xC0000409 / 3221226505（STATUS_STACK_BUFFER_OVERRUN，Windows 上即 native fail-fast）。该进程内唯一加载的原生模块是 @parcel/watcher-win32-x64/watcher.node。watcher 服务仅在 location.vcs 存在时订阅 location.directory（git 仓库才监视），而 desktop 主进程以 utilityProcess.fork(sidecar, [], { cwd: process.cwd() }) 启动 sidecar，故「应用启动目录／被打开的工作区」决定被递归监视的根。D:\\Projects\\paperclip 有 59,628 个子目录（.paperclip-runtime 38,445；node_modules 19,209；.git 429；共 318,022 文件 / 13.5 GB），Windows 后端逐目录建立监视句柄 → 原生 fail-fast。app.asar 内置忽略表 FOLDERS 只是裸名（node_modules/.git/dist…），只有 FILES 是 **/…… 形式，故未显式写 **/node_modules/** 时节点无法剪枝。\n\n【判决实验（同一真库、真 userData；观测窗 600s，含句柄曲线）】① cwd=D:\\Projects\\paperclip（git 巨仓）→ 8/8 崩溃，存活 11s / 77s / 95s / 96s / 158s / 322s / 382s / 410s（随机，与负载无关）。② cwd=C:\\Users\\remoteadmin（无 git → watcher 根本不订阅）→ ≥40 分钟零崩溃。③ 空 UI 状态也崩（77s），证明与标签页/UI 状态无关。④ 加强 watcher.ignore（含 **/node_modules/**、.git、**/.paperclip-runtime/**）→ ✅ 600s 稳定，句柄恒定 ~400。⑤ 官方 flag OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER=true → ✅ 600s 稳定，句柄 ~400。\n\n【已排除／推翻】tabs=159 为主因＝假象（tabs=2 也在 322s 崩；300s 观测窗把 320s 崩溃误判为稳定）；DB 大小与会话数无关；内存非堆 OOM（崩溃前 JS 堆平坦 244–258 MB，NODE_OPTIONS=--max-old-space-size=8192 无效）；crashpad 无新转储；WER LocalDumps 需管理员且未配置；与 WSL ocpc 的 opencode web(4096) 无关；与全局 argo MCP/插件加载无关（关闭仍崩）；与 Paperclip 写入量本身无关（写入只是使被监视树膨胀）。\n\n【修复（已验证）】全局 ~/.config/opencode/opencode.json 写入 watcher.ignore：[\".git\",\".paperclip-runtime\",\".argo\",\"**/.paperclip-runtime\",\"**/.paperclip-runtime/**\",\"**/node_modules/**\",\"**/.argo/temp\",\"**/.argo/temp/**\"]。.git 出现在该列表还会跳过 .git 目录的独立订阅（源码判断 config.includes(\".git\")）。备用强手段：环境变量 OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER=true（代价：失去外部文件变更的自动刷新）。实例级手段：以非仓库目录为 cwd 启动（但那会改变默认工作区，不建议作为主手段）。\n\n【历史处置留档】~/.local/share/opencode/db-archive-2026-10-16/opencode.db（1.27 GB/77 会话）、db-moved-aside/opencode.db（1.86 GB/336 会话）、D:\\backups\\opencode-2026-10-16\\data\\opencode.db（7.13 GB 原始）＋config/＋project-rows.json（21 项目原值，已还原入库）、%APPDATA%\\ai.opencode.desktop.bak-2026-10-17（事故时 159 tabs 的 Electron 状态）、D:\\backups\\paperclip-local-workbench-2026-10-16\\.paperclip。同时应要求卸载了本机 Paperclip 工作台、注销 PaperclipProjectAgentPoller（5 分钟计划任务）、停 dev server(3100)、清 PAPERCLIP_BOARD_TOKEN 与 run-poller.vbs。\n\n【待办】① 历史库恢复（336/77 会话库此前被判不稳定，现应重新评估：稳定性取决于 watcher 根目录，与库大小无关）；② 窗口 tabs 只增不减（每次启动加会话标签，已累积到 5，事故时 159），需清理机制；③ .argo/temp/agent-cost-log.ndjson 曾产生 49.92 MB diff，建议长期排除。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -226,6 +226,162 @@
         {
           "name": "createdAt",
           "value": "2026-10-16"
+        },
+        {
+          "name": "rootCauseConfirmed",
+          "value": "2026-10-17 02:30：opencode server sidecar（node.mojom.NodeService）内 @parcel/watcher（watcher.node，进程内唯一原生模块）在监视巨型 git 工作区（D:\\Projects\\paperclip：59,628 子目录，其中 .paperclip-runtime 38,445 + node_modules 19,209）时原生 fail-fast 0xC0000409（STATUS_STACK_BUFFER_OVERRUN）。sidecar 由 utilityProcess.fork(...,{cwd:process.cwd()}) 启动，watcher 仅在 location.vcs 存在时订阅 location.directory。"
+        },
+        {
+          "name": "fixApplied",
+          "value": "已验证：~/.config/opencode/opencode.json 的 watcher.ignore 8 条（.git / .paperclip-runtime / .argo / **/.paperclip-runtime / **/.paperclip-runtime/** / **/node_modules/** / **/.argo/temp / **/.argo/temp/**）。cwd=repo 下 600s 稳定、句柄恒定 ~400（此前 8/8 崩）。"
+        },
+        {
+          "name": "stateBackup",
+          "value": "%APPDATA%\\ai.opencode.desktop.bak-2026-10-17 = 事故时完整 Electron 状态（含 159 tabs），可回溯。"
+        },
+        {
+          "name": "refinedCause20261017",
+          "value": "崩溃强度随启动需恢复的负载变化（不是单一开关）：tabs=159+336会话 →61s；tabs=2+336会话 →320s；tabs=2+77会话+argo →20s；tabs=2+2会话（今天工作库）→稳跑 5 分钟+。结论：内置 server 恢复会话/重算工作区 diff 时原生崩溃，量越大越快。因此“标签页裁剪”是必要但不充分的缓解。"
+        },
+        {
+          "name": "churnSource20261017",
+          "value": "更正：.paperclip-runtime（193,819 文件 / 38,445 目录 / 10.4 GB）与 node_modules（104,884 文件 / 19,209 目录）是「使被监视树膨胀」的负载源，不是 Paperclip 写入量本身导致崩溃；用户明确要求不得移动 .paperclip-runtime（会打断服务器上的 Paperclip），只能走 ignore。"
+        },
+        {
+          "name": "currentState20261017_0125",
+          "value": "桌面版当前可用：库=db-current-2026-10-17（今天 2 个 ARGO 会话）、窗口 tabs=2、全局 opencode.json（argo MCP + 2 插件）已还原作业态。留档：db-moved-aside(336会话/1.86GB)、db-archive(77会话/1.27GB)、D:\\backups 原始 7.13GB、%APPDATA%\\ai.opencode.desktop.bak-2026-10-17。"
+        },
+        {
+          "name": "rootCauseDisproved20261017",
+          "value": "推翻：tabs=159 不是主因。tabs=2 亦在 322s 崩、空 UI 状态 77s 崩；此前「tabs=2 稳定 5 分钟」为 300s 观测窗早于 322s 崩溃造成的假象。同理 DB 大小/会话数、堆 OOM（堆平坦 244–258MB）均非主因。"
+        },
+        {
+          "name": "fixFallback",
+          "value": "备用强手段（同验 600s 稳定）：环境变量 OPENCODE_EXPERIMENTAL_DISABLE_FILEWATCHER=true（app.asar 内 Flag，会整层禁用 FileWatcher；WSL 侧 sidecar 默认就带此变量）。"
+        },
+        {
+          "name": "currentState20261017_0230",
+          "value": "全局 opencode.json：watcher.ignore(8 条) + argo/graph-mcp MCP + 2 个 argo 插件；数据目录当前为 2 会话库（db-current-2026-10-17）；Electron 状态含 5 个会话标签；Paperclip 工作台与 5 分钟计划任务仍处卸载/停止状态。"
+        }
+      ]
+    },
+    {
+      "type": "Requirement",
+      "name": "Paperclip Heartbeat 触发条件核验（2026-10-17）",
+      "description": "核验：部署到 47 服务器并启动各 Agent heartbeat 后，Paperclip 内置 heartbeat 的触发条件是否满足既定原则——(a) 不打断 Agent 当前工作；(b) 判断『Agent 是否正在执行』须从 opencode 运行时判断（未完成 assistant turn / running tool / 进程在跑）。\n\n结论（代码证据）：\n1) 有前置检查，但默认不拦『到点就调模型』。timer 到点 → scheduling.ts:tickTimers() → enqueueWakeup(source=timer, reason=heartbeat_timer)。默认即使无 issue 也会建 run；只有显式开启 agent.runtimeConfig.heartbeat.skipTimerWhenNoActionableWork(=true；别名 requireActionableTimerWork / issueOnlyTimer) 且属 genericTimerWake（无 issue/comment/task）时，才写 heartbeat.timer.no_actionable_work 并跳过，不调模型。hasActionableTimerWork 仅认 assigned 且 status∈{todo,in_progress}、未 hide、非会话、非 idle-slack 的 issue（queue.ts:574-592, 2582-2599）。该开关默认 false（queue.ts:406-411）。\n2) 忙碌判断来自 Paperclip 自身状态，不是 opencode 运行时：countRunningRunsForAgent 读 heartbeat_runs.status='running'；另有 in-process activeRunExecutions / runningProcesses；availableSlots = maxConcurrentRuns - runningCount（queue.ts:1922-1927）。maxConcurrentRuns 默认 20（AGENT_DEFAULT_MAX_CONCURRENT_RUNS，packages/shared/src/constants.ts:77）。\n3) 防重：enqueueWakeup 对同 taskKey 的 queued/scheduled_retry/running run 做 coalesce（queue.ts:4163-4237）；generic timer wake 的 taskKey=null（deriveTaskKey，run-preparation.ts:1570-1583），故同一 agent 的 generic timer 运行会被合并而非并发。\n4) opencode_local 每次 run 是独立子进程 `opencode run --format json [--session <id>] --model ... --dir <cwd>`（adapters/opencode-local/src/server/execute.ts:619-634, 670-686），resume 靠 --session；Paperclip 不读 opencode session DB（那是端侧 tools/project-agent-poller 的职责）。zombie 概念 isZombieRun 只处理『DB 记 running 但无活进程』。\n\n与既定原则的差距：判『是否正在执行』用的是 Paperclip run 表，不是 opencode 运行时的三重条件。要落地原则需：① 每 agent 设 maxConcurrentRuns=1；② 打开 skipTimerWhenNoActionableWork；③ 若严格要求 opencode 运行时判定，仍需端侧 poller 兜底。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-17"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "files",
+          "value": "server/src/services/heartbeat/scheduling.ts, server/src/services/heartbeat/queue.ts, server/src/services/heartbeat/run-state.ts, server/src/services/heartbeat/run-preparation.ts, packages/adapters/opencode-local/src/server/execute.ts, packages/shared/src/constants.ts"
+        }
+      ],
+      "id": "paperclip-heartbeat-2026-10-17"
+    },
+    {
+      "type": "Requirement",
+      "name": "Paperclip 47 实例 heartbeat 配置（maxConcurrentRuns=1 + skipTimerWhenNoActionableWork）",
+      "description": "背景：47 服务器上的 Paperclip 实例（authenticated/private）部署后，需让内置 heartbeat 满足『不打断当前工作 + 无任务时不执行』：每 agent maxConcurrentRuns=1，并开启 skipTimerWhenNoActionableWork。\n\n实例事实：host=47.107.161.168（ssh root，key id_ed25519），systemd 服务 paperclip.service（User=paperclip），进程 /opt/node24/bin/node .../paperclipai run，绑定 172.18.2.191:3100，嵌入式 postgres 54329，dashboard https://paperclip.derekworkspacev5.com，commit fd057f6ac。company id = 54b2a2a2-fca9-4262-9688-8db4e0688a06（注意：旧本机实例的 735a7199-... 在本实例不存在，用它建 cli-auth challenge 会触发 FK 违反 cli_auth_challenges_requested_company_id_companies_id_fk → 500）。\n\n3 个 opencode_local PM agent：项目经理·archgraph=c6f768c5-b6e8-4d19-b4e1-76a7ae7faf5d；项目经理·paperclip=91ccc3f1-162d-4264-8331-c5e6e4f55353；项目经理·my-army=82f67f31-d365-4db7-9b69-8896dead96d4。\n\n变更（2026-10-17，PATCH /api/agents/:id）：三者均 heartbeat.maxConcurrentRuns=1、heartbeat.skipTimerWhenNoActionableWork=true。archgraph/paperclip 原已 maxConcurrentRuns=1 且 enabled=true、intervalSec=300；my-army 原 maxConcurrentRuns=20 且 enabled=false（本次未改 enabled，timer 仍不会跑）。\n\n关键坑（务必记住）：board 身份的 PATCH /agents/:id 会 **整体替换** runtimeConfig，只有 aiConnection 被保留（routes/agents.ts:5263,5369,5378）。因此改 heartbeat 必须把完整 runtimeConfig 回传（含 aiConnection），否则会丢字段。\n\n获取 board 权限的方法（authenticated 模式下无本地隐式 board；local_implicit 仅 local_trusted）：POST /api/cli-auth/challenges {command,clientName,requestedAccess:'board'} → 返回 approvalPath/token/boardApiToken → 浏览器打开 https://<public>/<approvalPath> 点 Approve → 用 boardApiToken 作 Bearer。用完 POST /api/cli-auth/revoke-current 撤销（已撤销，keyId 4cbfac4c-3ba3-4ed3-8e2e-ef6b1eaa7f26）。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-17"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "environment",
+          "value": "47.107.161.168 (paperclip.service, dashboard paperclip.derekworkspacev5.com)"
+        },
+        {
+          "name": "companyId",
+          "value": "54b2a2a2-fca9-4262-9688-8db4e0688a06"
+        },
+        {
+          "name": "files",
+          "value": "server/src/services/heartbeat/queue.ts, server/src/routes/agents.ts"
+        },
+        {
+          "name": "finalState20261017",
+          "value": "3 个 PM agent 统一为 heartbeat={enabled:true, intervalSec:300, maxConcurrentRuns:1, skipTimerWhenNoActionableWork:true}。archgraph/paperclip 原已 enabled=true/intervalSec=300/maxConcurrentRuns=1，仅补 skip 标志；my-army 由 enabled=false 且无 intervalSec、maxConcurrentRuns=20 → 修正为 enabled=true/intervalSec=300/maxConcurrentRuns=1/skip=true（注意：intervalSec<=0 时 tickTimers 会跳过该 agent，必须设 intervalSec）。board 临时权限两次用完均已 revoke（keyId 4cbfac4c..., b5d688d9...）。"
+        },
+        {
+          "name": "instanceRelease",
+          "value": "47 实例运行上游发行版 paperclipai@2026.1015.0-nightly.0（repository=paperclipai/paperclip），非本 fork；fork 代码改默认值需重新部署到 47 才生效。"
+        }
+      ],
+      "id": "paperclip-47-heartbeat-maxconcurrentruns-1-skiptimerwhennoactionablework"
+    },
+    {
+      "type": "Requirement",
+      "name": "长期规则：新增项目/Agent 统一 heartbeat 配置（项目经理负责）",
+      "description": "【长期规则，2026-10-17 人类伙伴授予】项目经理（project-manager-001）是 Paperclip 实例的整体管理者；今后所有『新增项目』都要经过项目经理。每新增项目 / 新增 Agent，必须把该 Agent 的 heartbeat 运行时配置统一设为标准值：\nheartbeat = { enabled: true, intervalSec: 300, maxConcurrentRuns: 1, skipTimerWhenNoActionableWork: true }\n\n原因/含义：maxConcurrentRuns=1 保证不并发、不打断 Agent 当前会话；skipTimerWhenNoActionableWork=true 保证无 assigned 且 status∈{todo,in_progress} 的 issue 时 timer 不调用模型（不空转）；enabled=true 且 intervalSec>0 才会被 tickTimers 调度（intervalSec<=0 会被直接跳过，务必设值）。\n\n应用方式：PATCH /api/agents/:id，body = { runtimeConfig: <完整对象，含 aiConnection> }。board 身份会整体替换 runtimeConfig（routes/agents.ts:5263,5369,5378），所以必须回传完整对象，否则丢字段。\n\n鉴权（authenticated/private 实例无本地隐式 board，local_implicit 仅 local_trusted）：POST /api/cli-auth/challenges {command, clientName, requestedAccess:'board'}（不要带 requestedCompanyId，除非确属该实例公司，否则触发 FK 违反 cli_auth_challenges_requested_company_id_companies_id_fk → 500）→ 浏览器打开 https://<public>/<approvalPath> 点 Approve → 取 boardApiToken 作 Bearer；用完 POST /api/cli-auth/revoke-current 撤销。\n\n实例事实：47.107.161.168（ssh root），systemd paperclip.service，公司 id=54b2a2a2-fca9-4262-9688-8db4e0688a06，agent 均为 opencode_local PM：archgraph=c6f768c5-b6e8-4d19-b4e1-76a7ae7faf5d、paperclip=91ccc3f1-162d-4264-8331-c5e6e4f55353、my-army=82f67f31-d365-4db7-9b69-8896dead96d4。47 运行上游发行版 paperclipai@2026.1015.0-nightly.0（非本 fork）。\n\n已按此规则对现有 3 个 agent 配置并验证（见 T2『Paperclip 47 实例 heartbeat 配置（maxConcurrentRuns=1 + skipTimerWhenNoActionableWork）』）。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-17"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "type",
+          "value": "standing-rule"
+        },
+        {
+          "name": "scope",
+          "value": "all future projects/agents on the Paperclip instance"
+        }
+      ],
+      "id": "agent-heartbeat"
+    },
+    {
+      "id": "paperclip-reports-to-ui-and-delegation-2026-10-17",
+      "name": "Paperclip 汇报关系(reportsTo)配置路径与委派/回复机制（2026-10-17）",
+      "type": "Requirement",
+      "description": "【已由人类确认正确，2026-10-17】在 Paperclip UI 里配置『谁向谁汇报』(reportsTo)的正确路径：\n1) 打开目标 agent → 左侧导航 Runtime 分组 → 点『Harness / Runtime』tab（URL /agents/<ref>/runtime）。\n2) 页面里的『Agent identity』卡片 → 『Reports to』行 → 点右侧按钮。\n3) 无上级时按钮文案是『Choose manager…』；已有上级时文案变成『Reports to <名字>』（不是 Choose manager，容易以为没有）。\n\n为什么找不到：旧的『Configuration』tab 已被重命名/合并到 runtime。parseAgentDetailView 把 configure/configuration → runtime（ui/src/pages/agent-detail-navigation.ts:52），导航标签为『Harness / Runtime』(:33)；ConfigurationTab 里 sectionTitles.identity=『Agent identity』(ui/src/pages/AgentDetail.tsx:2123)；ReportsToPicker 在 AgentConfigForm.tsx:1509-1516。已在部署 commit fd057f6ac 与当前 HEAD 两处核对存在。\n\n选择器只列『同公司 + status≠terminated』的 agent（ReportsToPicker.tsx:32-35）；Org chart 页面(/org)是只读可视化，不能改关系。\n\nAPI 兜底：PATCH /api/agents/:id body {\"reportsTo\":\"<managerId>\"}；updateAgentSchema 接受 reportsTo（packages/shared/src/validators/agent.ts:92,152），是局部字段更新，不会整体覆盖其它配置。设置时校验：经理必须存在、不能成环（agent-configuration.ts:29-34）。\n\n运行语义（关键）：reportsTo 只是 org chart 汇报关系，本身不派活、不唤醒。真正『派任务+回复』走 issue 委派：经理建 issue 并 assigneeAgentId=下属（create_task / POST issues）→ 唤醒并起 run；下属完成子 issue 后在其自身 issue 评论并置 done，父 issue owner 被 issue_blockers_resolved 唤醒，子 run 可在直接父 issue 发汇报评论（execution-semantics.md:306,311,325）。约束：同 company；经理 terminated/缺失会让下属变为不可指派（agent-assignability.ts:97-102,114）。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-17"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "verifiedAgainst",
+          "value": "fd057f6ac (deployed) + HEAD 122252f6e"
+        },
+        {
+          "name": "files",
+          "value": "ui/src/pages/agent-detail-navigation.ts, ui/src/pages/AgentDetail.tsx, ui/src/components/AgentConfigForm.tsx, ui/src/components/ReportsToPicker.tsx, packages/shared/src/validators/agent.ts, server/src/services/agent-configuration.ts, server/src/services/agent-assignability.ts, doc/execution-semantics.md"
         }
       ]
     }
@@ -286,7 +442,11 @@
       "parent_element_name": "项目经理",
       "included_elements": [
         "paperclip-local-windows-deepseek-setup",
-        "opencode-desktop-crash-incident-20261016"
+        "opencode-desktop-crash-incident-20261016",
+        "paperclip-heartbeat-2026-10-17",
+        "paperclip-47-heartbeat-maxconcurrentruns-1-skiptimerwhennoactionablework",
+        "agent-heartbeat",
+        "paperclip-reports-to-ui-and-delegation-2026-10-17"
       ],
       "included_relationships": []
     },
