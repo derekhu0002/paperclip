@@ -414,6 +414,14 @@
         {
           "name": "files",
           "value": "ui/src/pages/CompanyEnvironments.tsx, ui/src/components/AgentConfigForm.tsx, ui/src/pages/agent-detail-navigation.ts, packages/adapters/opencode-local/src/server/runtime-config.ts, server/src/services/environment-config.ts, server/src/services/heartbeat/workspaces.ts"
+        },
+        {
+          "name": "commit",
+          "value": "be316b9f93e1adf8b109a40038d1e4ca5687ad13"
+        },
+        {
+          "name": "memoryFiles",
+          "value": "design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
