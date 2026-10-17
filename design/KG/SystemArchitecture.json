@@ -392,6 +392,30 @@
           "value": "design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "id": "paperclip-control-plane-remote-device-onboarding-2026-10-17",
+      "name": "Paperclip 控制面(47)+远端设备执行：新增项目/Agent 设备绑定方法与坑（2026-10-17）",
+      "type": "Requirement",
+      "description": "【人类确认的架构原则】Paperclip 工作台固定在 47 作为控制面；项目 Agent 一律跑在其他设备上（SSH environment），未来还会有更多设备注册进来。\n\n【对应关系】设备 = SSH environment（host/port/username/privateKey + remoteWorkspacePath）；项目 = 任务容器；Agent.default_environment_id 绑定到设备。opencode 实际在设备上执行，session 也在设备上。\n\n【手动新增 项目+Agent+设备 的步骤】\n0) Instance Settings → Experimental 打开 Environments（否则环境页与 Agent 的 Environment override 不显示，AgentConfigForm.tsx:411）。\n1) Company Settings → Instance → Environments → New（/company/settings/instance/environments/new）：Driver=SSH；Host=设备 Tailscale IP/主机名；Port=sshd 端口；Username；Remote workspace path=设备上该仓库的绝对路径；Private key（其公钥须在设备 ~/.ssh/authorized_keys）；Known hosts / Strict host key checking 按需。保存后 Test。\n2) 设备准备：sshd 可从 47 连入；authorized_keys 有公钥；opencode 已安装且在 SSH 用户 PATH（opencode_local 在远端执行它）；仓库已 clone 到 remoteWorkspacePath；如需 push 则配好 git 凭据。\n3) 建项目：Projects → New，填名字即可；Source repositories 可留空。关键：不要填只在 47/Windows 存在的本地 workspace 路径。\n4) 建 Agent：Agents → New，adapter 选 opencode_local 并配模型；建好后 Agent → Runtime → Harness / Runtime → Environment 区 → Environment override 选新设备环境（AgentConfigForm.tsx:1573-1600）。若是下属，Reports to 选迈阿密；heartbeat 按标准 {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}。\n5) 验证：给 Agent 派一个 todo issue → 唤醒后在设备上跑；到设备看 <remoteWorkspacePath>/.paperclip-runtime/runs/<runId>/ 与 .../managed-auth/<runId>/data/opencode/opencode.db。\n\n【坑与经验（已实测）】\n1) 用 DB/复制方式克隆 environment，secret 绑定不会跟着走 → 报 `Secret is not bound to environment:<id> at privateKeySecretRef`（setup_failed）。用 UI 新建；或手动补 company_secret_bindings 行：target_type='environment', target_id=<envId>, config_path='privateKeySecretRef', version_selector='latest', required=true, secret_id 同源环境。\n2) project_workspaces.cwd 是控制面本地路径，会在 47 上被本地 fs.stat 校验（部署包 @paperclipai/server/.../workspaces.js:2327）→ Windows 路径或设备远端路径都会 workspace_validation_failed。控制面模式下就留空/删除 project_workspaces。2026-10-17 已删除 3 条（paperclip/my-army/archgraph）。\n3) 一个 SSH environment 只有一个 remoteWorkspacePath；同一设备多仓库 = 多环境（同 host/key、不同路径）。\n4) opencode session 是 per-run 隔离的：适配器把 HOME/XDG_DATA_HOME/XDG_CONFIG_HOME/XDG_CACHE_HOME/XDG_STATE_HOME 指到 <runtimeRootDir>/managed-auth/<runId>/...（packages/adapters/opencode-local/src/server/runtime-config.ts:248-256），所以不在 ~/.local/share/opencode。DB 路径示例：<remoteWorkspacePath>/.paperclip-runtime/runs/<runId>/workspace/.paperclip-runtime/opencode/managed-auth/<runId>/data/opencode/opencode.db。查看：XDG_DATA_HOME=... opencode --session <id> --dir <run workspace>，或直接看 Paperclip UI 的 run transcript。\n5) Agent 的 --dir 是隔离的 per-run workspace（.../runs/<runId>/workspace），不是 live 仓库根；这是隔离模型。\n6) Environment override 仅在 enableEnvironments=true 且 adapter 支持该 driver 时显示（local 被排除）。\n7) 委派：@ 提到不会唤醒/指派；主管必须显式建 issue 并 assigneeAgentId=下属。pm 角色且 canCreateAgents=true 即自动具备指派权。\n\n【当前 47 实例状态快照 2026-10-17】环境：642204da=WSL2 · paperclip(/mnt/d/Projects/paperclip)、4900d4fe=WSL2 · my-army(/mnt/d/Projects/my-army)、51d23138=WSL2 · archgraph(/mnt/d/Projects/archgraph)，均 SSH root@100.66.122.62:2222。三个 PM 已各自重绑环境；project_workspaces 已清空；issue 776b3951 已 done；my-army(迈阿密) 成功建任务并派给 archgraph（任务 2c4355fe done）；两个 session 已确认落在本机 WSL：my-army ses_eb7d044ccffeE66Tn8zXCG3G54、archgraph ses_eb7dd3d89ffeilypyBdW0PoV7h。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-17"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "files",
+          "value": "ui/src/pages/CompanyEnvironments.tsx, ui/src/components/AgentConfigForm.tsx, ui/src/pages/agent-detail-navigation.ts, packages/adapters/opencode-local/src/server/runtime-config.ts, server/src/services/environment-config.ts, server/src/services/heartbeat/workspaces.ts"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -454,7 +478,8 @@
         "paperclip-heartbeat-2026-10-17",
         "paperclip-47-heartbeat-maxconcurrentruns-1-skiptimerwhennoactionablework",
         "agent-heartbeat",
-        "paperclip-reports-to-ui-and-delegation-2026-10-17"
+        "paperclip-reports-to-ui-and-delegation-2026-10-17",
+        "paperclip-control-plane-remote-device-onboarding-2026-10-17"
       ],
       "included_relationships": []
     },
