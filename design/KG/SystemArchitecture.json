@@ -185,7 +185,7 @@
         },
         {
           "name": "handoff",
-          "value": "无未完成项。vsoc 5 个项目/Agent 已 idle/ready 并验证；Argo 3 个旧 env 的 privateKey 换行问题已修复、3/3 probe ok。poller 保持停止。"
+          "value": "无未完成项。SECOPS 指挥层已落地：manager/purple/intel/red/blue/green 全部 idle/ready；VSO-9 pilot done；6 步链 VSO-3..VSO-8 held，等待人类明确启动 Step1。Step5 人类审批 e4fc9c19 pending。"
         },
         {
           "name": "agentChatFinding",
@@ -240,6 +240,22 @@
           "name": "commit",
           "value": "b96770125e4204de2611f371647cc01c092937e9",
           "description": "design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "secoopsCommander",
+          "value": "manager agent 3904be0a-5ec4-4621-a727-e73c89cdf8a9 / project bd3ec48b-cc6d-41a1-b3e0-088ab5e06c64 / env d9ff5ba7-5782-4886-b5a8-fe8620b247f1; Human Board -> manager -> purple -> intel/red/blue/green"
+        },
+        {
+          "name": "secoopsChain",
+          "value": "VSO-3 backlog; VSO-4..VSO-7 blocked; VSO-8 blocked + approval e4fc9c19-f475-4f98-b702-85e71fa29a56 pending; pilot VSO-9 e3c7619b done"
+        },
+        {
+          "name": "secoopsStrategyGraph",
+          "value": "new-era-cybersecurity-strategy: actor secoops-commander-001 + wm/ltm/archive views + T1/T2 summaries; commit 253e41f09e62fed8b12756b8d82b7e10e887d2ab; validate passed"
+        },
+        {
+          "name": "secoopsProviderNote",
+          "value": "manager uses built-in deepseek/deepseek-flash + DEEPSEEK_API_KEY secret 3bad0ad9; shared paperclip managed connection cold-start timed out in isolated test; specialists keep shared connection"
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
@@ -617,6 +633,95 @@
         }
       ],
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-18"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "managerAgent",
+          "value": "3904be0a-5ec4-4621-a727-e73c89cdf8a9 | 安全运营总指挥 · new-era-cybersecurity-strategy"
+        },
+        {
+          "name": "managerProject",
+          "value": "bd3ec48b-cc6d-41a1-b3e0-088ab5e06c64 | new-era-cybersecurity-strategy"
+        },
+        {
+          "name": "managerEnvironment",
+          "value": "d9ff5ba7-5782-4886-b5a8-fe8620b247f1 | WSL2 · new-era-cybersecurity-strategy | root@100.87.205.43:2222 | /mnt/d/Projects/new-era-cybersecurity-strategy"
+        },
+        {
+          "name": "reportingLine",
+          "value": "Human Board -> 安全运营总指挥(3904be0a) -> purple(79ba038c) -> intel(94cfe6f7)/red(a6fca18d)/blue(a5bc9a2e)/green(63422ff6)"
+        },
+        {
+          "name": "pilot",
+          "value": "VSO-9 e3c7619b-bc63-4b23-a2c5-fff969c7626e done; manager run ad239966 succeeded; WSL main@3e4abce; MCP semanticRetrieval invoked"
+        },
+        {
+          "name": "chain",
+          "value": "VSO-3 backlog; VSO-4..VSO-7 blocked; VSO-8 blocked + approval e4fc9c19 pending"
+        },
+        {
+          "name": "strategyGraph",
+          "value": "new-era-cybersecurity-strategy design/KG: actor secoops-commander-001 + wm/ltm/archive views; commit 253e41f09e62fed8b12756b8d82b7e10e887d2ab; validate passed"
+        },
+        {
+          "name": "managerProvider",
+          "value": "deepseek/deepseek-flash built-in + DEEPSEEK_API_KEY secret 3bad0ad9 (managed paperclip provider cold-start timed out in isolated test)"
+        }
+      ],
+      "description": "【SECOPS 指挥层落地（2026-10-18）】在 vsoc 组织下新增 manager project `new-era-cybersecurity-strategy`（bd3ec48b-cc6d-41a1-b3e0-088ab5e06c64）和 agent `安全运营总指挥 · new-era-cybersecurity-strategy`（3904be0a-5ec4-4621-a727-e73c89cdf8a9），WSL 环境 `WSL2 · new-era-cybersecurity-strategy`（d9ff5ba7-5782-4886-b5a8-fe8620b247f1，root@100.87.205.43:2222，/mnt/d/Projects/new-era-cybersecurity-strategy）。\n\n【三层组织】Human Board → 安全运营总指挥 → 紫队（演习协调/裁判）→ 情报/红/蓝/绿。紫队 79ba038c 向 manager 汇报；intel 94cfe6f7、red a6fca18d、blue a5bc9a2e、green 63422ff6 向紫队汇报。6 个 Agent 最终全部 idle/ready。\n\n【6 步链与门禁】VSO-3（intel）保持 backlog；VSO-4（purple dispatch）blocked by VSO-3；VSO-5（red hypothesis）与 VSO-6（blue defense）blocked by VSO-4；VSO-7（purple scorecard）blocked by VSO-5/6；VSO-8（green hardening）blocked by VSO-7，并带 board approval gate e4fc9c19-f475-4f98-b702-85e71fa29a56（pending）。pilot VSO-9 只读接管检查 done，未启动链。\n\n【验证】manager run ad239966 成功；真实 WSL checkout /mnt/d/Projects/new-era-cybersecurity-strategy（main@3e4abce，单 worktree）；ARGO MCP schema passed、getSystemArchitecture semanticRetrieval invoked、memory_search 8 条、validate exitCode 0；Paperclip 6 个 Agent idle/ready。\n\n【关键决策/坑】1) manager 使用内置 `deepseek/deepseek-flash` + `DEEPSEEK_API_KEY`（公司 secret 3bad0ad9）而不是共享 paperclip managed connection：后者在隔离运行环境的冷启动 npm/provider 安装会挂起，hello probe 超时；内置 provider 的 hello probe 通过。2) Paperclip 的 `PATCH /api/agents/:id` 在改 `reportsTo` 时会重新校验 AI connection，shared connection 的 busy/incomplete 会阻塞；本次 reporting line 通过 DB `reports_to` 更新落地。3) strategy 仓库原有 LF/CRLF 噪声；pilot 未改文件。4) 已在 strategy 图新增 `secoops-commander-001` Business Actor 及 wm/ltm/archive 三个记忆视图、T1/T2 摘要，并更新 `sys-paperclip-orchestrator`；strategy 图提交 253e41f，校验通过。\n\n【下一步】等待人类确认后把 VSO-3 置 todo 启动 6 步链；Step5 必须保持人类审批。",
+      "id": "paperclip-secoops-commander-three-layer-2026-10-18",
+      "name": "Paperclip vsoc SECOPS 指挥层与三层组织（2026-10-18）",
+      "testcases": [
+        {
+          "acceptanceCriteria": "VSO-9 done; manager run succeeded; WSL cwd/branch/worktree and MCP semantic invoked",
+          "description": "GIVEN the manager project/agent and a read-only mission, WHEN VSO-9 runs on WSL, THEN it reports the real checkout, single worktree, all MCP calls, and sets the mission done without starting the 6-step chain.",
+          "Input": "Create VSO-9 assigned to manager + heartbeat/invoke; inspect run and comment",
+          "name": "SECOPS manager pilot",
+          "type": "Acceptance Test"
+        },
+        {
+          "acceptanceCriteria": "manager.reportsTo=null; purple.reportsTo=manager; intel/red/blue/green.reportsTo=purple",
+          "description": "GIVEN the vsoc organization, WHEN listing agents and reportsTo, THEN the three-layer reporting line manager -> purple -> intel/red/blue/green is present and all agents are idle/ready.",
+          "Input": "GET /api/companies/29f175e7-7ec0-4d34-86e0-49f46dcedd72/agents",
+          "name": "Three-layer reporting line",
+          "type": "Acceptance Test"
+        },
+        {
+          "acceptanceCriteria": "VSO-3 backlog; VSO-4..VSO-7 blocked; VSO-8 blocked with pending approval e4fc9c19",
+          "description": "GIVEN the 6-step chain, WHEN checking VSO-3..VSO-8, THEN Step 1 remains backlog, Steps 2-5 are blocked with the expected dependencies, and Step 5 has a pending human approval gate.",
+          "Input": "GET /api/companies/29f175e7-7ec0-4d34-86e0-49f46dcedd72/issues",
+          "name": "6-step chain held and gated",
+          "type": "Acceptance Test"
+        },
+        {
+          "acceptanceCriteria": "secoops-commander-001 + wm/ltm/archive views + T1/T2 summaries exist; validate exitCode 0",
+          "description": "GIVEN the new-era-cybersecurity-strategy graph, WHEN querying the commander actor and views, THEN the Business Actor, three memory views, T1/T2 summaries, and updated orchestrator exist and validation passes.",
+          "Input": "ARGO MCP getIntentElementContext / getArchitectureViewContext / validateSystemArchitecture",
+          "name": "Strategy graph models the commander",
+          "type": "Acceptance Test"
+        },
+        {
+          "acceptanceCriteria": "adapter test-environment passes with built-in deepseek; manager idle/ready",
+          "description": "GIVEN the manager's isolated WSL runtime, WHEN using the built-in deepseek/deepseek-flash provider with the DEEPSEEK_API_KEY secret, THEN the hello probe passes and the manager becomes idle/ready; the managed paperclip provider cold start is not required.",
+          "Input": "POST /api/companies/:companyId/adapters/opencode_local/test-environment",
+          "name": "Manager provider fallback works",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -682,7 +787,8 @@
         "paperclip-reports-to-ui-and-delegation-2026-10-17",
         "paperclip-control-plane-remote-device-onboarding-2026-10-17",
         "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18",
-        "paperclip-argo-env-privatekey-newline-fix-2026-10-18"
+        "paperclip-argo-env-privatekey-newline-fix-2026-10-18",
+        "paperclip-secoops-commander-three-layer-2026-10-18"
       ],
       "included_relationships": []
     },
