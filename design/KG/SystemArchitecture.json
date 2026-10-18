@@ -185,7 +185,7 @@
         },
         {
           "name": "handoff",
-          "value": "无未完成项；人类以“本次会话结束”收尾。poller 保持停止。"
+          "value": "无未完成项。vsoc 5 个项目/Agent 已 idle/ready 并验证。唯一待决：是否修复 Argo 3 个旧 env 的 privateKey 缺换行问题（本次未改）。poller 保持停止。"
         },
         {
           "name": "agentChatFinding",
@@ -210,11 +210,27 @@
         {
           "name": "commit",
           "value": "e28cbdefc | design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "vsocOnboarding",
+          "value": "companyId=29f175e7-7ec0-4d34-86e0-49f46dcedd72；5 个项目/Agent/env 全部创建并验证；VSO-1/VSO-2 done；记忆元素 paperclip-vsoc-archgraph-agent-onboarding-2026-10-18"
+        },
+        {
+          "name": "argoLegacyEnvRisk",
+          "value": "Argo 3 个 SSH env 的 privateKey secret 缺结尾换行 → ssh error in libcrypto；本次未改，待人类决定是否 PATCH 修复"
+        },
+        {
+          "name": "hostConfigChanges",
+          "value": "/etc/opencode/opencode.json + /root/.config/opencode/opencode.json: argo MCP 先 source /root/.argo/.env；/root/.gitignore_global: .paperclip-runtime/"
+        },
+        {
+          "name": "noRepoCommit",
+          "value": "本次无 repo commit（Paperclip DB/API + WSL 主机配置变更）"
         }
       ],
-      "description": "【T1 会话总结 2026-10-18】主题：47 实例 GitHub issue 对接能力核验 + poller 运行状态。\n1) 原生 Paperclip 不支持“每个仓库全量 issue 双向同步”。四条路径：\n- GitHub App/机器人（webhook 实时）：只对已安装仓库生效；issues.opened 自动接管是 opt-in（默认 false，chat-github-review-policy.ts:146-148）；按仓库启用/工具启用/作者身份策略过滤；通过后新建 Paperclip 任务（originKind=chat_channel，assignee=channel agent；chat-channels.ts:2101）并唤醒，回复经 comment 工具写回 GitHub；PR opened/synchronize/reopened/ready_for_review、@bot 评论、review comment 也可触发。\n- GitHub Apps 连接（MCP/PAT）：给 agent 按需读写 issue/PR 的工具，不轮询、不自动同步。\n- External object：仅同步 Paperclip 文本中出现的 GitHub issue/PR URL；后台 tick 30s（server/src/index.ts:1235），TTL 300s（github-external-object-provider.ts:32），只读状态镜像，不导入列表、不回写。\n- Paperclip→GitHub：无自动回写；Paperclip 新建/分配的 issue 不会出现在 GitHub，除非 agent 主动调用 GitHub 工具或另建插件/同步器。\n2) Poller 已停（2026-10-18 核验）：无 poller.mjs 进程；无 PaperclipProjectAgentPoller 计划任务（也无任何名字含 Poller 的任务）；poller.log 最后写入 2026-10-16 22:49:56。人类确认此前已要求停掉，保持停止，未获明确指示不要重新注册。\n3) 如未来需要按仓库自动接入 GitHub issue，可选：GitHub App + issueOpened 开启（事件驱动、可回评论）；或重新启用 tools/project-agent-poller（label pm:<project>、5 分钟、单向建 carrier issue）；或写插件做双向同步。\n\n稳定事实：47.107.161.168（systemd paperclip.service，dashboard paperclip.derekworkspacev5.com，上游 paperclipai@2026.1015.0-nightly.0）；company=54b2a2a2-fca9-4262-9688-8db4e0688a06；PM agents：archgraph=c6f768c5-b6e8-4d19-b4e1-76a7ae7faf5d、paperclip=91ccc3f1-162d-4264-8331-c5e6e4f55353、my-army=82f67f31-d365-4db7-9b69-8896dead96d4；均为 opencode_local，heartbeat 统一 {enabled:true, intervalSec:300, maxConcurrentRuns:1, skipTimerWhenNoActionableWork:true}。旧本机实例 company=735a7199-...（agent a8c8490e... 等）在 47 不存在，勿用。\n前次会话（2026-10-17）结论保留在 T2：heartbeat 触发条件核验、47 实例 heartbeat 配置、新增项目/Agent 规则。",
+      "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-10-18：GitHub issue 对接核验 + poller 已停；含 10-17 heartbeat/47 配置）",
+      "name": "T1 会话总结（2026-10-18：vsoc 5 个 archgraph-agent-* 项目/Agent 接入；含 MCP 修复与遗留风险）",
       "type": "Requirement"
     },
     {
@@ -436,6 +452,98 @@
           "value": "design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "id": "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18",
+      "name": "Paperclip vsoc 组织：5 个 archgraph-agent-* 项目/Agent 接入（2026-10-18）",
+      "type": "Requirement",
+      "description": "【目标】在 Paperclip 控制面（47）的 vsoc 组织（company id 29f175e7-7ec0-4d34-86e0-49f46dcedd72；注意组织实际名是 vsoc，不是 vsock）下，为 5 个 ArchGraph Agent 仓库各建立一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（ocpc，Tailscale 100.87.205.43:2222，root）执行，并具备 ArchGraph/ARGO 全局规则与两个 MCP（argo + graph-mcp）。\n\n【项目/Agent/环境（均已创建并验证）】\n1. archgraph-agent-blue：project 7d2ea81f-1018-4618-966c-8ba07c311074；agent a5bc9a2e-5476-4fc6-a5b7-6db455098cd7（项目经理 · archgraph-agent-blue）；env 2bde1d9d-d831-47f5-b977-65dcf4b760aa（WSL2 · archgraph-agent-blue）。\n2. archgraph-agent-green：project fdfef5a4-e2c7-418e-b4c4-9f702cc7faa2；agent 63422ff6-1829-453b-a46c-73886a07c402；env 249e7dfd-55ea-480b-8517-77295b11385d。\n3. archgraph-agent-intel：project 63788f88-1fa8-4f74-a15a-d292daea1f0a；agent 94cfe6f7-c0e6-41de-bd36-85d50532d362；env 40c63daa-6d0e-41a8-820a-25783d37e818。\n4. archgraph-agent-purple：project c16c9e91-6a43-46ce-a69f-0b1c09562b44；agent 79ba038c-86f4-4cb0-b63f-8626054d1958；env d3a2ebad-4534-42b4-8cb2-f46790035e6e。\n5. archgraph-agent-red：project a319ca0f-d31f-4e75-855d-edea9b5382e4；agent a6fca18d-768d-4384-9e98-bea6f3b321fb；env fa5c605c-1a0e-4fa5-b98e-272f8f590076。\n\n【统一配置】adapterType=opencode_local；model=paperclip/deepseek-flash；directRemoteWorkspace=true；adapterConfig.env 仅 ARGO_REPO_ROOT=/mnt/d/Projects/<repo>；heartbeat={enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}；共享 AI connection connectionId=78401b6d-120b-4da3-bf1b-d730062c7423，grantId=90a5bdd1-3006-424a-9953-2b4a2ae8c455（vsoc 公司级 DeepSeek Chat Completions，api_key/gateway https://api.deepseek.com）。所有 Agent 最终 status=idle、lifecycle_state=ready。\n\n【框架配置】执行主机 WSL 的 /etc/opencode/opencode.json 提供全局 AGENTS（/root/.config/opencode/AGENTS.md）、argo 本地 MCP、graph-mcp 远程 MCP（https://argo.derekworkspacev5.com/mcp）、experimental.mcp_timeout=180000、ripgrep 14.1.0。为让语义检索拿到 live embedding provider，argo MCP 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'（/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 均更新）；/root/.argo/.env 仍是唯一 ARGO 配置源。\n\n【验收证据】5/5 SSH env probe ok=true；5/5 Agent test-environment status=pass 且 opencode_hello_probe_passed；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done，getSystemArchitecture semanticRetrieval=invoked；对 5 个仓库逐一直接调用 argo MCP：queryNeo4jGraph schema passed、workspace schema bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validateSystemArchitecture exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键坑与修复】1) environment privateKey 若无结尾换行，ssh/libcrypto 报 'error in libcrypto'；创建环境时值末尾补 \\n。2) 真实 WSL 检查点里 .paperclip-runtime 未被 gitignore（曾达 12.8 万文件），opencode 启动时 git ls-files 快照扫描挂起，表现为 hello probe/标题 LLM 流一直不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复见上。4) graph-mcp 的工具名是 graph_list，不是 graph_graph_list。5) argo-init --help 会实际执行 init（无 help flag），验证任务禁止运行。6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才会转为 ready/idle。7) 并发创建 environment 可能遇到 directory-merge lock timeout，重试即可。8) authenticated 实例 board 鉴权：本次用临时 board API key（DB 种入，用完 revoke）；不要把它写进仓库/issue。\n\n【变更范围】Paperclip DB/API 数据 + WSL 主机 git/opencode 配置；未修改任何 ArchGraph 仓库源码，未切换分支，未写 47 Neo4j。无 repo commit；本元素登记配置路径与验证结果。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-18"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "companyId",
+          "value": "29f175e7-7ec0-4d34-86e0-49f46dcedd72"
+        },
+        {
+          "name": "companyName",
+          "value": "vsoc"
+        },
+        {
+          "name": "paperclipInstance",
+          "value": "47.107.161.168 /home/paperclip/paperclip-fork, dashboard https://paperclip.derekworkspacev5.com"
+        },
+        {
+          "name": "executionHost",
+          "value": "WSL ocpc root@100.87.205.43:2222, real checkouts /mnt/d/Projects/archgraph-agent-*"
+        },
+        {
+          "name": "files",
+          "value": "/etc/opencode/opencode.json, /root/.config/opencode/opencode.json, /root/.config/opencode/AGENTS.md, /root/.gitignore_global"
+        },
+        {
+          "name": "aiConnection",
+          "value": "connectionId=78401b6d-120b-4da3-bf1b-d730062c7423 grantId=90a5bdd1-3006-424a-9953-2b4a2ae8c455"
+        },
+        {
+          "name": "verificationIssues",
+          "value": "VSO-1 fd964198-067a-472f-b1f2-e680886a2ab2 done; VSO-2 c0abfaa4-a209-4471-aca4-72799cd47a34 done"
+        }
+      ],
+      "testcases": [
+        {
+          "name": "Project-Agent 一一绑定",
+          "description": "GIVEN the vsoc organization contains the five archgraph-agent-* projects, WHEN listing projects and agents, THEN each project.leadAgentId is unique and points to the same-named Agent, and each Agent.defaultEnvironmentId points to the matching WSL2 · <repo> SSH environment.",
+          "type": "Acceptance Test",
+          "Input": "GET /api/companies/29f175e7-7ec0-4d34-86e0-49f46dcedd72/projects and /agents",
+          "acceptanceCriteria": "5 projects, 5 unique lead agents, every project-bound agent has directRemoteWorkspace=true and ARGO_REPO_ROOT=/mnt/d/Projects/<repo>"
+        },
+        {
+          "name": "WSL SSH 环境可探测",
+          "description": "GIVEN each WSL2 · <repo> SSH environment, WHEN POST /api/environments/:id/probe is called, THEN it returns ok:true and remoteCwd equals /mnt/d/Projects/<repo>.",
+          "type": "Acceptance Test",
+          "Input": "POST /api/environments/:id/probe for all five environments",
+          "acceptanceCriteria": "5/5 ok:true with remoteCwd == remoteWorkspacePath"
+        },
+        {
+          "name": "Agent 适配器 hello 探测通过",
+          "description": "GIVEN each Agent's saved config, WHEN POST /api/companies/:companyId/adapters/opencode_local/test-environment is called in its WSL environment, THEN status=pass and opencode_hello_probe_passed.",
+          "type": "Acceptance Test",
+          "Input": "POST /api/companies/29f175e7-7ec0-4d34-86e0-49f46dcedd72/adapters/opencode_local/test-environment with agentId+environmentId+saved adapterConfig+aiConnection",
+          "acceptanceCriteria": "5/5 status=pass; Agent status=idle and lifecycle_state=ready"
+        },
+        {
+          "name": "只读任务在 WSL 真实目录执行并调用 MCP",
+          "description": "GIVEN a read-only issue assigned to 项目经理 · archgraph-agent-blue, WHEN the heartbeat run completes, THEN it reports pwd=/mnt/d/Projects/archgraph-agent-blue, current branch master, only the real worktree, and queryNeo4jGraph/getSystemArchitecture/memory_search/validateSystemArchitecture/graph_list all respond.",
+          "type": "Acceptance Test",
+          "Input": "Create issue + POST /api/agents/:id/heartbeat/invoke; inspect VSO-1/VSO-2 comments and heartbeat_runs",
+          "acceptanceCriteria": "VSO-1 and VSO-2 done; semanticRetrieval=invoked; no file modification; no branch switch"
+        },
+        {
+          "name": "五个仓库的 ARGO 图均可读写路径可用",
+          "description": "GIVEN each of the five real WSL checkouts, WHEN the local argo MCP is called with queryNeo4jGraph {schema:true}, getSystemArchitecture (semantic), memory_search, and validateSystemArchitecture, THEN schema/bundle pass, semanticRetrieval=invoked, memory responds, and validation exits 0.",
+          "type": "Acceptance Test",
+          "Input": "node direct MCP probe against each repo with ARGO_REPO_ROOT set",
+          "acceptanceCriteria": "5/5 schema passed, workspace bundle passed, semanticRetrieval invoked, memory_search returns hits, validate exitCode 0"
+        },
+        {
+          "name": "graph-mcp 远程镜像可发现",
+          "description": "GIVEN the graph-mcp remote MCP, WHEN graph_list is called, THEN it returns status=ok with the expected prebuilt graph assets.",
+          "type": "Acceptance Test",
+          "Input": "graph_list (tool name graph_list, not graph_graph_list)",
+          "acceptanceCriteria": "status=ok, count=6"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -499,7 +607,8 @@
         "paperclip-47-heartbeat-maxconcurrentruns-1-skiptimerwhennoactionablework",
         "agent-heartbeat",
         "paperclip-reports-to-ui-and-delegation-2026-10-17",
-        "paperclip-control-plane-remote-device-onboarding-2026-10-17"
+        "paperclip-control-plane-remote-device-onboarding-2026-10-17",
+        "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18"
       ],
       "included_relationships": []
     },
