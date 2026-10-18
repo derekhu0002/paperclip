@@ -185,7 +185,7 @@
         },
         {
           "name": "handoff",
-          "value": "无未完成项。vsoc 5 个项目/Agent 已 idle/ready 并验证。唯一待决：是否修复 Argo 3 个旧 env 的 privateKey 缺换行问题（本次未改）。poller 保持停止。"
+          "value": "无未完成项。vsoc 5 个项目/Agent 已 idle/ready 并验证；Argo 3 个旧 env 的 privateKey 换行问题已修复、3/3 probe ok。poller 保持停止。"
         },
         {
           "name": "agentChatFinding",
@@ -217,7 +217,7 @@
         },
         {
           "name": "argoLegacyEnvRisk",
-          "value": "Argo 3 个 SSH env 的 privateKey secret 缺结尾换行 → ssh error in libcrypto；本次未改，待人类决定是否 PATCH 修复"
+          "value": "已修复（2026-10-18）：3 个 Argo env 补 privateKey 结尾换行并重建 secret；3/3 probe ok。见 paperclip-argo-env-privatekey-newline-fix-2026-10-18"
         },
         {
           "name": "hostConfigChanges",
@@ -231,6 +231,10 @@
           "name": "commit",
           "value": "206970f6c0477154aabc3de99f5493fe1f7aeacc",
           "description": "design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "argoEnvKeyFix",
+          "value": "paperclip env 642204da: 89028242→4913380e; my-army env 4900d4fe: 185fae75→030bdcca; archgraph env 51d23138: 1853d6aa→2f3f028a; 旧 secret 已删，bindings 已更新"
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
@@ -508,6 +512,14 @@
           "name": "commit",
           "value": "206970f6c0477154aabc3de99f5493fe1f7aeacc",
           "description": "design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "argoLegacyEnvRisk",
+          "value": "已修复 2026-10-18；见 paperclip-argo-env-privatekey-newline-fix-2026-10-18"
+        },
+        {
+          "name": "supersededBy",
+          "value": "paperclip-argo-env-privatekey-newline-fix-2026-10-18"
         }
       ],
       "testcases": [
@@ -554,6 +566,47 @@
           "acceptanceCriteria": "status=ok, count=6"
         }
       ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-18"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "oldSecrets",
+          "value": "paperclip=89028242-d6e9-468a-9d50-fd0dd432f598; my-army=185fae75-0467-4756-810f-bcac189e28f0; archgraph=1853d6aa-106f-4c5b-b811-92426ba3350f"
+        },
+        {
+          "name": "newSecrets",
+          "value": "paperclip=4913380e-abe2-48fd-aee4-b5bd0067729f; my-army=030bdcca-6edc-4bd3-bbfc-8436caae5e8e; archgraph=2f3f028a-369b-4f07-b69c-7a2ce4e96232"
+        },
+        {
+          "name": "verification",
+          "value": "3/3 probe ok; bindings privateKeySecretRef point to new secrets; old secret rows removed"
+        }
+      ],
+      "description": "【背景】Argo 组织（company 54b2a2a2-fca9-4262-9688-8db4e0688a06）的 3 个 WSL SSH environment 的 privateKey secret 在保存时缺少结尾换行，ssh/OpenSSL 读取时报 `Load key ... error in libcrypto`，导致这些 Agent 在真正跑任务时 SSH 失败。这个问题在 2026-10-18 给 vsoc 新环境做 SSH probe 时被实测发现（同一把 paperclip-wsl key，补 \\n 后立即可用）。\n\n【修复（2026-10-18，人类明确要求“顺手修掉”）】对每个环境 PATCH /api/environments/:id，config 只传 `{privateKey: <同一 key + 结尾换行>}`（服务端与现有 config 合并、创建新 secret、替换绑定并删除旧 secret）：\n- WSL2 · paperclip（env 642204da-01c8-405b-95a8-406fe9aa0577，/mnt/d/Projects/paperclip）：old 89028242 → new 4913380e。\n- WSL2 · my-army（env 4900d4fe-76d8-4519-9566-f35b0f67efa6，/mnt/d/Projects/my-army）：old 185fae75 → new 030bdcca。\n- WSL2 · archgraph（env 51d23138-daea-4ef4-a73a-27de347c88d5，/mnt/d/Projects/archgraph）：old 1853d6aa → new 2f3f028a。\n\n【验证】3/3 POST /api/environments/:id/probe 返回 ok:true，summary=Connected to root@100.87.205.43 and verified the remote workspace path；company_secret_bindings 均指向新 secret；旧 secret 行已删除。\n\n【注】这次只改 secret/绑定，不改 host/port/user/path；旧 key 的密钥对不变，只是补了换行。未提交仓库代码；变更在 Paperclip DB/API。",
+      "id": "paperclip-argo-env-privatekey-newline-fix-2026-10-18",
+      "name": "Paperclip Argo 3 个 WSL 环境 privateKey 换行修复（2026-10-18）",
+      "testcases": [
+        {
+          "acceptanceCriteria": "3/3 probe ok:true; bindings point to new secrets; old secret rows removed",
+          "description": "GIVEN the three Argo WSL SSH environments whose privateKey secrets are missing a trailing newline, WHEN each environment is patched with the same key plus a trailing newline and then probed, THEN each probe returns ok:true and the environment's privateKeySecretRef points to the new secret.",
+          "Input": "PATCH /api/environments/:id {config:{privateKey:<key+\\n>}}; POST /api/environments/:id/probe",
+          "name": "Argo WSL env privateKey newline fix",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -618,7 +671,8 @@
         "agent-heartbeat",
         "paperclip-reports-to-ui-and-delegation-2026-10-17",
         "paperclip-control-plane-remote-device-onboarding-2026-10-17",
-        "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18"
+        "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18",
+        "paperclip-argo-env-privatekey-newline-fix-2026-10-18"
       ],
       "included_relationships": []
     },
