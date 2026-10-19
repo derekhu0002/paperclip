@@ -151,6 +151,9 @@ export function ApprovalDetail() {
   const graphContext = parseDecisionGraphContext(
     typeof payload.graphContext === "object" ? payload.graphContext : null,
   );
+  const requestPayload = graphContext
+    ? Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "graphContext"))
+    : payload;
   const linkedAgentId = typeof payload.agentId === "string" ? payload.agentId : null;
   const isActionable = approval.status === "pending" || approval.status === "revision_requested";
   const isBudgetApproval = approval.type === "budget_override_required";
@@ -233,11 +236,11 @@ export function ApprovalDetail() {
             onClick={() => setShowRawPayload((v) => !v)}
           >
             <ChevronRight className={`h-3 w-3 transition-transform ${showRawPayload ? "rotate-90" : ""}`} />
-            See full request
+            {graphContext ? "See other request fields" : "See full request"}
           </button>
           {showRawPayload && (
             <pre className="text-xs bg-muted/40 rounded-md p-3 overflow-x-auto">
-              {JSON.stringify(payload, null, 2)}
+              {JSON.stringify(requestPayload, null, 2)}
             </pre>
           )}
           {approval.decisionNote && (
