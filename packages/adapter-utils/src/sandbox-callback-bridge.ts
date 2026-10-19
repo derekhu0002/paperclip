@@ -211,6 +211,12 @@ export const DEFAULT_SANDBOX_CALLBACK_BRIDGE_ROUTE_ALLOWLIST: readonly SandboxCa
   { method: "POST", path: /^\/api\/approvals\/[^/]+\/comments$/ },
   { method: "POST", path: /^\/api\/companies\/[^/]+\/approvals$/ },
 
+  // Standalone decisions. The server still verifies the origin run, target
+  // authority, and signed decision effects; this only admits the documented
+  // agent decision path through the sandbox bridge.
+  { method: "POST", path: /^\/api\/companies\/[^/]+\/decisions$/ },
+  { method: "POST", path: /^\/api\/companies\/[^/]+\/decision-bundles$/ },
+
   // Execution workspaces and runtime services (start/stop/restart dev servers)
   { method: "GET", path: /^\/api\/execution-workspaces\/[^/]+$/ },
   { method: "POST", path: /^\/api\/execution-workspaces\/[^/]+\/runtime-services\/(?:start|stop|restart)$/ },

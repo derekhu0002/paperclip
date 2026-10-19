@@ -1538,6 +1538,8 @@ describe("sandbox callback bridge", () => {
       { method: "GET", path: "/api/approvals/ap-1/comments" },
       { method: "POST", path: "/api/approvals/ap-1/comments" },
       { method: "POST", path: "/api/companies/co-1/approvals" },
+      { method: "POST", path: "/api/companies/co-1/decisions" },
+      { method: "POST", path: "/api/companies/co-1/decision-bundles" },
       { method: "GET", path: "/api/execution-workspaces/ws-1" },
       { method: "POST", path: "/api/execution-workspaces/ws-1/runtime-services/start" },
       { method: "POST", path: "/api/execution-workspaces/ws-1/runtime-services/stop" },

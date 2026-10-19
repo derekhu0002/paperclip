@@ -370,6 +370,22 @@ Key shared semantics:
 
 ### Standalone Decisions
 
+**Graph context is automatic for project decisions.** When the project has
+`design/KG/SystemArchitecture.json`, do not hand-write the subgraph. Create
+the decision through the bundled helper; it reads the project graph, selects a
+bounded focus neighborhood, and adds `metadata.graphContext` (preview + full
+read-only graph) before posting the decision:
+
+```sh
+node "$CLAUDE_SKILL_DIR/scripts/paperclip-decision-with-graph.mjs" \
+  --title "Approve the identity-control change?" \
+  --body "The graph highlights the affected OAuth and telemetry nodes." 
+```
+
+Use `--focus <id,id>` to name the decision-specific nodes and `--graph <path>`
+only when the project graph is not at the default path. This helper never writes
+the graph. If the project has no graph file, use the normal decision endpoint.
+
 Create a decision from an issue-scoped agent run with `POST /api/companies/{companyId}/decisions`:
 
 ```json
