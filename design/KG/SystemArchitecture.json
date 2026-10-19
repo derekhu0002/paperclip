@@ -173,7 +173,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-18"
+          "value": "2026-10-19"
         },
         {
           "name": "memoryTier",
@@ -393,6 +393,29 @@
         {
           "name": "decisionGraphAutoContext",
           "value": "2026-10-19: Agent-created decisions auto-attach project graph context. Added skills/paperclip/scripts/paperclip-decision-with-graph.mjs (reads design/KG/SystemArchitecture.json, normalizes graph, selects focus, adds preview + full graph + snapshot hash) and updated SKILL.md. Added POST decisions/decision-bundles to the sandbox bridge allowlist in packages/adapter-utils/src/sandbox-callback-bridge.ts; initial E2E failed with Route not allowed until this was fixed. Live E2E: VSO-21 f657c759 done; agent-created decision 41e2a1f5-f86f-4512-a061-f9c6739da7e8 open with 12 preview nodes/16 edges and 539 graph nodes/1135 edges; list strips full graph, detail keeps it. Local commit c5c280274; 47 source 80bbec4 + 3ff41c9; tag decision-graph-auto-context-2026-10-19."
+        },
+        {
+          "name": "approvalGraphCanvas",
+          "value": "2026-10-19: 审批图证据已改为 <canvas> 节点画布，覆盖 /VSO/approvals 列表卡与 /VSO/approvals/:id 详情页；预览 12 nodes/16 relationships；无 Open graph/完整图谱/新菜单/新决策卡。真实 Agent E2E: VSO-22 -> approval 0a59e100-d70d-40e1-b622-c38cef9e46c8 (pending)。旧 standalone decision 41e2a1f5 已 cancel。详见 T2 paperclip-approval-graph-canvas-lessons-2026-10-19。"
+        },
+        {
+          "name": "handoff20261019",
+          "value": "没有未完成的代码修复。当前分支还有人类先前留下的无关未提交改动，未触碰。审批 0a59e100 仍 pending，VSO-22 仍 in_review，等待人类决定。若人类要求把图放进任务聊天流，需要明确产品变更后再做。"
+        },
+        {
+          "name": "commit",
+          "value": "5f96e7c46",
+          "description": "fix(approvals): keep graph evidence out of raw request JSON"
+        },
+        {
+          "name": "commit",
+          "value": "792cddec2",
+          "description": "feat(approvals): render graph context on a canvas"
+        },
+        {
+          "name": "commit",
+          "value": "a301e5bab",
+          "description": "feat(approvals): make graph evidence readable inline"
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
@@ -902,6 +925,65 @@
         }
       ],
       "type": "Requirement"
+    },
+    {
+      "id": "paperclip-approval-graph-canvas-lessons-2026-10-19",
+      "type": "Requirement",
+      "name": "Paperclip 审批图证据画布：成功/失败经验与排查方法（2026-10-19）",
+      "description": "【目标与最终结论】把项目知识图谱的 graph context 放进人类已有的审批门禁里，用画布展示，不用 JSON 作为主视图；不新增菜单、不新增决策卡、不提供完整图谱探索。人类在审批时看一个有界子图，需要更多信息就去问 Agent。最终落地在 vsoc 组织的 /VSO/approvals 审批列表卡和 /VSO/approvals/:id 详情页，使用 <canvas> 节点图。\n\n【成功经验】\n1. 共享组件优先：GraphEvidencePanel 同时服务 ApprovalCard 和 ApprovalDetail；一个组件、两种入口，避免两套图。\n2. 画布必须按容器宽度布局：12 节点以内用 4/3/2 列自适应网格卡片；节点卡片显示名称+类型，关系用带箭头的线，hover 显示完整名称/类型/描述；不要用 100x100 的 SVG viewBox 去撑一个很宽的审批卡。\n3. Canvas 细节：DPR 缩放、ResizeObserver、主题变更 MutationObserver、CSS 变量取色、roundRect、文本截断、sr-only 节点列表（无障碍与测试）、ResizeObserver/getContext/requestAnimationFrame 在 jsdom 下的保护。\n4. 审批入口：列表卡 /VSO/approvals 与详情页 /VSO/approvals/:id 都渲染图；详情页的 See other request fields 不再把 graphContext 原始 JSON 再展示一遍。\n5. Agent 侧 helper 只发 request_board_approval；payload 内放 preview-only graphContext。旧 standalone decision helper 删除，旧测试 decision 41e2a1f5-f86f-4512-a061-f9c6739da7e8 已 cancel。\n6. 真实 E2E 比构造数据可信：VSO-22 由安全运营总指挥 Agent 实际运行 helper 生成 approval 0a59e100-d70d-40e1-b622-c38cef9e46c8；12 nodes/16 relationships；issue 进入 in_review；approval 保持 pending，未自批。\n7. 47 部署方法：本地 pnpm -C ui build，tar ui/dist，scp 到 47，替换 /home/paperclip/paperclip-fork/server/ui-dist；不要在 47 上构建。部署后核对新 asset hash。\n8. 验证方法：Playwright 使用 extraHTTPHeaders Authorization: Bearer <临时 board token> 绕过 UI cookie 登录，直接抓 /VSO/approvals 和详情页；断言 region Graph evidence、canvas、无 Open graph，并截图上传 artifact。\n9. 测试方法：ApprovalCard 用 ThemeProvider 包裹（MarkdownBody 依赖主题上下文）；jsdom 不实现 canvas 时用 canvas 元素 + sr-only 文本断言；不要断言 SVG。\n10. 工作区纪律：本地已有大量无关未提交改动；只 stage 本次文件，提交前 git diff --check，避免把用户的改动混入。\n\n【失败经验与教训】\n1. 最初把 ApprovalCard 当成 issue chat 里的卡片；实际现有审批门禁在 /VSO/approvals（Inbox 的 Board Approval 也指向这里）。不要假设图会出现在任务聊天流里；先确认产品入口。\n2. 第一版 SVG 半径 + viewBox 100x100 在宽卡片中只有 160-288px 的方形图，标签极小、重叠；用户明确说 JSON/小图看不清。教训：图必须使用可用宽度和可读卡片，不要只放大 viewBox。\n3. 一开始只改了 ApprovalCard，漏了 ApprovalDetail；用户点 View details 仍看不到图。教训：所有审批入口都要覆盖，详情页和列表卡分别验证。\n4. ApprovalCard 测试容器为空，原因是缺少 ThemeProvider/MarkdownBody 主题上下文；补 ThemeProvider 后通过。\n5. DecisionCard.test 仍保留旧的 Open graph 用例，与移除 explorer 冲突；删旧用例，测试要与产品方向同步。\n6. PowerShell 字符串替换把字面量 \\n 写进 TS 文件，造成语法错误；用 edit 工具或 here-string，并检查编码/换行。\n7. PowerShell 重写文件产生 CRLF/trailing whitespace，git diff --check 报错；统一 LF 后再提交。\n8. PowerShell 调 ssh 时会吞掉引号，复杂命令（尤其含 ()、|、$(date)）会本地展开或远程语法错误；改用 base64 编码脚本传给远端 bash。\n9. 47 上 curl 127.0.0.1:3100 失败，因为服务绑定 172.18.2.191:3100；健康检查要用实际绑定地址。\n10. 47 的 git 报 dubious ownership，需要 -c safe.directory；commit 要显式 -c user.name=paperclip -c user.email=paperclip@localhost。\n11. WSL 发行版是 ocpc，不是 ocp；wsl -d ocp 报 DISTRO_NOT_FOUND。\n12. Playwright 的 WebSocket 502 与 Cloudflare beacon CORS 是测试环境噪音，不是 UI 功能失败；以 DOM/画布断言和截图为准。列表页首次加载会是 skeleton，要等具体文本出现，不要只等 networkidle。\n13. UI 用 cookie 鉴权；临时 board token 必须经由 Playwright extraHTTPHeaders 注入，不能用 localStorage 假 token。\n14. 临时 board token 不要打印；用 pg 写入 key_hash、0600 文件保存、用后立即 revoke 并删文件。\n15. Canvas 在 jsdom 里没有 ResizeObserver/getContext；组件必须容错，测试用 sr-only 节点列表保证文本可达。\n16. 绘图顺序：先画边再画卡片，箭头在目标卡片边界；否则线穿过文字。卡片背景不透明才能遮住穿过卡片中心的线。\n17. 关系箭头需要按卡片边界计算，不能直接画到中心，否则被卡片覆盖。\n18. 主题色要用 CSS 变量（--color-*），不要 hex；canvas font 用 computed fontFamily。\n\n【可复用方法】\n- 临时 board key：pg 连接 postgres://paperclip:paperclip@127.0.0.1:54329/paperclip，插入 board_api_keys(key_hash=sha256(token))；E2E 后 update revoked_at。\n- UI 截图：Playwright channel=chrome，extraHTTPHeaders={Authorization: Bearer <token>}，viewport 1440x1200，等文本后截图；artifact 用 skills/paperclip/scripts/paperclip-upload-artifact.sh 上传。\n- 审批验证：DB 查 approvals.payload.graphContext.preview、issue_approvals、issue status；UI 查 region[name=Graph evidence] 与 canvas 数量，确认 Open graph=0。\n- 47 部署：备份 ui-dist，解压新 tar 到临时目录，mv 切换，chown paperclip:paperclip；核对 index.html 的 asset hash。\n- 远端脚本：PowerShell here-string -> Base64 -> ssh \"echo ... | base64 -d | bash\"，避免引号丢失。\n\n【遗留与待人类决定】\n- approval 0a59e100-d70d-40e1-b622-c38cef9e46c8 仍 pending；VSO-22 仍 in_review；人类自行决定批准/拒绝。\n- 当前图只在审批门禁与审批详情；如果人类希望任务聊天流里也显示，需要明确产品变更，不要自行加。\n- 画布 hover 有完整描述；移动端未单独验收。\n- 本次只跑 UI typecheck、ApprovalCard/DecisionCard target tests、token gates、UI build；未跑完整仓库测试。\n\n【证据】\n- company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；project bd3ec48b-cc6d-41a1-b3e0-088ab5e06c64；issue VSO-22 e0e29732-022a-4971-a77f-845384c1e6d1；approval 0a59e100-d70d-40e1-b622-c38cef9e46c8。\n- 本地 commits: d6c670162, a301e5bab, 792cddec2, 5f96e7c46；47 commits: 96a1680, 678cd9d, a450ab0；tags: approval-graph-evidence-2026-10-19, approval-graph-canvas-2026-10-19。\n- 截图 artifacts: fdf3c8c1-1dd9-4683-8421-d48f5e36aeea (list canvas), d4d0c999-7f91-481e-ab99-8453a22ca933 (detail canvas)。\n- 服务: 47.107.161.168 paperclip.service; UI https://paperclip.derekworkspacev5.com；绑定 172.18.2.191:3100。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-19"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-19"
+        },
+        {
+          "name": "commit",
+          "value": "5f96e7c46",
+          "description": "fix(approvals): keep graph evidence out of raw request JSON (local)"
+        },
+        {
+          "name": "commit",
+          "value": "792cddec2",
+          "description": "feat(approvals): render graph context on a canvas (local)"
+        },
+        {
+          "name": "commit",
+          "value": "a301e5bab",
+          "description": "feat(approvals): make graph evidence readable inline (local)"
+        },
+        {
+          "name": "commit",
+          "value": "d6c670162",
+          "description": "feat(approvals): show graph evidence inside approval gates (local)"
+        },
+        {
+          "name": "commit",
+          "value": "a450ab0",
+          "description": "47: keep graph evidence out of raw request JSON"
+        },
+        {
+          "name": "commit",
+          "value": "678cd9d",
+          "description": "47: render graph context on a canvas"
+        },
+        {
+          "name": "commit",
+          "value": "96a1680",
+          "description": "47: show static graph evidence in approval gates"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -968,7 +1050,8 @@
         "paperclip-control-plane-remote-device-onboarding-2026-10-17",
         "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18",
         "paperclip-argo-env-privatekey-newline-fix-2026-10-18",
-        "paperclip-secoops-commander-three-layer-2026-10-18"
+        "paperclip-secoops-commander-three-layer-2026-10-18",
+        "paperclip-approval-graph-canvas-lessons-2026-10-19"
       ],
       "included_relationships": []
     },
