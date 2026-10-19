@@ -40,6 +40,7 @@ const issue = {
   status: "in_progress",
   createdAt: new Date(now - 4 * 60 * 60 * 1000),
   updatedAt: new Date(now - 30 * 60 * 1000),
+  assigneeAgentId: "agent-1",
 } as Issue;
 
 function result(overrides: Partial<WorkTimelineResult> = {}): WorkTimelineResult {
@@ -108,27 +109,30 @@ describe("IssueExecutionTimeline", () => {
     document.body.innerHTML = "";
   });
 
-  it("renders task lanes, run bars, event markers, and passes issueIds to the timeline API", async () => {
+  it("groups tasks by agent and renders queue/execution/paused segments plus text handoffs", async () => {
     const { container, root } = render(
       <IssueExecutionTimeline
         companyId="company-1"
         issues={[issue]}
         issueIds={["issue-1"]}
-        lane="task"
         timeWindow="24h"
+        agents={[{ id: "agent-1", name: "Coder" }]}
       />,
     );
 
     await vi.waitFor(() => {
-      expect(container.textContent).toContain("Execution task");
+      expect(container.textContent).toContain("Coder");
       expect(container.textContent).toContain("PAP-1");
-      expect(container.textContent).toContain("1 runs / last 24h");
-      expect(container.querySelector('a[href="/issues/issue-1"]')).not.toBeNull();
-      expect(container.querySelector('[aria-label^="Task span"]')).not.toBeNull();
-      expect(container.querySelector("svg circle")).not.toBeNull();
-      expect(container.querySelector("svg title")?.textContent).toContain("Delegation");
-      expect(container.querySelectorAll("[aria-label^='Commented by']").length).toBe(1);
-      expect(container.querySelectorAll("[aria-label^='Approved by']").length).toBe(1);
+      expect(container.textContent).toContain("1 agent / 1 task / last 24h");
+      expect(container.textContent).toContain("Queue");
+      expect(container.textContent).toContain("Execution");
+      expect(container.textContent).toContain("Paused / waiting");
+      expect(container.querySelector('a[aria-label="PAP-1 task bar"]')).not.toBeNull();
+      expect(container.querySelectorAll('[data-segment-kind="queue"]').length).toBe(1);
+      expect(container.querySelectorAll('[data-segment-kind="execution"]').length).toBe(1);
+      expect(container.querySelectorAll('[data-segment-kind="paused"]').length).toBe(1);
+      expect(container.textContent).toContain("Handoffs / delegation");
+      expect(container.textContent).toContain("Coder to Reviewer");
     });
 
     expect(mockGet).toHaveBeenCalledWith("company-1", expect.objectContaining({
@@ -141,42 +145,48 @@ describe("IssueExecutionTimeline", () => {
     root.unmount();
   });
 
-  it("renders agent lanes when the lane is agent", async () => {
+  it("zooms the time axis in and out", async () => {
     const { container, root } = render(
       <IssueExecutionTimeline
         companyId="company-1"
         issues={[issue]}
         issueIds={["issue-1"]}
-        lane="agent"
         timeWindow="7d"
+        agents={[{ id: "agent-1", name: "Coder" }]}
       />,
     );
 
     await vi.waitFor(() => {
-      expect(container.textContent).toContain("Coder");
-      expect(container.textContent).toContain("Agent");
-      expect(container.textContent).toContain("1 runs / last 7d");
+      expect(container.textContent).toContain("1x");
     });
+
+    flushSync(() => {
+      (container.querySelector('button[aria-label="Zoom in timeline"]') as HTMLButtonElement).click();
+    });
+    expect(container.textContent).toContain("2x");
+
+    flushSync(() => {
+      (container.querySelector('button[aria-label="Zoom out timeline"]') as HTMLButtonElement).click();
+    });
+    expect(container.textContent).toContain("1x");
 
     root.unmount();
   });
 
-  it("keeps task rows visible when the window has no runs or events", async () => {
+  it("shows a queue segment when the task has no execution in the window", async () => {
     mockGet.mockResolvedValue(result({ actors: [], spans: [], events: [], edges: [] }));
     const { container, root } = render(
       <IssueExecutionTimeline
         companyId="company-1"
         issues={[issue]}
         issueIds={["issue-1"]}
-        lane="task"
         timeWindow="24h"
       />,
     );
 
     await vi.waitFor(() => {
       expect(container.textContent).toContain("Execution task");
-      expect(container.textContent).toContain("0 runs / last 24h");
-      expect(container.querySelector('[aria-label^="Task span"]')).not.toBeNull();
+      expect(container.querySelectorAll('[data-segment-kind="queue"]').length).toBe(1);
       expect(container.textContent).toContain("No delegation or assignment edges in this window.");
     });
 

@@ -207,7 +207,6 @@ vi.mock("./KanbanBoard", () => ({
 
 vi.mock("./IssueExecutionTimeline", () => ({
   IssueExecutionTimeline: (props: {
-    lane: string;
     timeWindow: string;
     issueIds: string[];
   }) => {
@@ -215,7 +214,6 @@ vi.mock("./IssueExecutionTimeline", () => ({
     return (
       <div
         data-testid="execution-timeline"
-        data-lane={props.lane}
         data-window={props.timeWindow}
         data-issue-ids={props.issueIds.join(",")}
       />
@@ -443,7 +441,7 @@ describe("IssuesList", () => {
     act(() => root.unmount());
   });
 
-  it("switches to the execution view and exposes task/agent lanes", async () => {
+  it("switches to the execution view and forwards the window", async () => {
     const { root } = renderWithQueryClient(
       <IssuesList
         issues={[createIssue({ id: "issue-execution", title: "Execution task" })]}
@@ -469,30 +467,18 @@ describe("IssuesList", () => {
     await waitForAssertion(() => {
       expect(container.querySelector("[data-testid='execution-timeline']")).not.toBeNull();
       expect(mockExecutionTimeline).toHaveBeenLastCalledWith(expect.objectContaining({
-        lane: "task",
         timeWindow: "24h",
         issueIds: ["issue-execution"],
       }));
-      expect(container.textContent).toContain("By task");
-      expect(container.textContent).toContain("By agent");
       expect(container.textContent).toContain("24h");
-    });
-
-    const byAgent = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent === "By agent");
-    expect(byAgent).not.toBeUndefined();
-    act(() => {
-      byAgent!.click();
-    });
-
-    await waitForAssertion(() => {
-      expect(mockExecutionTimeline).toHaveBeenLastCalledWith(expect.objectContaining({ lane: "agent" }));
+      expect(container.textContent).not.toContain("By task");
+      expect(container.textContent).not.toContain("By agent");
     });
 
     act(() => root.unmount());
   });
 
-  it("restores the saved execution lane and window", async () => {
+  it("restores the saved execution window", async () => {
     localStorage.setItem(
       taskCollectionPreferencesStorageKey({
         companyId: "company-1",
@@ -502,7 +488,7 @@ describe("IssuesList", () => {
         version: 1,
         companyId: "company-1",
         collectionKey: "paperclip:test-issues",
-        viewState: { viewMode: "execution", executionLane: "agent", executionWindow: "7d" },
+        viewState: { viewMode: "execution", executionWindow: "7d" },
         columns: [],
       }),
     );
@@ -523,7 +509,6 @@ describe("IssuesList", () => {
 
     await waitForAssertion(() => {
       expect(mockExecutionTimeline).toHaveBeenLastCalledWith(expect.objectContaining({
-        lane: "agent",
         timeWindow: "7d",
       }));
       expect(container.querySelector('button[aria-label="Execution view"]')?.getAttribute("aria-pressed")).toBe("true");

@@ -14,7 +14,7 @@ Agent access: [companion](../agent-access-map/tasks.md).
 
 - `create`: capture a title/request with the intended agent, project, and attachments.
 - `organize`: filter, sort, group, and navigate tasks without losing the selected context.
-- `execution-view`: switch the task collection to an execution timeline, grouped by task or agent, with a selectable 24h/7d/30d window and run/event hover details; task lanes show a task-span bar plus run bars, and handoff lines/markers show delegation and assignment; open the per-task Execution tab (classic) or More > View execution (chat shell) to inspect the run chain and expandable run events.
+- `execution-view`: switch the task collection to a single agent-grouped execution timeline with a selectable 24h/7d/30d window and 1x/2x/4x/8x zoom; each task is one rectangle from creation to completion, segmented into queue (yellow), execution (green), and paused/waiting (neutral), and each agent group can contain multiple task lanes; delegation/assignment handoffs are listed as text below the chart. Open the per-task Execution tab (classic) or More > View execution (chat shell) for the run chain and expandable run events.
 - `properties`: change status, priority, assignee, project, and relationships where authorized.
 - `discussion`: persist comments, references, and files on the task.
 - `completion`: distinguish backlog, active work, review, blocked, done, and cancelled outcomes.
@@ -58,7 +58,7 @@ Manual: Seed human-created, agent-created, scheduled routine, human-initiated ch
 
 Manual: Filter by status and assignee, change grouping/sort, open a task, and return. Verify the correct records and selected view survive navigation and reload. Include an empty result and a failed request.
 
-Manual: Switch to Execution, verify By task and By agent both render, change the 24h/7d/30d window, hover a run to inspect status/duration/tokens/cost, and click a bar to open its task. In By task, verify the muted task-span bar covers the task lifetime and handoff markers/connectors appear; in By agent, verify delegation/assignment lines connect the agent lanes. Confirm an empty execution window and a failed timeline request both surface a clear state.
+Manual: Switch to Execution, verify agent groups and their task lanes render, change the 24h/7d/30d window, and zoom from 1x to 8x with horizontal scrolling. For a task with runs, verify one rectangle from creation to completion with yellow queue, green execution, and neutral paused/waiting segments; click it to open the task. Verify the text handoff list below the chart, an empty agent window, and a failed timeline request.
 
 Manual: Open a task detail. In classic mode use the Execution tab; in chat-shell mode use More > View execution. Verify the run summary, status/handoff list, run error, and expandable run events; close and reopen the view, and confirm it follows live runs.
 

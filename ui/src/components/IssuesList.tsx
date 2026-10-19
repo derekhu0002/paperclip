@@ -157,13 +157,12 @@ const progressSegmentClasses: Record<IssueStatus, string> = {
   cancelled: "bg-neutral-400",
 };
 
-/* ── View state ── */
+/* 鈹€鈹€ View state 鈹€鈹€ */
 
 export type IssueSortField = "status" | "priority" | "title" | "created" | "updated" | "workflow";
 export type BoardCardDensity = "auto" | "compact" | "comfortable";
 export type BoardColdLaneMode = "auto" | "collapsed" | "expanded";
 export type BoardColumnPageSize = KanbanColumnPageSize;
-export type ExecutionLane = "task" | "agent";
 export type ExecutionWindow = "24h" | "7d" | "30d";
 
 export type IssueViewState = IssueFilterState & {
@@ -171,7 +170,6 @@ export type IssueViewState = IssueFilterState & {
   sortDir: "asc" | "desc";
   groupBy: "status" | "priority" | "assignee" | "project" | "workspace" | "parent" | "none";
   viewMode: "list" | "board" | "execution";
-  executionLane: ExecutionLane;
   executionWindow: ExecutionWindow;
   nestingEnabled: boolean;
   showDateGroupSeparators: boolean;
@@ -188,7 +186,6 @@ const defaultViewState: IssueViewState = {
   sortDir: "desc",
   groupBy: "none",
   viewMode: "list",
-  executionLane: "task",
   executionWindow: "24h",
   nestingEnabled: true,
   showDateGroupSeparators: true,
@@ -230,7 +227,6 @@ function normalizeIssueViewState(value: unknown): IssueViewState {
       ? parsed.groupBy as IssueViewState["groupBy"]
       : defaultViewState.groupBy,
     viewMode: parsed.viewMode === "board" || parsed.viewMode === "execution" ? parsed.viewMode : "list",
-    executionLane: parsed.executionLane === "agent" ? "agent" : "task",
     executionWindow: parsed.executionWindow === "7d" || parsed.executionWindow === "30d"
       ? parsed.executionWindow
       : "24h",
@@ -323,7 +319,7 @@ function sortIssues(issues: Issue[], state: IssueViewState): Issue[] {
   return sorted;
 }
 
-// Only recency sorts (newest first) get date separators — for any other
+// Only recency sorts (newest first) get date separators 鈥?for any other
 // sort/direction the boundaries would be meaningless.
 function issueDateSeparatorField(state: IssueViewState): "createdAt" | "updatedAt" | null {
   if (state.sortDir !== "desc") return null;
@@ -463,7 +459,7 @@ function shouldSuppressSinglePreviousSiblingBlockerChip(
   );
 }
 
-/* ── Component ── */
+/* 鈹€鈹€ Component 鈹€鈹€ */
 
 interface Agent {
   id: string;
@@ -523,7 +519,7 @@ interface IssuesListProps {
   /** Opt in per surface while the shared collection toolbar rolls out. */
   toolbarPresentation?: "legacy" | "collection";
   /**
-   * Rendered before the create button in the toolbar's context slot — the hook
+   * Rendered before the create button in the toolbar's context slot 鈥?the hook
    * the merged Tasks surface uses to put its Views control there (PAP-670).
    */
   toolbarContext?: ReactNode;
@@ -781,7 +777,7 @@ function StreamlinedIssuesList({
   // Which entry the cursor is over, tracked WITHOUT React state so scrubbing the
   // list costs zero re-renders (hover paints via CSS `:hover`). Keyboard nav
   // reads this to continue from the hovered row. Key-based, so it self-heals if
-  // the entry disappears (findIndex → -1).
+  // the entry disappears (findIndex 鈫?-1).
   const hoveredNavKeyRef = useRef<string | null>(null);
   const setNavSelectionFromPointer = useCallback((navKey: string) => {
     if (!pointerMovedSinceKeyNavRef.current) return;
@@ -1421,8 +1417,7 @@ function StreamlinedIssuesList({
   const visibleListRowCount = groupedContent.reduce((total, group) => total + group.items.length, 0);
 
 
-  // Flattened visible order (group headers, then tree DFS per group —
-  // collapsed groups keep their header entry but skip their rows) — must
+  // Flattened visible order (group headers, then tree DFS per group 鈥?  // collapsed groups keep their header entry but skip their rows) 鈥?must
   // match render order below for keyboard traversal. `budgetOrdinal` counts
   // rows the way the progressive renderer consumes its budget (collapsed
   // groups still consume rows; collapsed parents' subtrees do not).
@@ -1512,7 +1507,7 @@ function StreamlinedIssuesList({
       const st = listNavStateRef.current;
       if (st.viewMode !== "list" || st.flatNavEntries.length === 0) return;
       // The row a keystroke acts on: the hovered row when the mouse moved since
-      // the last key nav (so "hover a row → press Arrow/Enter" acts on it),
+      // the last key nav (so "hover a row 鈫?press Arrow/Enter" acts on it),
       // otherwise the keyboard selection. Hover no longer writes selection
       // state, so this threads the pointer position into every handler.
       const indexOfKey = (key: string | null) =>
@@ -1574,7 +1569,7 @@ function StreamlinedIssuesList({
           if (!entry || entry.type !== "issue") return;
           e.preventDefault();
           // Navigate from the entry data (like the inbox) rather than the DOM
-          // row — the selected row may sit past the mounted render batch.
+          // row 鈥?the selected row may sit past the mounted render batch.
           const issue = entry.issue;
           const pathId = issue.identifier ?? issue.id;
           const detailState = withIssueDetailHeaderSeed(st.issueLinkState, issue);
@@ -1860,32 +1855,8 @@ function StreamlinedIssuesList({
 
           {viewState.viewMode === "execution" && (
             <>
-              <div
-                className="flex h-8 items-center overflow-hidden rounded-md border border-border"
-                role="group"
-                aria-label="Execution lane"
-              >
-                {([
-                  ["task", "By task"],
-                  ["agent", "By agent"],
-                ] as const).map(([lane, label]) => (
-                  <button
-                    key={lane}
-                    type="button"
-                    className={cn(
-                      "h-full px-2 text-xs transition-colors",
-                      viewState.executionLane === lane
-                        ? "bg-accent text-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    onClick={() => updateView({ executionLane: lane })}
-                    aria-pressed={viewState.executionLane === lane}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
               <Popover>
+
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
@@ -2168,8 +2139,8 @@ function StreamlinedIssuesList({
           companyId={selectedCompanyId ?? ""}
           issues={filtered}
           issueIds={filtered.slice(0, 200).map((issue) => issue.id)}
-          lane={viewState.executionLane}
           timeWindow={viewState.executionWindow}
+          agents={agents}
         />
       ) : (
         <div className="-mx-2 sm:mx-0">
