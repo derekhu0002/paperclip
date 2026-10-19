@@ -212,6 +212,16 @@ describeEmbeddedPostgres("work timeline aggregation", () => {
         details: { assigneeAgentId: agentBId },
         createdAt: new Date("2026-03-01T13:00:00Z"),
       },
+      {
+        companyId,
+        actorType: "agent",
+        actorId: agentBId,
+        action: "issue.updated",
+        entityType: "issue",
+        entityId: childIssueId,
+        details: { status: "in_progress", _previous: { status: "todo" } },
+        createdAt: new Date("2026-03-01T13:15:00Z"),
+      },
     ]);
     await db.insert(issueComments).values({
       companyId,
@@ -255,7 +265,14 @@ describeEmbeddedPostgres("work timeline aggregation", () => {
       "approved",
       "delegated",
       "assigned",
+      "status_changed",
     ]));
+    expect(result.events).toContainEqual(expect.objectContaining({
+      kind: "status_changed",
+      issueId: childIssueId,
+      fromStatus: "todo",
+      toStatus: "in_progress",
+    }));
     expect(result.edges).toEqual(expect.arrayContaining([
       expect.objectContaining({ kind: "delegation", issueId: childIssueId }),
       expect.objectContaining({ kind: "assignment", issueId: childIssueId }),

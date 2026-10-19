@@ -768,11 +768,41 @@ export function workTimelineService(db: Db) {
         : "system";
       const fromActorId = actorId(logActorType, row.actorId);
       actorIds.add(fromActorId);
+      const details = row.details && typeof row.details === "object" && !Array.isArray(row.details)
+        ? row.details as Record<string, unknown>
+        : {};
+      if (row.action === "issue.created") {
+        const status = readString(details.status);
+        if (status) {
+          events.push({
+            actorId: fromActorId,
+            kind: "status_changed",
+            issueId: row.issueId,
+            at: row.createdAt.toISOString(),
+            fromStatus: null,
+            toStatus: status,
+          });
+        }
+      }
+      if (row.action === "issue.updated") {
+        const previous = details._previous && typeof details._previous === "object" && !Array.isArray(details._previous)
+          ? details._previous as Record<string, unknown>
+          : {};
+        const fromStatus = readString(previous.status) ?? readString(details.reopenedFrom);
+        const toStatus = readString(details.status);
+        if (toStatus && toStatus !== fromStatus) {
+          events.push({
+            actorId: fromActorId,
+            kind: "status_changed",
+            issueId: row.issueId,
+            at: row.createdAt.toISOString(),
+            fromStatus,
+            toStatus,
+          });
+        }
+      }
       if (row.action.includes("assign")) {
         events.push({ actorId: fromActorId, kind: "assigned", issueId: row.issueId, at: row.createdAt.toISOString() });
-        const details = row.details && typeof row.details === "object" && !Array.isArray(row.details)
-          ? row.details as Record<string, unknown>
-          : {};
         const targetAgentId = readString(details.assigneeAgentId) ?? readString(details.toAgentId);
         const targetUserId = readString(details.assigneeUserId) ?? readString(details.toUserId);
         const toActorId = targetAgentId

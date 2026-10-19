@@ -64,6 +64,9 @@ function result(overrides: Partial<WorkTimelineResult> = {}): WorkTimelineResult
       costUsd: 0.12,
     }],
     events: [
+      { actorId: "user:user-1", kind: "status_changed", issueId: "issue-1", at: new Date(now - 4 * 60 * 60 * 1000).toISOString(), fromStatus: null, toStatus: "backlog" },
+      { actorId: "user:user-1", kind: "status_changed", issueId: "issue-1", at: new Date(now - 2.5 * 60 * 60 * 1000).toISOString(), fromStatus: "backlog", toStatus: "todo" },
+      { actorId: "agent:agent-1", kind: "status_changed", issueId: "issue-1", at: new Date(now - 2 * 60 * 60 * 1000).toISOString(), fromStatus: "todo", toStatus: "in_progress" },
       { actorId: "agent:agent-1", kind: "commented", issueId: "issue-1", at: new Date(now - 90 * 60 * 1000).toISOString() },
       { actorId: "user:user-1", kind: "approved", issueId: "issue-1", at: new Date(now - 80 * 60 * 1000).toISOString() },
     ],
@@ -127,12 +130,14 @@ describe("IssueExecutionTimeline", () => {
       expect(container.textContent).toContain("Queue");
       expect(container.textContent).toContain("Execution");
       expect(container.textContent).toContain("Paused / waiting");
+      expect(container.textContent).toContain("Backlog / blocked");
       expect(container.querySelector('a[aria-label="PAP-1 task bar"]')).not.toBeNull();
+      expect(container.querySelectorAll('[data-segment-kind="backlog"]').length).toBe(1);
       expect(container.querySelectorAll('[data-segment-kind="queue"]').length).toBe(1);
       expect(container.querySelectorAll('[data-segment-kind="execution"]').length).toBe(1);
       expect(container.querySelectorAll('[data-segment-kind="paused"]').length).toBe(1);
       expect(container.textContent).toContain("Handoffs / delegation");
-      expect(container.textContent).toContain("Coder to Reviewer");
+      expect(container.textContent).toContain("Coder to Board / operator (Reviewer)");
     });
 
     expect(mockGet).toHaveBeenCalledWith("company-1", expect.objectContaining({

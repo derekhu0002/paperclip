@@ -7,7 +7,7 @@ import type { AgentAppearance } from "../agent-appearance.js";
  */
 
 export type TimelineActorType = "agent" | "user" | "system" | "plugin";
-export type TimelineEventKind = "created" | "commented" | "approved" | "delegated" | "assigned";
+export type TimelineEventKind = "created" | "commented" | "approved" | "delegated" | "assigned" | "status_changed";
 export type TimelineEdgeKind = "delegation" | "assignment" | "mention";
 
 export interface WorkTimelineActor {
@@ -52,6 +52,10 @@ export interface WorkTimelineEvent {
   issueId: string;
   /** ISO timestamp. */
   at: string;
+  /** Present for `status_changed`; previous status, or null for the initial status. */
+  fromStatus?: string | null;
+  /** Present for `status_changed`; new status. */
+  toStatus?: string | null;
 }
 
 export interface WorkTimelineEdge {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Issue, WorkTimelineSpan } from "@paperclipai/shared";
+import type { Issue, WorkTimelineEvent, WorkTimelineSpan } from "@paperclipai/shared";
 import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router";
@@ -19,7 +19,7 @@ const WINDOW_MS: Record<ExecutionWindow, number> = {
 const TICK_COUNT = 4;
 const EXECUTION_STATUSES = new Set(["running", "succeeded", "completed", "failed", "timed_out", "cancelled"]);
 
-type SegmentKind = "queue" | "execution" | "paused";
+type SegmentKind = "backlog" | "queue" | "execution" | "paused";
 
 interface TaskSegment {
   kind: SegmentKind;
@@ -52,15 +52,24 @@ interface IssueExecutionTimelineProps {
 }
 
 function segmentColor(kind: SegmentKind) {
+  if (kind === "backlog") return "var(--status-task-backlog)";
   if (kind === "queue") return "var(--status-task-todo)";
   if (kind === "execution") return "var(--status-task-done)";
   return "var(--muted-foreground)";
 }
 
 function segmentLabel(kind: SegmentKind) {
+  if (kind === "backlog") return "Backlog / blocked";
   if (kind === "queue") return "Queue";
   if (kind === "execution") return "Execution";
   return "Paused";
+}
+
+function actorLabel(actorById: ReadonlyMap<string, { name: string; type: string }>, actorId: string) {
+  const actor = actorById.get(actorId);
+  if (!actor) return actorId.slice(0, 8);
+  if (actor.type === "user") return `Board / operator (${actor.name})`;
+  return actor.name;
 }
 
 function formatTick(iso: string, timeWindow: ExecutionWindow) {
@@ -87,9 +96,16 @@ function mergeIntervals(intervals: Array<{ start: number; end: number }>) {
   return merged;
 }
 
+function statusSegmentKind(status: string | null): SegmentKind {
+  if (status === "backlog" || status === "blocked") return "backlog";
+  if (status === "todo" || status === "in_progress") return "queue";
+  return "paused";
+}
+
 function buildTaskBar(
   issue: Issue,
   spans: WorkTimelineSpan[],
+  statusEvents: WorkTimelineEvent[],
   windowFrom: number,
   windowTo: number,
 ): TaskBar | null {
@@ -115,32 +131,59 @@ function buildTaskBar(
     })
     .filter((interval) => Number.isFinite(interval.start) && Number.isFinite(interval.end) && interval.end > interval.start));
 
+  const changes = statusEvents
+    .filter((event) => event.issueId === issue.id && event.kind === "status_changed")
+    .map((event) => ({ at: Date.parse(event.at), status: event.toStatus ?? null }))
+    .filter((event) => Number.isFinite(event.at))
+    .sort((left, right) => left.at - right.at);
+  const beforeStart = changes.filter((event) => event.at <= visibleStart).pop();
+  const firstAfter = changes.find((event) => event.at > visibleStart);
+  const initialStatus = beforeStart?.status ?? firstAfter?.status ?? (changes.length > 0 ? null : "todo") ?? issue.status;
+  const statusAt = (at: number) => {
+    let status: string | null = initialStatus;
+    for (const change of changes) {
+      if (change.at > at) break;
+      status = change.status;
+    }
+    return status;
+  };
+
+  const boundaries = new Set<number>([visibleStart, visibleEnd]);
+  for (const change of changes) {
+    if (change.at > visibleStart && change.at < visibleEnd) boundaries.add(change.at);
+  }
+  for (const interval of executionIntervals) {
+    boundaries.add(interval.start);
+    boundaries.add(interval.end);
+  }
+  const ordered = Array.from(boundaries).filter((value) => value >= visibleStart && value <= visibleEnd).sort((left, right) => left - right);
   const segments: TaskSegment[] = [];
-  const pushSegment = (kind: SegmentKind, segmentStart: number, segmentEnd: number) => {
-    if (segmentEnd <= segmentStart) return;
+  for (let index = 0; index < ordered.length - 1; index += 1) {
+    const segmentStart = ordered[index]!;
+    const segmentEnd = ordered[index + 1]!;
+    if (segmentEnd <= segmentStart) continue;
+    const executing = executionIntervals.some((interval) => interval.start < segmentEnd && interval.end > segmentStart);
+    const status = statusAt(segmentStart);
+    const hasExecutedBefore = executionIntervals.some((interval) => interval.end <= segmentStart);
+    const kind = executing
+      ? "execution"
+      : status === "in_progress" && hasExecutedBefore
+        ? "paused"
+        : statusSegmentKind(status);
     segments.push({
       kind,
       left: ((segmentStart - visibleStart) / total) * 100,
       width: ((segmentEnd - segmentStart) / total) * 100,
       durationMs: segmentEnd - segmentStart,
     });
-  };
-
-  let cursor = visibleStart;
-  let hasExecution = false;
-  for (const interval of executionIntervals) {
-    if (interval.start > cursor) {
-      pushSegment(hasExecution ? "paused" : "queue", cursor, interval.start);
-    }
-    pushSegment("execution", interval.start, interval.end);
-    cursor = Math.max(cursor, interval.end);
-    hasExecution = true;
-  }
-  if (cursor < visibleEnd) {
-    pushSegment(hasExecution ? "paused" : "queue", cursor, visibleEnd);
   }
   if (segments.length === 0) {
-    pushSegment("queue", visibleStart, visibleEnd);
+    segments.push({
+      kind: "queue",
+      left: 0,
+      width: 100,
+      durationMs: visibleEnd - visibleStart,
+    });
   }
 
   return {
@@ -243,7 +286,8 @@ export function IssueExecutionTimeline({
     if (!scopedData) return [];
     return issues.flatMap((issue) => {
       const spans = scopedData.spans.filter((span) => span.issueId === issue.id);
-      const bar = buildTaskBar(issue, spans, windowFrom, windowTo);
+      const statusEvents = scopedData.events.filter((event) => event.issueId === issue.id);
+      const bar = buildTaskBar(issue, spans, statusEvents, windowFrom, windowTo);
       return bar ? [bar] : [];
     });
   }, [issues, scopedData, windowFrom, windowTo]);
@@ -259,6 +303,7 @@ export function IssueExecutionTimeline({
     () => (scopedData?.edges ?? []).slice().sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime()),
     [scopedData?.edges],
   );
+  const hasBoardSource = handoffs.some((edge) => actorById.get(edge.fromActorId)?.type === "user");
   const truncated = issues.length > issueIds.length;
 
   if (!enabled) {
@@ -300,6 +345,10 @@ export function IssueExecutionTimeline({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: segmentColor("backlog") }} />
+            Backlog / blocked
+          </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: segmentColor("queue") }} />
             Queue
@@ -428,12 +477,17 @@ export function IssueExecutionTimeline({
 
       <div className="rounded-lg border border-border bg-card">
         <div className="border-b border-border px-3 py-2 text-xs font-medium">Handoffs / delegation</div>
+        {hasBoardSource ? (
+          <div className="border-b border-border/60 px-3 py-2 text-(length:--text-nano) text-muted-foreground">
+            Assignment source is the task creator. Board/operator-created tasks show Board / operator to Agent; tasks created by manager or purple show Agent to Agent.
+          </div>
+        ) : null}
         {handoffs.length > 0 ? (
           <div>
             {handoffs.map((edge, index) => {
               const issue = issues.find((candidate) => candidate.id === edge.issueId);
-              const source = actorById.get(edge.fromActorId)?.name ?? edge.fromActorId.slice(0, 8);
-              const target = actorById.get(edge.toActorId)?.name ?? edge.toActorId.slice(0, 8);
+              const source = actorLabel(actorById, edge.fromActorId);
+              const target = actorLabel(actorById, edge.toActorId);
               return (
                 <div key={`${edge.kind}:${edge.issueId}:${edge.at}:${index}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/60 px-3 py-2 text-xs last:border-b-0">
                   <span className="font-medium">{issue?.identifier ?? edge.issueId.slice(0, 8)}</span>
