@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Create a standalone Paperclip decision with a bounded project-graph context.
+ * Create a Paperclip board approval with a bounded project-graph context.
  *
- * This is the agent-side Phase 1 helper. It reads the project's canonical
+ * This is the agent-side approval helper. It reads the project's canonical
  * design/KG/SystemArchitecture.json (or --graph), normalizes the graph, picks
- * focus nodes, and adds metadata.graphContext before POSTing the decision.
+ * focus nodes, and adds payload.graphContext before POSTing the approval.
  * It never writes the graph.
  */
 import { createHash } from "node:crypto";

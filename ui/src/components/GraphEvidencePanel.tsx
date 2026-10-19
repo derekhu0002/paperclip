@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import type { DecisionGraph, DecisionGraphContext, DecisionGraphNode } from "@paperclipai/shared";
 import { cn } from "../lib/utils";
 
@@ -14,13 +14,18 @@ function visibleGraph(context: DecisionGraphContext): DecisionGraph {
 
 function layout(graph: DecisionGraph): PositionedNode[] {
   const nodes = graph.nodes.slice(0, 12);
+  const innerCount = Math.max(Math.min(nodes.length - 1, 5), 1);
   return nodes.map((node, index) => {
-    const angle = (Math.PI * 2 * index) / Math.max(nodes.length, 1) - Math.PI / 2;
-    const radius = index === 0 ? 0 : 0.34;
+    if (index === 0) return { ...node, x: 50, y: 50 };
+    const inner = index <= innerCount;
+    const ringIndex = inner ? index - 1 : index - innerCount - 1;
+    const ringCount = inner ? innerCount : nodes.length - innerCount - 1;
+    const angle = (Math.PI * 2 * ringIndex) / Math.max(ringCount, 1) - Math.PI / 2;
+    const radius = inner ? 21 : 37;
     return {
       ...node,
-      x: 50 + Math.cos(angle) * radius * 100,
-      y: 50 + Math.sin(angle) * radius * 100,
+      x: 50 + Math.cos(angle) * radius,
+      y: 50 + Math.sin(angle) * radius,
     };
   });
 }
@@ -59,7 +64,7 @@ export function GraphEvidencePanel({ context }: { context: DecisionGraphContext 
           {graph.nodes.length} nodes · {graph.edges.length} relationships
         </span>
       </div>
-      <svg viewBox="0 0 100 100" className="h-40 w-full" role="img" aria-label="Graph evidence subgraph">
+      <svg viewBox="0 0 100 100" className="h-72 w-full" role="img" aria-label="Graph evidence subgraph">
         {graph.edges.map((edge, index) => {
           const source = byId.get(edge.sourceId);
           const target = byId.get(edge.targetId);
@@ -78,6 +83,7 @@ export function GraphEvidencePanel({ context }: { context: DecisionGraphContext 
         })}
         {positions.map((node) => (
           <g key={node.id}>
+            <title>{`${node.name}${node.type ? ` (${node.type})` : ""}`}</title>
             <circle
               cx={node.x}
               cy={node.y}
@@ -86,12 +92,12 @@ export function GraphEvidencePanel({ context }: { context: DecisionGraphContext 
             />
             <text
               x={node.x}
-              y={node.y + 7.8}
+              y={node.y + 7.2}
               textAnchor="middle"
-              fontSize={2.5}
+              fontSize={3.6}
               className="fill-foreground"
             >
-              {node.name.length > 22 ? `${node.name.slice(0, 21)}…` : node.name}
+              {node.name.length > 10 ? `${node.name.slice(0, 9)}...` : node.name}
             </text>
           </g>
         ))}
