@@ -20,6 +20,12 @@ type Wake = (input: { companyId: string; agentId: string; issueId: string; decis
 export type DecisionServiceOptions = { wakeOriginAgent: Wake };
 const DAY = 86_400_000;
 
+function decisionMetadataForList(metadata: Record<string, unknown> | null | undefined) {
+  if (!metadata || typeof metadata.graphContext !== "object" || metadata.graphContext === null) return metadata ?? {};
+  const graphContext = metadata.graphContext as Record<string, unknown>;
+  const { graph: _graph, ...summary } = graphContext;
+  return { ...metadata, graphContext: summary };
+}
 function targetIds(options: DecisionOption[]) {
   const result = new Set<string>();
   for (const option of options) for (const effect of option.effects) for (const id of decisionEffectTargetIssueIds(effect)) result.add(id);
@@ -310,6 +316,7 @@ export function decisionService(db: Db, options: DecisionServiceOptions) {
       executionsByDecision.set(execution.decisionId, grouped);
     }
     return rows.map((decision) => {
+      const metadata = decisionMetadataForList(decision.metadata);
       const changed: Record<string, boolean> = {};
       if (decision.status === "open") for (const [id, snapshot] of Object.entries(decision.targetSnapshots as Record<string, Snapshot>)) {
         if (id.startsWith("attention:")) {
@@ -322,7 +329,7 @@ export function decisionService(db: Db, options: DecisionServiceOptions) {
         const currentUpdatedAt = currentTargetsById.get(id);
         changed[id] = !currentUpdatedAt || currentUpdatedAt.toISOString() !== snapshot.updatedAt;
       }
-      return { ...decision, targetChanged: changed,
+      return { ...decision, metadata, targetChanged: changed,
         ...(decision.status === "open" ? {} : { executions: executionsByDecision.get(decision.id) ?? [] }) };
     });
   }
@@ -767,7 +774,7 @@ export function decisionService(db: Db, options: DecisionServiceOptions) {
       // A decision whose strict targets all completed after it was proposed is moot:
       // the strict guard would skip its effects anyway, so retire it instead of
       // leaving it pending until TTL. Targets that were already done at proposal
-      // time don't count — those decisions intentionally act on a done issue.
+      // time don't count 鈥?those decisions intentionally act on a done issue.
       const snapshots = decision.targetSnapshots as Record<string, Snapshot>;
       const targetsCompleted = !targetGone && strictTargetIds.size > 0 &&
         targets.every((target) => target.status === "done") &&

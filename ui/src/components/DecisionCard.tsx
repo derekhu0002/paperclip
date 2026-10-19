@@ -11,7 +11,7 @@ import {
   ShieldAlert,
   XCircle,
 } from "lucide-react";
-import { decisionEffectTargetIssueIds, type DecisionEffect, type DecisionOption } from "@paperclipai/shared";
+import { decisionEffectTargetIssueIds, parseDecisionGraphContext, type DecisionEffect, type DecisionOption } from "@paperclipai/shared";
 import type {
   Decision,
   DecisionEffectExecution,
@@ -22,6 +22,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 import { MarkdownBody } from "./MarkdownBody";
+import { DecisionGraphPreview } from "./DecisionGraphPreview";
 
 /**
  * Presentational card for a single Decisions-v1 decision (PAP-14966 / PAP-14939
@@ -384,6 +385,13 @@ export function DecisionCard({
           <MarkdownBody>{decision.body}</MarkdownBody>
         </div>
       )}
+
+      {(() => {
+        const graphContext = parseDecisionGraphContext(
+          (decision.metadata as { graphContext?: unknown } | null)?.graphContext,
+        );
+        return graphContext ? <DecisionGraphPreview decisionId={decision.id} context={graphContext} /> : null;
+      })()}
 
       {/* Stale-target warning (open only) */}
       {open && isStale && (
