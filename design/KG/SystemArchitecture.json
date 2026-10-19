@@ -270,6 +270,26 @@
           "name": "commit",
           "value": "a672e478e3c83beec658f711fa608c745f4a9a14",
           "description": "design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "taskStartupFix",
+          "value": "2026-10-19: 启动方式已修正为标准路径——创建/改派 issue 并设 assigneeAgentId + status=todo，服务端自动入队 issue_assigned wake；不再用空 /heartbeat/invoke 或 heartbeat run 启动任务。已更新 skills/paperclip/SKILL.md、skills/paperclip/references/workflows.md、new-era-cybersecurity-strategy/AGENTS.md 7.1、WSL+Windows 全局 AGENTS.md。证据：VSO-11 wake 93e0808b assignment/system，02:35:20.567 入队，02:37:15.405 claimed（手动 run a15fd934 结束后），run 2fc4c50c。文件未提交。"
+        },
+        {
+          "name": "graphMcpIsolation",
+          "value": "2026-10-19: vsoc 6 Agent 已切换为 /usr/local/bin/opencode-vsoc；私有 mount namespace 内用 /root/.config/opencode/opencode-vsoc.json 覆盖两份全局配置，移除 graph-mcp，只保留 argo；并 bind /root/.config/opencode/hosts-vsoc 将 argo.derekworkspacev5.com 指到 127.0.0.1/::1，禁用 project config。关键坑：必须保留 Paperclip 注入的 OPENCODE_CONFIG_CONTENT/OPENCODE_CONFIG/OPENCODE_CONFIG_DIR，否则 paperclip provider baseURL 丢失，报 \"undefined/chat/completions\"；第一轮 VSO-12 三次失败即此因，修复后 run 29b88f6a 成功。VSO-12 done，agent 报告 opencode-vsoc 与 plain opencode 均只见 argo，graph-mcp unavailable。其他 3 个 Agent command 未改。备份 /tmp/vsoc-graph-mcp-off-before.json。"
+        },
+        {
+          "name": "graphMcpFederationRemoved",
+          "value": "2026-10-19: vsoc 6 个成员已从 graph-mcp 联邦中心注销（blue/green/intel/purple/red + new-era-cybersecurity-strategy）。discover 25→19，mirror 25→19；所有 6 个 mirror databaseDropped/workspaceRemoved。验证 requester=archgraph 读 archgraph-agent-red 返回 member_not_found。其余 19 个成员/镜像不受影响。green 的 registry commit 成功，另外 5 个 commit 失败但删除已生效。"
+        },
+        {
+          "name": "graphMcpEnvSanitizer",
+          "value": "2026-10-19: opencode-vsoc 保留 OPENCODE_CONFIG_CONTENT 以维持 paperclip provider，但解析并删除 top-level mcp 后再注入；合成测试显示 mcp 仅 argo、provider baseURL 保留。VSO-12 run 29b88f6a 已用前一版成功；本版仅加 sanitizer，不改变正常 Paperclip 内容。"
+        },
+        {
+          "name": "executionViewPhase1",
+          "value": "2026-10-19: Paperclip Tasks Execution view Phase 1 implemented (uncommitted). Added third viewMode execution with By task/By agent lanes and 24h/7d/30d window persisted per company; work timeline issueIds filter (max 200, UUID-validated) added to /api/companies/:companyId/timeline; span costUsd added; new ui/src/components/IssueExecutionTimeline.tsx renders run bars, event markers, hover status/duration/tokens/cost, click-through. Tests: IssueExecutionTimeline (3), IssuesList (2 new, 55 total), work-timeline-service (9), openapi-routes (21); UI typecheck/build, token gates, check-maps passed. Server tsc passed; pnpm -C server typecheck blocked by pre-existing Windows d: URL bug in check:protocol-coverage. Capability inventory line anchors regenerated after prior SKILL.md insertion. Files: packages/shared/src/types/work-timeline.ts, server/src/services/work-timeline.ts, server/src/routes/companies.ts, server/src/routes/openapi.ts, server/src/__tests__/work-timeline-service.test.ts, ui/src/api/workTimeline.ts, ui/src/components/IssuesList.tsx, ui/src/components/IssueExecutionTimeline.tsx, ui/src/components/IssueExecutionTimeline.test.tsx, ui/src/components/IssuesList.test.tsx, maps/feature-map/tasks.md, maps/agent-access-map/tasks.md, packages/paperclip-runner capability inventory/docs."
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
@@ -425,6 +445,26 @@
         {
           "name": "scope",
           "value": "all future projects/agents on the Paperclip instance"
+        },
+        {
+          "name": "taskStartup",
+          "value": "2026-10-19: 启动任务只通过 issue create/reassign（assigneeAgentId + status=todo）；服务端自动入队 issue_assigned wake。禁止用 /heartbeat/invoke 或 heartbeat run 启动 issue；空手动 wake 会占用 maxConcurrentRuns=1 槽位并使真实 assignment run 排队。证据：VSO-11 wake 93e0808b source=assignment/trigger=system，requested 02:35:20.567，claimed 02:37:15.405（手动 run a15fd934 结束后），run=2fc4c50c。文档：skills/paperclip/SKILL.md、references/workflows.md、manager AGENTS.md 7.1、全局 AGENTS Task startup。"
+        },
+        {
+          "name": "graphMcpBoundary",
+          "value": "2026-10-19: vsoc 6 agents (manager 3904be0a + purple 79ba038c + intel 94cfe6f7 + red a6fca18d + blue a5bc9a2e + green 63422ff6) adapter_config.command=/usr/local/bin/opencode-vsoc. Wrapper creates a private mount namespace and bind-mounts /root/.config/opencode/opencode-vsoc.json over /etc/opencode/opencode.json and /root/.config/opencode/opencode.json; vsoc config keeps local argo MCP + plugins/instructions/skills, removes graph-mcp. It also bind-mounts /root/.config/opencode/hosts-vsoc over /etc/hosts, mapping argo.derekworkspacev5.com to 127.0.0.1 and ::1, and sets OPENCODE_DISABLE_PROJECT_CONFIG=1. It MUST preserve Paperclip-injected OPENCODE_CONFIG/OPENCODE_CONFIG_CONTENT/OPENCODE_CONFIG_DIR (the paperclip provider baseURL/apiKey ride in OPENCODE_CONFIG_CONTENT); unsetting them caused undefined/chat/completions. Verified live: VSO-12 run 29b88f6a succeeded; agent reported opencode-vsoc mcp list and plain opencode mcp list both show only argo, graph-mcp unavailable. Other 3 agents unchanged. DB backup /tmp/vsoc-graph-mcp-off-before.json. Project rules updated in manager + 5 specialist AGENTS.md. Boundary is runtime MCP + hostname block, not a root/network sandbox: direct-IP or DoH egress remains possible."
+        },
+        {
+          "name": "graphMcpFederationRemoved",
+          "value": "2026-10-19: 已从 graph-mcp 联邦中心注销 6 个 vsoc 成员：archgraph-agent-blue/green/intel/purple/red + new-era-cybersecurity-strategy。中心 discover 25→19，mirror_list 25→19；6 个 mirror 均 databaseDropped=true/workspaceRemoved=true。外部读取验证：requester=archgraph 读 archgraph-agent-red 返回 status=denied reason=member_not_found。其余 19 个成员与镜像不变。5 个 deregister 的 registry git commit 报失败（green 成功），但 membership/mirror 删除已生效。"
+        },
+        {
+          "name": "graphMcpLiveCheck",
+          "value": "2026-10-19: VSO-12 fa3a9149-c2d6-4339-a92f-d4b7e9bb5484 (STARTUP-CHECK: graph-mcp isolation) assigned to purple. Initial run 1a0d7e72 assignment/system failed adapter_failed \"undefined/chat/completions\" because wrapper unset OPENCODE_CONFIG_CONTENT; two automation retries failed likewise; issue blocked. Fixed wrapper to preserve Paperclip provider env. Retry run 29b88f6a (automation/system, status change blocked→todo) succeeded in 32.7s; agent comment: opencode-vsoc mcp list and opencode mcp list each show 1 server argo; graph-mcp unavailable; issue done. No manual heartbeat invoke used. Temporary board key deleted; no tmp-vsoc keys remain."
+        },
+        {
+          "name": "graphMcpEnvSanitizer",
+          "value": "2026-10-19: opencode-vsoc preserves Paperclip OPENCODE_CONFIG_CONTENT (provider baseURL/apiKey) but parses it, removes any top-level mcp key, and re-exports; verified with synthetic content containing provider paperclip + graph-mcp + argo: resolved mcp only argo, provider baseURL preserved. Normal Paperclip content has no mcp; sanitizer is defense-in-depth."
         }
       ],
       "id": "agent-heartbeat"
