@@ -1708,6 +1708,18 @@ async function startServerWithDatabaseTeardown(
             .catch((err) => {
               logger.error({ err }, "heartbeat timer tick failed");
             }));
+          if (typeof heartbeat.tickIdleWatchdog === "function") {
+            trackHeartbeatSchedulerWork(heartbeat
+              .tickIdleWatchdog(new Date())
+              .then((result) => {
+                if (result.enqueued > 0) {
+                  logger.info({ ...result }, "idle watchdog enqueued runs");
+                }
+              })
+              .catch((err) => {
+                logger.error({ err }, "idle watchdog tick failed");
+              }));
+          }
         }
 
         if (isIdleTaskDrainActive() || heartbeatSchedulerStopped) return;

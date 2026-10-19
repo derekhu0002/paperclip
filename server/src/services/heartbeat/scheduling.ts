@@ -21,6 +21,7 @@ import {
   desc,
   sql,
   isNull,
+  isNotNull,
   inArray,
   or,
   lt,
@@ -1152,6 +1153,154 @@ export function createHeartbeatScheduling(
     return { scanned: pending.length, enqueued, alreadyQueued, invalid };
   }
 
+  const IDLE_WATCHDOG_MAX_DISPATCHES = 10;
+
+  /**
+   * Last-resort dispatcher for a company that has no live execution but does
+   * have an assigned `todo` issue. Ordinary timer wakes are intentionally
+   * skipped when an agent has no actionable work; this pass exists for the
+   * narrower failure mode where the work exists but no run or wake is moving.
+   *
+   * It never overrides an active run and it dispatches at most one task per
+   * agent per tick. The normal assignment/status wake remains the primary path.
+   */
+  async function tickIdleWatchdog(now = new Date()) {
+    if ((await getSchedulingSuppression()).suppressed) {
+      return { checked: 0, enqueued: 0, skipped: 0 };
+    }
+
+    const [allAgents, activeRunRows, candidates] = await Promise.all([
+      db
+        .select({ ...getTableColumns(agents) })
+        .from(agents)
+        .innerJoin(companies, eq(companies.id, agents.companyId))
+        .where(eq(companies.status, "active")),
+      db
+        .select({ companyId: heartbeatRuns.companyId })
+        .from(heartbeatRuns)
+        .where(inArray(heartbeatRuns.status, ["queued", "running"]))
+        .groupBy(heartbeatRuns.companyId),
+      db
+        .select({
+          id: issues.id,
+          companyId: issues.companyId,
+          assigneeAgentId: issues.assigneeAgentId,
+          statusVersion: issues.statusVersion,
+          updatedAt: issues.updatedAt,
+        })
+        .from(issues)
+        .innerJoin(companies, eq(companies.id, issues.companyId))
+        .where(
+          and(
+            eq(companies.status, "active"),
+            eq(issues.status, "todo"),
+            isNotNull(issues.assigneeAgentId),
+            isNull(issues.assigneeUserId),
+            isNull(issues.hiddenAt),
+            isNull(issues.conversationAgentId),
+          ),
+        )
+        .orderBy(asc(issues.updatedAt))
+        .limit(100),
+    ]);
+
+    const agentsByCompany = groupAgentOrgRowsByCompany(
+      allAgents.map(toAgentOrgRow),
+    );
+    const agentsById = new Map(allAgents.map((agent) => [agent.id, agent]));
+    const activeCompanies = new Set(activeRunRows.map((row) => row.companyId));
+    const dispatchedAgents = new Set<string>();
+    let enqueued = 0;
+    let skipped = 0;
+
+    for (const candidate of candidates) {
+      if (enqueued >= IDLE_WATCHDOG_MAX_DISPATCHES) break;
+      const agentId = candidate.assigneeAgentId;
+      if (!agentId || activeCompanies.has(candidate.companyId)) {
+        skipped += 1;
+        continue;
+      }
+      if (dispatchedAgents.has(agentId)) {
+        skipped += 1;
+        continue;
+      }
+      const agent = agentsById.get(agentId);
+      if (!agent) {
+        skipped += 1;
+        continue;
+      }
+      const invokability = evaluateAgentInvokability(
+        toAgentOrgRow(agent),
+        agentsByCompany.get(candidate.companyId) ?? [],
+      );
+      if (!invokability.invokable) {
+        skipped += 1;
+        continue;
+      }
+
+      const idempotencyKey = [
+        "idle-watchdog",
+        candidate.id,
+        String(candidate.statusVersion ?? 0),
+        candidate.updatedAt.toISOString(),
+      ].join(":");
+      try {
+        const run = await enqueueWakeup(agentId, {
+          source: "automation",
+          triggerDetail: "system",
+          reason: "idle_watchdog",
+          idempotencyKey,
+          payload: {
+            issueId: candidate.id,
+            source: "idle_watchdog",
+          },
+          requestedByActorType: "system",
+          requestedByActorId: "idle_watchdog",
+          contextSnapshot: {
+            issueId: candidate.id,
+            taskId: candidate.id,
+            source: "idle_watchdog",
+            wakeReason: "idle_watchdog",
+          },
+        });
+        if (!run) {
+          skipped += 1;
+          continue;
+        }
+        enqueued += 1;
+        dispatchedAgents.add(agentId);
+        await logActivity(db, {
+          companyId: candidate.companyId,
+          actorType: "system",
+          actorId: "idle_watchdog",
+          agentId,
+          runId: run.id,
+          action: "issue.idle_watchdog_dispatched",
+          entityType: "issue",
+          entityId: candidate.id,
+          details: {
+            issueId: candidate.id,
+            agentId,
+            idempotencyKey,
+            reason: "company had no queued/running agent run",
+          },
+        });
+        logger.warn(
+          { companyId: candidate.companyId, issueId: candidate.id, agentId },
+          "idle watchdog dispatched an assigned todo issue with no active run",
+        );
+      } catch (err) {
+        skipped += 1;
+        logger.error(
+          { err, companyId: candidate.companyId, issueId: candidate.id, agentId },
+          "idle watchdog failed to dispatch an assigned todo issue",
+        );
+      }
+    }
+
+    return { checked: candidates.length, enqueued, skipped };
+  }
+
   async function tickTimers(now = new Date()) {
       if ((await getSchedulingSuppression()).suppressed) {
         return {
@@ -1242,6 +1391,7 @@ export function createHeartbeatScheduling(
   return {
     triggerIssueMonitor,
     tickTimers,
+    tickIdleWatchdog,
     recoverActiveSessionGoals,
     recoverPendingSessionGoalActions,
   };

@@ -15637,6 +15637,43 @@ export function issueRoutes(
         if (becameDone) {
           const dependents = await svc.listWakeableBlockedDependents(issue.id);
           for (const dependent of dependents) {
+            let dependencyReady = dependent.status !== "blocked";
+            if (dependent.status === "blocked") {
+              const released = await svc.autoReleaseBlockedDependent({
+                issueId: dependent.id,
+                companyId: issue.companyId,
+                blockerIssueId: issue.id,
+              });
+              dependencyReady = released?.status === "todo";
+              if (!dependencyReady) {
+                logger.warn(
+                  { issueId: dependent.id, blockerIssueId: issue.id },
+                  "failed to auto-release blocked dependent after blocker completion",
+                );
+                continue;
+              }
+              await logActivity(db, {
+                companyId: issue.companyId,
+                actorType: "system",
+                actorId: "issue_dependency_auto_release",
+                agentId: dependent.assigneeAgentId,
+                runId: actor.runId,
+                agentApiKeyId: actor.agentApiKeyId,
+                action: "issue.updated",
+                entityType: "issue",
+                entityId: dependent.id,
+                details: {
+                  source: "dependency_auto_release",
+                  autoReleased: true,
+                  status: "todo",
+                  changes: { status: { from: "blocked", to: "todo" } },
+                  _previous: { status: "blocked" },
+                  blockerIssueId: issue.id,
+                  blockerIssueIds: dependent.blockerIssueIds,
+                },
+              });
+            }
+            if (!dependencyReady) continue;
             await addDependencyResolvedWakeup({
               agentId: dependent.assigneeAgentId,
               dependentIssueId: dependent.id,
@@ -19097,6 +19134,43 @@ export function issueRoutes(
             currentIssue.id,
           );
           for (const dependent of dependents) {
+            let dependencyReady = dependent.status !== "blocked";
+            if (dependent.status === "blocked") {
+              const released = await svc.autoReleaseBlockedDependent({
+                issueId: dependent.id,
+                companyId: currentIssue.companyId,
+                blockerIssueId: currentIssue.id,
+              });
+              dependencyReady = released?.status === "todo";
+              if (!dependencyReady) {
+                logger.warn(
+                  { issueId: dependent.id, blockerIssueId: currentIssue.id },
+                  "failed to auto-release blocked dependent after blocker completion",
+                );
+                continue;
+              }
+              await logActivity(db, {
+                companyId: currentIssue.companyId,
+                actorType: "system",
+                actorId: "issue_dependency_auto_release",
+                agentId: dependent.assigneeAgentId,
+                runId: actor.runId,
+                agentApiKeyId: actor.agentApiKeyId,
+                action: "issue.updated",
+                entityType: "issue",
+                entityId: dependent.id,
+                details: {
+                  source: "dependency_auto_release",
+                  autoReleased: true,
+                  status: "todo",
+                  changes: { status: { from: "blocked", to: "todo" } },
+                  _previous: { status: "blocked" },
+                  blockerIssueId: currentIssue.id,
+                  blockerIssueIds: dependent.blockerIssueIds,
+                },
+              });
+            }
+            if (!dependencyReady) continue;
             await addDependencyResolvedWakeup({
               agentId: dependent.assigneeAgentId,
               dependentIssueId: dependent.id,

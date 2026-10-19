@@ -1501,6 +1501,7 @@ export function heartbeatService(
   const {
     triggerIssueMonitor,
     tickTimers,
+    tickIdleWatchdog,
     recoverActiveSessionGoals,
     recoverPendingSessionGoalActions,
   } = createHeartbeatScheduling(db, {
@@ -4113,6 +4114,8 @@ export function heartbeatService(
     buildRunOutputSilence,
 
     tickTimers,
+
+    tickIdleWatchdog,
 
     cancelRun: (runId: string, reason?: string, options?: CancelRunOptions) =>
       cancelRunInternal(runId, reason, options),

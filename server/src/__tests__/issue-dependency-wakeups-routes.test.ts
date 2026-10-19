@@ -28,6 +28,7 @@ const mockIssueService = vi.hoisted(() => ({
   getRelationSummaries: vi.fn(),
   update: vi.fn(),
   getDependencyReadiness: vi.fn(),
+  autoReleaseBlockedDependent: vi.fn(),
   listWakeableBlockedDependents: vi.fn(),
   getWakeableParentAfterChildCompletion: vi.fn(),
   findMentionedAgents: vi.fn(async () => []),
@@ -228,13 +229,23 @@ describe("issue dependency wakeups in issue routes", () => {
       {
         id: "issue-2",
         assigneeAgentId: "agent-2",
+        status: "blocked",
         blockerIssueIds: ["issue-1", "issue-3"],
       },
     ]);
+    mockIssueService.autoReleaseBlockedDependent.mockResolvedValue({
+      id: "issue-2",
+      status: "todo",
+    });
 
     const res = await request(await createApp()).patch("/api/issues/issue-1").send({ status: "done" });
     expect(res.status).toBe(200);
     await vi.waitFor(() => {
+      expect(mockIssueService.autoReleaseBlockedDependent).toHaveBeenCalledWith({
+        issueId: "issue-2",
+        companyId: "company-1",
+        blockerIssueId: "issue-1",
+      });
       expect(mockWakeup).toHaveBeenCalledWith(
         "agent-2",
         expect.objectContaining({

@@ -114,6 +114,42 @@ describe.skipIf(!postgres.supported)("heartbeat scheduling database boundary", (
     deps.parseHeartbeatPolicy.mockClear();
   }
 
+  it("dispatches an assigned todo issue when the company has no active run", async () => {
+    const [company] = await db.insert(companies).values({ name: "Idle watchdog", issuePrefix: "IDL" }).returning();
+    const [agent] = await db.insert(agents).values({
+      companyId: company.id,
+      name: "Idle agent",
+      adapterType: "paperclip_runner",
+      createdAt: dueAt,
+    }).returning();
+    const [issue] = await db.insert(issues).values({
+      companyId: company.id,
+      title: "Ready work",
+      status: "todo",
+      assigneeAgentId: agent.id,
+      createdAt: dueAt,
+    }).returning();
+    const deps = callbacks(db);
+    const scheduler = createHeartbeatScheduling(db, deps);
+
+    expect(await scheduler.tickIdleWatchdog(now)).toEqual({ checked: 1, enqueued: 1, skipped: 0 });
+    expect(deps.enqueueWakeup).toHaveBeenCalledWith(
+      agent.id,
+      expect.objectContaining({
+        reason: "idle_watchdog",
+        payload: expect.objectContaining({ issueId: issue.id }),
+      }),
+    );
+
+    await db.insert(heartbeatRuns).values({
+      companyId: company.id,
+      agentId: agent.id,
+      status: "running",
+      contextSnapshot: { issueId: issue.id },
+    });
+    expect(await scheduler.tickIdleWatchdog(now)).toEqual({ checked: 1, enqueued: 0, skipped: 1 });
+  });
+
   it("shares database monitor claims across scheduler instances", async () => {
     const f = await fixture();
     let release!: () => void;

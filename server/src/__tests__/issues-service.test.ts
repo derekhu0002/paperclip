@@ -4328,6 +4328,50 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     expect(wakeable[0]?.blockerIssueIds).toHaveLength(2);
   });
 
+  it("auto-releases a dependency-ready blocked issue to todo", async () => {
+    const companyId = randomUUID();
+    const assigneeAgentId = randomUUID();
+    await seedIssueCompany(db, companyId);
+    await seedCodexCoder(db, companyId, assigneeAgentId);
+
+    const blockerId = randomUUID();
+    const dependentId = randomUUID();
+    await db.insert(issues).values([
+      { id: blockerId, companyId, title: "Blocker", status: "done", priority: "medium" },
+      {
+        id: dependentId,
+        companyId,
+        title: "Dependent",
+        status: "blocked",
+        priority: "medium",
+        assigneeAgentId,
+      },
+    ]);
+    await svc.update(dependentId, { blockedByIssueIds: [blockerId] });
+
+    const released = await svc.autoReleaseBlockedDependent({
+      issueId: dependentId,
+      companyId,
+      blockerIssueId: blockerId,
+    });
+
+    expect(released).toMatchObject({ id: dependentId, status: "todo" });
+    const row = await db
+      .select({
+        status: issues.status,
+        statusVersion: issues.statusVersion,
+        blockedTransitionAt: issues.blockedTransitionAt,
+      })
+      .from(issues)
+      .where(eq(issues.id, dependentId))
+      .then((rows) => rows[0]!);
+    expect(row).toMatchObject({
+      status: "todo",
+      statusVersion: 1,
+      blockedTransitionAt: null,
+    });
+  });
+
   it("treats done blockers on a shared workspace as ready while a foreign issue is in-flight", async () => {
     const {
       companyId,

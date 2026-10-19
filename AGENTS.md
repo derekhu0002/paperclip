@@ -119,7 +119,16 @@ When you are creating a plan file in the repository itself, new plan documents b
 6. Attach inspectable generated artifacts.
 When your task produces a user-inspectable deliverable file, follow the Paperclip skill's "Generated Artifacts and Work Products" workflow before final disposition. In this repo, prefer the self-contained skill helper at `skills/paperclip/scripts/paperclip-upload-artifact.sh` so the file is available through the Paperclip API, create/update an artifact work product when the file is the deliverable, link the uploaded artifact in the final issue comment, and then set status. Do not rely on local filesystem paths as the only access path. If an important file intentionally remains workspace-only, create/update a work product with `metadata.resourceRef.kind: "workspace_file"` and a workspace-relative path, then name that work product and path in the final comment. Treat browse/search as a fallback for recovering workspace files, not the preferred deliverable path. See `doc/AGENT-ARTIFACTS.md` for details and `.mp4`/`.webm` examples.
 
-7. Name the three data paths correctly.
+7. Dispatch planned work from an explicit owner.
+Planned work must be created in `todo`, not parked in `backlog`. When work must
+wait, use first-class `blockedByIssueIds` and assign it to the owning
+Manager/Purple lane. The server auto-releases a dependency-ready `blocked` issue
+to `todo` and wakes its assignee; an idle watchdog also dispatches an assigned
+`todo` issue when the company has no queued/running run. Do not start work with an
+empty manual `heartbeat/invoke`; use issue creation or assignment. Reserve a
+manual wake for an explicit on-demand check with no issue.
+
+8. Name the three data paths correctly.
 This repo has three separate data paths. Do not confuse them. Match a change to a path by its file path, not by the word "observability" or "telemetry" alone.
 
 - **Telemetry** is the Paperclip first-party event system. It is opt-out and it sends data to a Paperclip endpoint by default. Its paths are:

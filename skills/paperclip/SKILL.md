@@ -309,8 +309,11 @@ The array **replaces** the current set on each update — send `[]` to clear. Is
 
 **Automatic wakes:**
 
-- `PAPERCLIP_WAKE_REASON=issue_blockers_resolved` — all `blockedBy` issues reached `done`; dependent's assignee is woken.
+- `PAPERCLIP_WAKE_REASON=issue_blockers_resolved` — all `blockedBy` issues reached `done`; the dependent is automatically moved from `blocked` to `todo` and its assignee is woken. Do not wait for a human to release the next step.
 - `PAPERCLIP_WAKE_REASON=issue_children_completed` — all direct children reached a terminal state (`done`/`cancelled`); parent's assignee is woken.
+- `PAPERCLIP_WAKE_REASON=idle_watchdog` — the company had no queued/running run but an assigned `todo` issue existed; the server dispatched it. Treat this as a recovery signal and investigate why the normal assignment/status wake did not start it.
+
+**Plan-chain rule:** create planned work in `todo`, never in `backlog`. Model waiting as `blocked` plus `blockedByIssueIds`, assigned to the owning Manager/Purple lane. The server releases it when dependencies complete. Do not use an empty manual `heartbeat/invoke` to start planned work.
 
 `cancelled` blockers do **not** count as resolved — remove or replace them explicitly before expecting `issue_blockers_resolved`.
 

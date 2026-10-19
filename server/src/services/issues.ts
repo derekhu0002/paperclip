@@ -9216,6 +9216,38 @@ export function issueService(db: Db) {
       return listIssueReviewAttentionMap(dbOrTx, companyId, issueRows);
     },
 
+    autoReleaseBlockedDependent: async (input: {
+      issueId: string;
+      companyId: string;
+      blockerIssueId: string;
+    }) => {
+      const now = new Date();
+      const updated = await db
+        .update(issues)
+        .set({
+          status: "todo",
+          statusVersion: sql`${issues.statusVersion} + 1` as unknown as number,
+          blockedTransitionAt: null,
+          blockedOwnerNotifiedAt: null,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(issues.id, input.issueId),
+            eq(issues.companyId, input.companyId),
+            eq(issues.status, "blocked"),
+          ),
+        )
+        .returning({
+          id: issues.id,
+          companyId: issues.companyId,
+          status: issues.status,
+          assigneeAgentId: issues.assigneeAgentId,
+        })
+        .then((rows) => rows[0] ?? null);
+      return updated;
+    },
+
     listWakeableBlockedDependents: async (blockerIssueId: string) => {
       const blockerIssue = await db
         .select({ id: issues.id, companyId: issues.companyId })
@@ -9275,6 +9307,7 @@ export function issueService(db: Db) {
         .map(({ candidate, readiness }) => ({
           id: candidate.id,
           assigneeAgentId: candidate.assigneeAgentId!,
+          status: candidate.status,
           blockerIssueIds: readiness.blockerIssueIds,
           blockedTransitionAt: candidate.blockedTransitionAt,
         }));
