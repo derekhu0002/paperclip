@@ -82,7 +82,7 @@ describe("ApprovalCard graph evidence", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(el.textContent).toContain("Graph evidence");
     expect(el.textContent).toContain("OAuth consent");
-    expect(el.querySelector("svg")).toBeTruthy();
+    expect(el.querySelector("canvas")).toBeTruthy();
     expect(el.textContent).not.toContain("Open graph");
   });
 });

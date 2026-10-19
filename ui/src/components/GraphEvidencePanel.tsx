@@ -1,8 +1,25 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { DecisionGraph, DecisionGraphContext, DecisionGraphNode } from "@paperclipai/shared";
-import { cn } from "../lib/utils";
 
-type PositionedNode = DecisionGraphNode & { x: number; y: number };
+type CardBox = {
+  node: DecisionGraphNode;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+};
+
+type GraphHover = {
+  node: DecisionGraphNode;
+  x: number;
+  y: number;
+};
+
+const CARD_HEIGHT = 58;
+const CARD_GAP_X = 18;
+const CARD_GAP_Y = 26;
 
 function visibleGraph(context: DecisionGraphContext): DecisionGraph {
   const source = context.preview ?? context.graph ?? { nodes: [], edges: [] };
@@ -12,47 +29,252 @@ function visibleGraph(context: DecisionGraphContext): DecisionGraph {
   };
 }
 
-function layout(graph: DecisionGraph): PositionedNode[] {
-  const nodes = graph.nodes.slice(0, 12);
-  const innerCount = Math.max(Math.min(nodes.length - 1, 5), 1);
-  return nodes.map((node, index) => {
-    if (index === 0) return { ...node, x: 50, y: 50 };
-    const inner = index <= innerCount;
-    const ringIndex = inner ? index - 1 : index - innerCount - 1;
-    const ringCount = inner ? innerCount : nodes.length - innerCount - 1;
-    const angle = (Math.PI * 2 * ringIndex) / Math.max(ringCount, 1) - Math.PI / 2;
-    const radius = inner ? 21 : 37;
-    return {
-      ...node,
-      x: 50 + Math.cos(angle) * radius,
-      y: 50 + Math.sin(angle) * radius,
-    };
-  });
+function color(style: CSSStyleDeclaration, token: string, fallback: string) {
+  return style.getPropertyValue(token).trim() || fallback;
 }
 
-function nodeClass(node: DecisionGraphNode) {
-  if (node.change === "added") return "fill-emerald-500";
-  if (node.change === "removed") return "fill-rose-500";
-  if (node.change === "changed") return "fill-amber-500";
-  return "fill-sky-600/80";
+function truncate(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let value = text;
+  while (value.length > 0 && ctx.measureText(`${value}...`).width > maxWidth) {
+    value = value.slice(0, -1);
+  }
+  return value.length > 0 ? `${value}...` : "";
 }
 
-/**
- * Read-only graph evidence for an existing human approval gate.
- * This deliberately has no navigation, dialog, or full-graph entry point:
- * the bounded subgraph is the evidence; deeper context belongs in the Agent
- * conversation.
- */
+function roundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function nodeAccent(style: CSSStyleDeclaration, node: DecisionGraphNode) {
+  if (node.change === "added") return color(style, "--color-emerald-500", "green");
+  if (node.change === "removed") return color(style, "--color-rose-500", "red");
+  if (node.change === "changed") return color(style, "--color-amber-500", "orange");
+  return color(style, "--color-primary", "currentColor");
+}
+
+function edgeTarget(box: CardBox, target: CardBox) {
+  const dx = target.centerX - box.centerX;
+  const dy = target.centerY - box.centerY;
+  if (dx === 0 && dy === 0) return null;
+  const tx = (target.width / 2 + 5) / Math.max(Math.abs(dx), 1);
+  const ty = (target.height / 2 + 5) / Math.max(Math.abs(dy), 1);
+  const t = Math.min(tx, ty);
+  return {
+    x: target.centerX - dx * t,
+    y: target.centerY - dy * t,
+    angle: Math.atan2(dy, dx),
+  };
+}
+
 export function GraphEvidencePanel({ context }: { context: DecisionGraphContext }) {
-  const graph = visibleGraph(context);
-  const positions = useMemo(() => layout(graph), [graph]);
-  const byId = new Map(positions.map((node) => [node.id, node]));
-  if (positions.length === 0) return null;
-  const highlighted = new Set([
-    ...(context.highlight?.added ?? []),
-    ...(context.highlight?.removed ?? []),
-    ...(context.highlight?.changed ?? []),
-  ]);
+  const graph = useMemo(() => visibleGraph(context), [context]);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cardsRef = useRef<CardBox[]>([]);
+  const [hover, setHover] = useState<GraphHover | null>(null);
+  const hoveredId = hover?.node.id ?? null;
+  const focusIds = useMemo(() => new Set(context.focusElementIds), [context.focusElementIds]);
+  const highlighted = useMemo(
+    () =>
+      new Set([
+        ...(context.highlight?.added ?? []),
+        ...(context.highlight?.removed ?? []),
+        ...(context.highlight?.changed ?? []),
+      ]),
+    [context.highlight],
+  );
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const wrap = wrapRef.current;
+    if (!canvas || !wrap) return;
+
+    let animationFrame = 0;
+    let lastWidth = 0;
+    const schedule = typeof requestAnimationFrame === "function"
+      ? requestAnimationFrame
+      : ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0)) as typeof requestAnimationFrame;
+    const cancel = typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : clearTimeout;
+
+    const draw = () => {
+      const width = Math.floor(wrap.clientWidth);
+      if (width <= 0) return;
+      const columns = width >= 900 ? 4 : width >= 600 ? 3 : 2;
+      const rows = Math.ceil(graph.nodes.length / columns);
+      const available = width - 28;
+      const cardWidth = Math.max(132, Math.min(218, (available - CARD_GAP_X * (columns - 1)) / columns));
+      const totalWidth = cardWidth * columns + CARD_GAP_X * (columns - 1);
+      const height = Math.max(250, rows * CARD_HEIGHT + (rows - 1) * CARD_GAP_Y + 48);
+      const startX = Math.max(14, (width - totalWidth) / 2);
+      const startY = 24;
+      const dpr = window.devicePixelRatio || 1;
+      const style = getComputedStyle(canvas);
+      const foreground = color(style, "--color-foreground", "currentColor");
+      const muted = color(style, "--color-muted-foreground", "gray");
+      const border = color(style, "--color-border", "gray");
+      const card = color(style, "--color-card", "white");
+      const primary = color(style, "--color-primary", "currentColor");
+      const fontFamily = style.fontFamily || "sans-serif";
+
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.height = `${height}px`;
+      let ctx: CanvasRenderingContext2D | null = null;
+      try {
+        ctx = canvas.getContext("2d");
+      } catch {
+        return;
+      }
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, width, height);
+
+      const cards: CardBox[] = graph.nodes.map((node, index) => {
+        const column = index % columns;
+        const row = Math.floor(index / columns);
+        const x = startX + column * (cardWidth + CARD_GAP_X);
+        const y = startY + row * (CARD_HEIGHT + CARD_GAP_Y);
+        return {
+          node,
+          x,
+          y,
+          width: cardWidth,
+          height: CARD_HEIGHT,
+          centerX: x + cardWidth / 2,
+          centerY: y + CARD_HEIGHT / 2,
+        };
+      });
+      cardsRef.current = cards;
+      const byId = new Map(cards.map((cardBox) => [cardBox.node.id, cardBox]));
+
+      for (const edge of graph.edges) {
+        const source = byId.get(edge.sourceId);
+        const target = byId.get(edge.targetId);
+        if (!source || !target) continue;
+        const endpoint = edgeTarget(source, target);
+        if (!endpoint) continue;
+        const active = focusIds.has(edge.sourceId) || focusIds.has(edge.targetId);
+        ctx.save();
+        ctx.globalAlpha = active ? 0.62 : 0.3;
+        ctx.strokeStyle = active ? primary : border;
+        ctx.lineWidth = active ? 1.4 : 1;
+        ctx.beginPath();
+        ctx.moveTo(source.centerX, source.centerY);
+        ctx.lineTo(endpoint.x, endpoint.y);
+        ctx.stroke();
+        ctx.globalAlpha = active ? 0.72 : 0.38;
+        ctx.fillStyle = active ? primary : border;
+        ctx.beginPath();
+        ctx.moveTo(endpoint.x, endpoint.y);
+        ctx.lineTo(
+          endpoint.x - Math.cos(endpoint.angle - Math.PI / 6) * 7,
+          endpoint.y - Math.sin(endpoint.angle - Math.PI / 6) * 7,
+        );
+        ctx.lineTo(
+          endpoint.x - Math.cos(endpoint.angle + Math.PI / 6) * 7,
+          endpoint.y - Math.sin(endpoint.angle + Math.PI / 6) * 7,
+        );
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      for (const cardBox of cards) {
+        const focused = focusIds.has(cardBox.node.id);
+        const selected = hoveredId === cardBox.node.id;
+        const changed = highlighted.has(cardBox.node.id);
+        ctx.save();
+        roundRect(ctx, cardBox.x, cardBox.y, cardBox.width, cardBox.height, 8);
+        ctx.fillStyle = card;
+        ctx.fill();
+        ctx.lineWidth = focused || selected ? 2 : 1;
+        ctx.strokeStyle = focused || selected ? primary : border;
+        ctx.stroke();
+
+        ctx.save();
+        roundRect(ctx, cardBox.x + 1, cardBox.y + 1, 3, cardBox.height - 2, 2);
+        ctx.clip();
+        ctx.fillStyle = nodeAccent(style, cardBox.node);
+        ctx.fillRect(cardBox.x + 1, cardBox.y + 1, 3, cardBox.height - 2);
+        ctx.restore();
+
+        if (changed) {
+          ctx.strokeStyle = color(style, "--color-amber-500", "orange");
+          ctx.lineWidth = 1.5;
+          roundRect(ctx, cardBox.x + 2, cardBox.y + 2, cardBox.width - 4, cardBox.height - 4, 6);
+          ctx.stroke();
+        }
+
+        const textLeft = cardBox.x + 12;
+        const textWidth = cardBox.width - 24;
+        ctx.fillStyle = foreground;
+        ctx.font = `600 12px ${fontFamily}`;
+        ctx.textBaseline = "middle";
+        ctx.fillText(truncate(ctx, cardBox.node.name, textWidth), textLeft, cardBox.y + 21);
+        ctx.fillStyle = muted;
+        ctx.font = `11px ${fontFamily}`;
+        const type = cardBox.node.type || "Element";
+        const change = cardBox.node.change ? ` · ${cardBox.node.change}` : "";
+        ctx.fillText(truncate(ctx, `${type}${change}`, textWidth), textLeft, cardBox.y + 40);
+        ctx.restore();
+      }
+      lastWidth = width;
+    };
+
+    const scheduleDraw = () => {
+      cancel(animationFrame);
+      animationFrame = schedule(draw);
+    };
+
+    scheduleDraw();
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver((entries) => {
+      const width = Math.floor(entries[0]?.contentRect.width ?? 0);
+      if (width !== lastWidth) scheduleDraw();
+    });
+    resizeObserver?.observe(wrap);
+    const themeObserver = new MutationObserver(scheduleDraw);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-theme"] });
+
+    return () => {
+      cancel(animationFrame);
+      resizeObserver?.disconnect();
+      themeObserver.disconnect();
+    };
+  }, [graph, focusIds, highlighted, hoveredId]);
+
+  if (graph.nodes.length === 0) return null;
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const card = cardsRef.current.find(
+      (item) => x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height,
+    );
+    setHover((current) => {
+      if (!card) return current === null ? current : null;
+      if (current?.node.id === card.node.id && current.x === x && current.y === y) return current;
+      return { node: card.node, x, y };
+    });
+  };
+
   return (
     <section className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3" aria-label="Graph evidence">
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -64,44 +286,40 @@ export function GraphEvidencePanel({ context }: { context: DecisionGraphContext 
           {graph.nodes.length} nodes · {graph.edges.length} relationships
         </span>
       </div>
-      <svg viewBox="0 0 100 100" className="h-72 w-full" role="img" aria-label="Graph evidence subgraph">
-        {graph.edges.map((edge, index) => {
-          const source = byId.get(edge.sourceId);
-          const target = byId.get(edge.targetId);
-          if (!source || !target) return null;
-          return (
-            <line
-              key={`${edge.sourceId}:${edge.targetId}:${index}`}
-              x1={source.x}
-              y1={source.y}
-              x2={target.x}
-              y2={target.y}
-              className="stroke-border/70"
-              strokeWidth={0.45}
-            />
-          );
-        })}
-        {positions.map((node) => (
-          <g key={node.id}>
-            <title>{`${node.name}${node.type ? ` (${node.type})` : ""}`}</title>
-            <circle
-              cx={node.x}
-              cy={node.y}
-              r={4.2}
-              className={cn(nodeClass(node), highlighted.has(node.id) && "stroke-amber-400/90", "stroke-1")}
-            />
-            <text
-              x={node.x}
-              y={node.y + 7.2}
-              textAnchor="middle"
-              fontSize={3.6}
-              className="fill-foreground"
-            >
-              {node.name.length > 10 ? `${node.name.slice(0, 9)}...` : node.name}
-            </text>
-          </g>
+      <div ref={wrapRef} className="relative">
+        <canvas
+          ref={canvasRef}
+          className="block w-full rounded-md"
+          role="img"
+          aria-label="Graph evidence canvas"
+          onPointerMove={onPointerMove}
+          onPointerLeave={() => setHover(null)}
+        />
+        {hover && (
+          <div
+            className="pointer-events-none absolute z-10 max-w-xs rounded-md border border-border bg-popover px-2.5 py-2 text-popover-foreground shadow-md"
+            style={{
+              left: Math.max(8, Math.min(hover.x + 12, (wrapRef.current?.clientWidth ?? 0) - 240)),
+              top: hover.y + 12,
+            }}
+          >
+            <p className="text-xs font-medium">{hover.node.name}</p>
+            <p className="mt-0.5 text-(length:--text-micro) text-muted-foreground">
+              {hover.node.type ?? "Element"}{hover.node.change ? ` · ${hover.node.change}` : ""}
+            </p>
+            {hover.node.description && (
+              <p className="mt-1 line-clamp-3 text-(length:--text-micro) leading-4 text-muted-foreground">
+                {hover.node.description}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+      <ul className="sr-only" aria-label="Graph evidence nodes">
+        {graph.nodes.map((node) => (
+          <li key={node.id}>{`${node.name} (${node.type ?? "Element"})`}</li>
         ))}
-      </svg>
+      </ul>
     </section>
   );
 }
