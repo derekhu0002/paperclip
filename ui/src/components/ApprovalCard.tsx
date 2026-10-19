@@ -12,9 +12,10 @@ import {
   typeLabel,
 } from "./ApprovalPayload";
 import { timeAgo } from "../lib/timeAgo";
-import type { Approval, Agent } from "@paperclipai/shared";
+import { parseDecisionGraphContext, type Approval, type Agent } from "@paperclipai/shared";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { GraphEvidencePanel } from "./GraphEvidencePanel";
 
 function statusIcon(status: string) {
   if (status === "approved") return <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />;
@@ -44,6 +45,9 @@ export function ApprovalCard({
   pendingAction?: "approve" | "reject" | null;
 }) {
   const payload = approval.payload as Record<string, unknown> | null;
+  const graphContext = parseDecisionGraphContext(
+    payload && typeof payload.graphContext === "object" ? payload.graphContext : null,
+  );
   const Icon = typeIcon[approval.type] ?? defaultTypeIcon;
   const kindLabel = typeLabel[approval.type] ?? approval.type;
   const subject = approvalSubject(payload);
@@ -102,6 +106,8 @@ export function ApprovalCard({
           hidePrimaryTitle={Boolean(subject)}
         />
       </div>
+
+      {graphContext && <GraphEvidencePanel context={graphContext} />}
 
       {approval.decisionNote && (
         <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 px-3.5 py-3 text-xs leading-5 text-muted-foreground">

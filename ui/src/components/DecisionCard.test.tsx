@@ -147,33 +147,6 @@ describe("DecisionCard", () => {
     ).toBe(true);
   });
 
-  it("renders and opens a decision graph context when metadata carries one", async () => {
-    const el = render({
-      decision: mkDecision({
-        metadata: {
-          graphContext: {
-            focusElementIds: ["node-a"],
-            preview: {
-              nodes: [
-                { id: "node-a", name: "OAuth consent", type: "Requirement", change: "changed" },
-                { id: "node-b", name: "Token audit", type: "Application Component" },
-              ],
-              edges: [{ sourceId: "node-a", targetId: "node-b", type: "Serving" }],
-            },
-            summary: "Identity control change",
-          },
-        },
-      }),
-    });
-    expect(el.textContent).toContain("Graph context");
-    expect(el.textContent).toContain("Identity control change");
-    expect(el.querySelector("svg")).toBeTruthy();
-    clickButtonWithText(el, "Open graph");
-    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
-    expect(document.body.textContent).toContain("Decision graph");
-    expect(document.body.textContent).toContain("OAuth consent");
-  });
-
   it("omits the applies-to link when the decision only targets its origin issue", () => {
     const el = render({
       decision: mkDecision({

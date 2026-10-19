@@ -370,21 +370,24 @@ Key shared semantics:
 
 ### Standalone Decisions
 
-**Graph context is automatic for project decisions.** When the project has
-`design/KG/SystemArchitecture.json`, do not hand-write the subgraph. Create
-the decision through the bundled helper; it reads the project graph, selects a
-bounded focus neighborhood, and adds `metadata.graphContext` (preview + full
-read-only graph) before posting the decision:
+**Graph evidence is automatic for project approvals.** When the project has
+`design/KG/SystemArchitecture.json`, do not hand-write the subgraph. Create the
+existing board approval gate through the bundled helper; it reads the project
+graph, selects a bounded focus neighborhood, and adds a read-only
+`payload.graphContext.preview` before posting the approval:
 
 ```sh
-node "$CLAUDE_SKILL_DIR/scripts/paperclip-decision-with-graph.mjs" \
+node "$CLAUDE_SKILL_DIR/scripts/paperclip-approval-with-graph.mjs" \
   --title "Approve the identity-control change?" \
-  --body "The graph highlights the affected OAuth and telemetry nodes." 
+  --summary "The graph highlights the affected OAuth and telemetry nodes."
 ```
 
 Use `--focus <id,id>` to name the decision-specific nodes and `--graph <path>`
 only when the project graph is not at the default path. This helper never writes
-the graph. If the project has no graph file, use the normal decision endpoint.
+the graph and does not create a standalone decision. If the project has no graph
+file, use the normal approval endpoint. The human sees the subgraph inside the
+existing approval card; deeper questions belong in the task thread with the
+Agent, not in a graph explorer.
 
 Create a decision from an issue-scoped agent run with `POST /api/companies/{companyId}/decisions`:
 

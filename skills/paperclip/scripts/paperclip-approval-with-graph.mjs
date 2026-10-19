@@ -111,43 +111,30 @@ const focusElementIds = (explicitFocus.length > 0
   : [...graph.nodes].sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0)).slice(0, 4).map((node) => node.id)
 ).filter((id) => graph.nodes.some((node) => node.id === id));
 const preview = neighborhood(graph, focusElementIds, Number(arg("preview-nodes", "12")) || 12);
-const payloadFile = arg("payload");
-const payload = payloadFile
-  ? readJson(path.resolve(payloadFile))
-  : {
-    title: required("title", arg("title")),
-    body: required("body", arg("body")),
-    options: [
-      {
-        id: "approve",
-        label: arg("approve-label", "Approve"),
-        description: "Approve the graph context and continue.",
-        effects: process.env.PAPERCLIP_TASK_ID ? [{
-          type: "comment_on_issue",
-          targetIssueId: process.env.PAPERCLIP_TASK_ID,
-          staleness: "lenient",
-          bodyMarkdown: "Approved from the decision graph context.",
-        }] : [],
-      },
-      { id: "reject", label: "Reject", effects: [] },
-    ],
-    idempotencyKey: arg("idempotency-key", null) ?? undefined,
-    continuationPolicy: "wake_origin_agent",
-  };
+const taskId = required("PAPERCLIP_TASK_ID", process.env.PAPERCLIP_TASK_ID);
+const title = required("title", arg("title"));
+const summary = arg("summary", arg("body", "Please review the attached graph evidence."));
+const recommendedAction = arg("recommended-action", "Approve this request after reviewing the graph evidence.");
 const metadata = {
-  ...(payload.metadata && typeof payload.metadata === "object" ? payload.metadata : {}),
   graphContext: {
     projectId: arg("project-id", process.env.PAPERCLIP_PROJECT_ID ?? undefined),
     snapshotHash: graphHash,
     focusElementIds,
     preview,
-    graph,
     highlight: { added: [], removed: [], changed: [] },
-    summary: arg("summary", `Graph context from ${path.basename(graphFile)}`),
-    maxDepth: 2,
+    summary: arg("summary-label", `Graph evidence from ${path.basename(graphFile)}`),
   },
 };
-const body = JSON.stringify({ ...payload, metadata });
+const body = JSON.stringify({
+  type: "request_board_approval",
+  issueIds: [taskId],
+  payload: {
+    title,
+    summary,
+    recommendedAction,
+    graphContext: metadata.graphContext,
+  },
+});
 if (arg("dry-run", null) === "true") {
   process.stdout.write(`${body}\n`);
   process.exit(0);
@@ -155,7 +142,7 @@ if (arg("dry-run", null) === "true") {
 const apiUrl = required("PAPERCLIP_API_URL", process.env.PAPERCLIP_API_URL).replace(/\/$/, "");
 const apiKey = required("PAPERCLIP_API_KEY", process.env.PAPERCLIP_API_KEY);
 const companyId = required("PAPERCLIP_COMPANY_ID", process.env.PAPERCLIP_COMPANY_ID);
-const response = await fetch(`${apiUrl}/api/companies/${companyId}/decisions`, {
+const response = await fetch(`${apiUrl}/api/companies/${companyId}/approvals`, {
   method: "POST",
   headers: {
     Authorization: `Bearer ${apiKey}`,
