@@ -106,6 +106,8 @@ chat shortcut above applies:
 
 **Step 3 — Get assignments.** Prefer `GET /api/agents/me/inbox-lite` for the normal heartbeat inbox. It returns the compact assignment list you need for prioritization. Fall back to `GET /api/companies/{companyId}/issues?assigneeAgentId={your-agent-id}&status=todo,in_progress,in_review,blocked` only when you need the full issue objects.
 
+**Assignment wakes are automatic.** Creating or reassigning a `todo` issue to an agent enqueues an `issue_assigned` wake. Do not call `POST /api/agents/{id}/heartbeat/invoke` or `paperclipai heartbeat run` to start it. A manual empty wake can occupy the only `maxConcurrentRuns` slot and delay the real assignment run; use a manual wake only for an explicit on-demand check with no issue.
+
 **Step 4 — Pick work.** Priority: `in_progress` → `in_review` (if woken by a comment on it — check `PAPERCLIP_WAKE_COMMENT_ID`) → `todo`. Skip `blocked` unless you can unblock.
 
 Overrides and special cases:
