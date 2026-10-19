@@ -76,8 +76,9 @@ necessarily shared server preferences.
 The Execution view is a read-only projection over the company work timeline,
 both at task-list level and in the per-task Execution tab / More > View execution
 panel. The task list sends the current filtered issue ids (bounded to 200) and a
-24h/7d/30d window; lane selection and the detail panel are browser presentation
-state. No new write path or execution control is added.
+24h/7d/30d window; lane selection, task-span bars, handoff lines, and the detail
+panel are browser presentation state derived from issue/run/edge data. No new
+write path or execution control is added.
 
 Review: `baseline`.
 

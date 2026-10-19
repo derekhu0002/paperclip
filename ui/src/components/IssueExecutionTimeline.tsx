@@ -25,6 +25,16 @@ interface IssueExecutionTimelineProps {
   timeWindow: ExecutionWindow;
 }
 
+interface EdgePath {
+  key: string;
+  x: number;
+  yFrom: number;
+  yTo: number;
+  color: string;
+  title: string;
+  dashed: boolean;
+}
+
 interface TimelineLane {
   key: string;
   title: string;
@@ -71,6 +81,27 @@ function eventColor(kind: WorkTimelineEvent["kind"]) {
     default:
       return "var(--status-task-backlog)";
   }
+}
+
+function taskSpan(issue: Issue | undefined, windowFrom: number, windowTo: number) {
+  if (!issue) return null;
+  const start = new Date(issue.createdAt).getTime();
+  const terminal = issue.status === "done" || issue.status === "cancelled";
+  const end = terminal ? new Date(issue.updatedAt).getTime() : windowTo;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || start > windowTo) return null;
+  const clampedStart = Math.max(start, windowFrom);
+  const clampedEnd = Math.min(end, windowTo);
+  const total = Math.max(windowTo - windowFrom, 1);
+  return {
+    left: ((clampedStart - windowFrom) / total) * 100,
+    width: Math.max(((clampedEnd - clampedStart) / total) * 100, 0.4),
+    durationMs: Math.max(end - start, 0),
+  };
+}
+
+function clampPercent(timestamp: number, windowFrom: number, windowTo: number) {
+  const total = Math.max(windowTo - windowFrom, 1);
+  return Math.min(100, Math.max(0, ((timestamp - windowFrom) / total) * 100));
 }
 
 function eventLabel(kind: WorkTimelineEvent["kind"]) {
@@ -326,6 +357,39 @@ export function IssueExecutionTimeline({
       at: new Date(windowFrom + (windowTo - windowFrom) * ratio).toISOString(),
     };
   });
+  const edgePaths = useMemo<EdgePath[]>(() => {
+    if (!query.data || lanes.length === 0) return [];
+    const issueLane = new Map(lanes.flatMap((row, index) => row.issue ? [[row.issue.id, index] as const] : []));
+    const actorLane = new Map(lanes.flatMap((row, index) => row.actorId ? [[row.actorId, index] as const] : []));
+    return query.data.edges.flatMap((edge, index) => {
+      let fromIndex: number | undefined;
+      let toIndex: number | undefined;
+      if (lane === "agent") {
+        fromIndex = actorLane.get(edge.fromActorId);
+        toIndex = actorLane.get(edge.toActorId);
+      } else {
+        toIndex = issueLane.get(edge.issueId);
+        const issue = issuesById.get(edge.issueId);
+        const parentId = issue?.parentId;
+        if (edge.kind === "delegation" && parentId) fromIndex = issueLane.get(parentId);
+      }
+      if (toIndex === undefined) return [];
+      const yTo = ((toIndex + 0.5) / lanes.length) * 100;
+      const yFrom = fromIndex === undefined ? yTo : ((fromIndex + 0.5) / lanes.length) * 100;
+      const source = actorById.get(edge.fromActorId)?.name ?? edge.fromActorId.slice(0, 8);
+      const target = actorById.get(edge.toActorId)?.name ?? edge.toActorId.slice(0, 8);
+      const label = edge.kind === "delegation" ? "Delegation" : edge.kind === "assignment" ? "Assignment" : "Handoff";
+      return [{
+        key: `${edge.kind}:${edge.issueId}:${edge.at}:${index}`,
+        x: clampPercent(Date.parse(edge.at), windowFrom, windowTo),
+        yFrom,
+        yTo,
+        color: edge.kind === "delegation" ? "var(--status-task-in_progress)" : "var(--status-task-todo)",
+        title: `${label}: ${source} to ${target}`,
+        dashed: edge.kind === "assignment",
+      }];
+    });
+  }, [actorById, issuesById, lane, lanes, query.data, windowFrom, windowTo]);
   const truncated = issues.length > issueIds.length;
 
   if (!enabled) {
@@ -373,6 +437,23 @@ export function IssueExecutionTimeline({
               {statusLabel(status)}
             </span>
           ))}
+          {lane === "task" ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-4 rounded-sm border border-border/50 bg-muted-foreground/20" />
+              Task span
+            </span>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-0.5 w-4" style={{ backgroundColor: "var(--status-task-in_progress)" }} />
+                Delegation
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-0.5 w-4 border-t border-dashed" style={{ borderColor: "var(--status-task-todo)" }} />
+                Assignment
+              </span>
+            </>
+          )}
         </div>
         <span>
           {query.data?.spans.length ?? 0} runs / last {timeWindow}
@@ -399,49 +480,83 @@ export function IssueExecutionTimeline({
             </div>
           </div>
 
-          {lanes.map((laneRow) => (
-            <div key={laneRow.key} className="flex border-b border-border/60 last:border-b-0">
-              <div className="flex w-48 shrink-0 items-center gap-2 px-3 py-2">
-                {laneRow.issue ? (
-                  <StatusIcon status={laneRow.issue.status} size="sm" className="shrink-0" />
-                ) : (
-                  <span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground" aria-hidden="true" />
-                )}
-                <div className="min-w-0">
-                  <div className="truncate text-xs font-medium">{laneRow.title}</div>
-                  <div className="truncate text-(length:--text-nano) text-muted-foreground">{laneRow.subtitle}</div>
+          <div className="relative">
+            {lanes.map((laneRow) => {
+              const taskBar = laneRow.issue ? taskSpan(laneRow.issue, windowFrom, windowTo) : null;
+              return (
+                <div key={laneRow.key} className="flex h-12 border-b border-border/60 last:border-b-0">
+                  <div className="flex w-48 shrink-0 items-center gap-2 px-3 py-2">
+                    {laneRow.issue ? (
+                      <StatusIcon status={laneRow.issue.status} size="sm" className="shrink-0" />
+                    ) : (
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground" aria-hidden="true" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-medium">{laneRow.title}</div>
+                      <div className="truncate text-(length:--text-nano) text-muted-foreground">{laneRow.subtitle}</div>
+                    </div>
+                  </div>
+                  <div className="relative min-w-64 flex-1">
+                    {ticks.map((tick) => (
+                      <span
+                        key={tick.ratio}
+                        className="pointer-events-none absolute inset-y-0 border-l border-border/50"
+                        style={{ left: `${tick.ratio * 100}%` }}
+                        aria-hidden="true"
+                      />
+                    ))}
+                    {taskBar ? (
+                      <div
+                        className="absolute top-1/2 h-4 -translate-y-1/2 rounded-sm border border-border/50 bg-muted-foreground/20"
+                        style={{ left: `${taskBar.left}%`, width: `${taskBar.width}%` }}
+                        title={`${laneRow.title}: open ${formatDurationMs(taskBar.durationMs)}`}
+                        aria-label={`Task span ${formatDurationMs(taskBar.durationMs)}`}
+                      />
+                    ) : null}
+                    {laneRow.events.map((event, index) => (
+                      <EventMarker
+                        key={`${event.kind}:${event.issueId}:${event.at}:${index}`}
+                        event={event}
+                        windowFrom={windowFrom}
+                        windowTo={windowTo}
+                        actorName={actorById.get(event.actorId)?.name ?? event.actorId}
+                      />
+                    ))}
+                    {laneRow.spans.map((span) => (
+                      <RunBar
+                        key={span.runId}
+                        span={span}
+                        windowFrom={windowFrom}
+                        windowTo={windowTo}
+                        actorName={actorById.get(span.actorId)?.name ?? span.actorId}
+                      />
+                    ))}
+                  </div>
                 </div>
+              );
+            })}
+            {edgePaths.length > 0 ? (
+              <div className="pointer-events-none absolute inset-y-0 left-48 right-0">
+                <svg className="h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  {edgePaths.map((edge) => (
+                    <g key={edge.key}>
+                      <title>{edge.title}</title>
+                      <path
+                        d={`M ${edge.x} ${edge.yFrom} L ${edge.x} ${edge.yTo}`}
+                        fill="none"
+                        stroke={edge.color}
+                        strokeWidth={0.8}
+                        strokeDasharray={edge.dashed ? "2 2" : undefined}
+                        vectorEffect="non-scaling-stroke"
+                        opacity={0.75}
+                      />
+                      <circle cx={edge.x} cy={edge.yTo} r={1.2} fill={edge.color} />
+                    </g>
+                  ))}
+                </svg>
               </div>
-              <div className="relative min-w-64 flex-1">
-                {ticks.map((tick) => (
-                  <span
-                    key={tick.ratio}
-                    className="pointer-events-none absolute inset-y-0 border-l border-border/50"
-                    style={{ left: `${tick.ratio * 100}%` }}
-                    aria-hidden="true"
-                  />
-                ))}
-                {laneRow.events.map((event, index) => (
-                  <EventMarker
-                    key={`${event.kind}:${event.issueId}:${event.at}:${index}`}
-                    event={event}
-                    windowFrom={windowFrom}
-                    windowTo={windowTo}
-                    actorName={actorById.get(event.actorId)?.name ?? event.actorId}
-                  />
-                ))}
-                {laneRow.spans.map((span) => (
-                  <RunBar
-                    key={span.runId}
-                    span={span}
-                    windowFrom={windowFrom}
-                    windowTo={windowTo}
-                    actorName={actorById.get(span.actorId)?.name ?? span.actorId}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

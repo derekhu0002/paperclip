@@ -38,6 +38,8 @@ const issue = {
   identifier: "PAP-1",
   title: "Execution task",
   status: "in_progress",
+  createdAt: new Date(now - 4 * 60 * 60 * 1000),
+  updatedAt: new Date(now - 30 * 60 * 1000),
 } as Issue;
 
 function result(overrides: Partial<WorkTimelineResult> = {}): WorkTimelineResult {
@@ -64,7 +66,13 @@ function result(overrides: Partial<WorkTimelineResult> = {}): WorkTimelineResult
       { actorId: "agent:agent-1", kind: "commented", issueId: "issue-1", at: new Date(now - 90 * 60 * 1000).toISOString() },
       { actorId: "user:user-1", kind: "approved", issueId: "issue-1", at: new Date(now - 80 * 60 * 1000).toISOString() },
     ],
-    edges: [],
+    edges: [{
+      fromActorId: "agent:agent-1",
+      toActorId: "user:user-1",
+      issueId: "issue-1",
+      at: new Date(now - 90 * 60 * 1000).toISOString(),
+      kind: "delegation",
+    }],
     pagination: { limit: 200, offset: 0, totalIssues: 1, hasMore: false },
     window: {
       from: new Date(now - 24 * 60 * 60 * 1000).toISOString(),
@@ -116,6 +124,9 @@ describe("IssueExecutionTimeline", () => {
       expect(container.textContent).toContain("PAP-1");
       expect(container.textContent).toContain("1 runs / last 24h");
       expect(container.querySelector('a[href="/issues/issue-1"]')).not.toBeNull();
+      expect(container.querySelector('[aria-label^="Task span"]')).not.toBeNull();
+      expect(container.querySelector("svg circle")).not.toBeNull();
+      expect(container.querySelector("svg title")?.textContent).toContain("Delegation");
       expect(container.querySelectorAll("[aria-label^='Commented by']").length).toBe(1);
       expect(container.querySelectorAll("[aria-label^='Approved by']").length).toBe(1);
     });
