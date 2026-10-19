@@ -1,4 +1,4 @@
----
+﻿---
 navigation: {"section":"Tasks and conversations","sectionOrder":20,"order":10}
 ---
 
@@ -14,7 +14,7 @@ Agent access: [companion](../agent-access-map/tasks.md).
 
 - `create`: capture a title/request with the intended agent, project, and attachments.
 - `organize`: filter, sort, group, and navigate tasks without losing the selected context.
-- `execution-view`: switch the task collection to a single agent-grouped execution timeline with a selectable 24h/7d/30d window and 1x/2x/4x/8x zoom; each task is one rectangle from creation to completion, segmented into queue (yellow), execution (green), and paused/waiting (neutral), and each agent group can contain multiple task lanes; delegation/assignment handoffs are listed as text below the chart. Open the per-task Execution tab (classic) or More > View execution (chat shell) for the run chain and expandable run events.
+- `execution-view`: switch the task collection to a single agent-grouped execution timeline with a selectable 24h/7d/30d window and 1x/2x/4x/8x zoom; each task is one rectangle from creation to completion, segmented into backlog/blocked (neutral), queue (yellow), execution (green), and paused/waiting (neutral), and each agent group can contain multiple task lanes; delegation/assignment handoffs are listed as text below the chart. Open the per-task Execution tab (classic) or More > View execution (chat shell) for the run chain and expandable run events.
 - `properties`: change status, priority, assignee, project, and relationships where authorized.
 - `discussion`: persist comments, references, and files on the task.
 - `completion`: distinguish backlog, active work, review, blocked, done, and cancelled outcomes.
@@ -27,7 +27,7 @@ Use New task from the global launcher, task list, or project task view.
 
 ### `task-list`
 
-Open `/issues` or a project’s Issues view; legacy `/tasks` links redirect.
+Open `/issues` or a project鈥檚 Issues view; legacy `/tasks` links redirect.
 
 ### `task-detail`
 
@@ -46,7 +46,7 @@ Automated: [creation dialog](../../ui/src/components/NewIssueDialog.test.tsx) is
 
 Manual: Create a uniquely named task with an agent and project. Open its resulting link and reload. Confirm text, attachment, assignment, and project persisted, and verify execution started only when the task and agent are eligible.
 
-Creation is request-first: enter **Describe a task…**, choose the assignee and
+Creation is request-first: enter **Describe a task鈥?*, choose the assignee and
 project, and submit **Create task**. A standalone title field is not always shown.
 Use a human/unassigned task to verify persistence without invoking a model.
 
@@ -86,3 +86,4 @@ Manual: Add a comment and edit authorized properties. Reload and verify history,
 ### Documentation scope: Tasks, conversations, and attention
 
 Recipes cover the main task/conversation/attention workflows. Full shell, permission, attachment, long-thread, and concurrency permutations remain to be enumerated.
+
