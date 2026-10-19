@@ -176,6 +176,7 @@ describeEmbeddedPostgres("work timeline aggregation", () => {
         startedAt: new Date("2026-03-01T12:00:00Z"),
         finishedAt: null,
         usageJson: { inputTokens: 120, cachedInputTokens: 30, outputTokens: 50 },
+        resultJson: { costUsd: 0.42 },
         contextSnapshot: { issueId: childIssueId },
       },
       {
@@ -244,6 +245,7 @@ describeEmbeddedPostgres("work timeline aggregation", () => {
         end: null,
         status: "running",
         usage: { inputTokens: 120, cachedInputTokens: 30, outputTokens: 50, totalTokens: 200 },
+        costUsd: 0.42,
       }),
       expect.objectContaining({ runId: activityRunId, issueId: parentIssueId, status: "completed" }),
     ]));
@@ -258,6 +260,69 @@ describeEmbeddedPostgres("work timeline aggregation", () => {
       expect.objectContaining({ kind: "delegation", issueId: childIssueId }),
       expect.objectContaining({ kind: "assignment", issueId: childIssueId }),
     ]));
+  });
+
+  it("scopes the timeline to an explicit issueIds set", async () => {
+    const { companyId, agentAId } = await seedBase();
+    const firstIssueId = randomUUID();
+    const secondIssueId = randomUUID();
+    const firstRunId = randomUUID();
+    const secondRunId = randomUUID();
+
+    await db.insert(issues).values([
+      {
+        id: firstIssueId,
+        companyId,
+        title: "First",
+        status: "todo",
+        priority: "medium",
+        assigneeAgentId: agentAId,
+        createdAt: new Date("2026-03-01T10:00:00Z"),
+        updatedAt: new Date("2026-03-01T10:00:00Z"),
+      },
+      {
+        id: secondIssueId,
+        companyId,
+        title: "Second",
+        status: "todo",
+        priority: "medium",
+        assigneeAgentId: agentAId,
+        createdAt: new Date("2026-03-01T11:00:00Z"),
+        updatedAt: new Date("2026-03-01T11:00:00Z"),
+      },
+    ]);
+    await db.insert(heartbeatRuns).values([
+      {
+        id: firstRunId,
+        companyId,
+        agentId: agentAId,
+        status: "completed",
+        invocationSource: "manual",
+        startedAt: new Date("2026-03-01T12:00:00Z"),
+        finishedAt: new Date("2026-03-01T12:10:00Z"),
+        contextSnapshot: { issueId: firstIssueId },
+      },
+      {
+        id: secondRunId,
+        companyId,
+        agentId: agentAId,
+        status: "completed",
+        invocationSource: "manual",
+        startedAt: new Date("2026-03-01T12:30:00Z"),
+        finishedAt: new Date("2026-03-01T12:40:00Z"),
+        contextSnapshot: { issueId: secondIssueId },
+      },
+    ]);
+
+    const result = await workTimelineService(db).getTimeline({
+      companyId,
+      from: new Date("2026-03-01T00:00:00Z"),
+      to: new Date("2026-03-02T00:00:00Z"),
+      issueIds: [firstIssueId],
+    });
+
+    expect(result.spans.map((span) => span.runId)).toEqual([firstRunId]);
+    expect(result.events.every((event) => event.issueId === firstIssueId)).toBe(true);
   });
 
   it("preserves delegation edges when parent and child cross a page boundary", async () => {
@@ -537,5 +602,20 @@ describeEmbeddedPostgres("work timeline aggregation", () => {
       edges: expect.any(Array),
       pagination: expect.objectContaining({ totalIssues: 1 }),
     }));
+
+    const filtered = await request(createApp())
+      .get(`/api/companies/${companyId}/timeline`)
+      .query({
+        from: "2026-03-05T00:00:00Z",
+        to: "2026-03-06T00:00:00Z",
+        issueIds: issueId,
+      });
+    expect(filtered.status, JSON.stringify(filtered.body)).toBe(200);
+    expect(filtered.body.events.every((event: { issueId: string }) => event.issueId === issueId)).toBe(true);
+
+    const invalid = await request(createApp())
+      .get(`/api/companies/${companyId}/timeline`)
+      .query({ issueIds: "not-a-uuid" });
+    expect(invalid.status).toBe(400);
   });
 });

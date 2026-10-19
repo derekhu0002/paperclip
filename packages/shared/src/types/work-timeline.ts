@@ -42,6 +42,8 @@ export interface WorkTimelineSpan {
     outputTokens: number;
     totalTokens: number;
   } | null;
+  /** Reported run cost in USD when the provider/ledger supplied one. */
+  costUsd?: number | null;
 }
 
 export interface WorkTimelineEvent {

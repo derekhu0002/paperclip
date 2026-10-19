@@ -32,6 +32,7 @@ const mockIssuesApi = vi.hoisted(() => ({
 }));
 
 const mockKanbanBoard = vi.hoisted(() => vi.fn());
+const mockExecutionTimeline = vi.hoisted(() => vi.fn());
 const mockNavigate = vi.hoisted(() => vi.fn());
 
 const mockAuthApi = vi.hoisted(() => ({
@@ -204,6 +205,24 @@ vi.mock("./KanbanBoard", () => ({
   },
 }));
 
+vi.mock("./IssueExecutionTimeline", () => ({
+  IssueExecutionTimeline: (props: {
+    lane: string;
+    timeWindow: string;
+    issueIds: string[];
+  }) => {
+    mockExecutionTimeline(props);
+    return (
+      <div
+        data-testid="execution-timeline"
+        data-lane={props.lane}
+        data-window={props.timeWindow}
+        data-issue-ids={props.issueIds.join(",")}
+      />
+    );
+  },
+}));
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -346,6 +365,7 @@ describe("IssuesList", () => {
     document.body.appendChild(container);
     dialogState.openNewIssue.mockReset();
     mockKanbanBoard.mockReset();
+    mockExecutionTimeline.mockReset();
     mockNavigate.mockReset();
     mockIssuesApi.list.mockReset();
     mockIssuesApi.listLabels.mockReset();
@@ -418,6 +438,95 @@ describe("IssuesList", () => {
       expect(row).not.toBeNull();
       expect(row?.getAttribute("data-presentation")).toBeNull();
       expect(container.querySelector("[data-testid='kanban-board']")).toBeNull();
+    });
+
+    act(() => root.unmount());
+  });
+
+  it("switches to the execution view and exposes task/agent lanes", async () => {
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[createIssue({ id: "issue-execution", title: "Execution task" })]}
+        isLoading={false}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        rowPresentation="task"
+        toolbarPresentation="collection"
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      expect(container.querySelector('button[aria-label="Execution view"]')).not.toBeNull();
+    });
+
+    act(() => {
+      (container.querySelector('button[aria-label="Execution view"]') as HTMLButtonElement).click();
+    });
+
+    await waitForAssertion(() => {
+      expect(container.querySelector("[data-testid='execution-timeline']")).not.toBeNull();
+      expect(mockExecutionTimeline).toHaveBeenLastCalledWith(expect.objectContaining({
+        lane: "task",
+        timeWindow: "24h",
+        issueIds: ["issue-execution"],
+      }));
+      expect(container.textContent).toContain("By task");
+      expect(container.textContent).toContain("By agent");
+      expect(container.textContent).toContain("24h");
+    });
+
+    const byAgent = Array.from(container.querySelectorAll("button"))
+      .find((button) => button.textContent === "By agent");
+    expect(byAgent).not.toBeUndefined();
+    act(() => {
+      byAgent!.click();
+    });
+
+    await waitForAssertion(() => {
+      expect(mockExecutionTimeline).toHaveBeenLastCalledWith(expect.objectContaining({ lane: "agent" }));
+    });
+
+    act(() => root.unmount());
+  });
+
+  it("restores the saved execution lane and window", async () => {
+    localStorage.setItem(
+      taskCollectionPreferencesStorageKey({
+        companyId: "company-1",
+        collectionKey: "paperclip:test-issues",
+      }),
+      JSON.stringify({
+        version: 1,
+        companyId: "company-1",
+        collectionKey: "paperclip:test-issues",
+        viewState: { viewMode: "execution", executionLane: "agent", executionWindow: "7d" },
+        columns: [],
+      }),
+    );
+
+    const { root } = renderWithQueryClient(
+      <IssuesList
+        issues={[createIssue({ id: "issue-execution-saved" })]}
+        isLoading={false}
+        agents={[]}
+        projects={[]}
+        viewStateKey="paperclip:test-issues"
+        rowPresentation="task"
+        toolbarPresentation="collection"
+        onUpdateIssue={() => undefined}
+      />,
+      container,
+    );
+
+    await waitForAssertion(() => {
+      expect(mockExecutionTimeline).toHaveBeenLastCalledWith(expect.objectContaining({
+        lane: "agent",
+        timeWindow: "7d",
+      }));
+      expect(container.querySelector('button[aria-label="Execution view"]')?.getAttribute("aria-pressed")).toBe("true");
     });
 
     act(() => root.unmount());

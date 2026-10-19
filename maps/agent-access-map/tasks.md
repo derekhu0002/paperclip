@@ -71,6 +71,36 @@ remaining operations before qualifying the whole capability.
 Gaps: Search/filter API exists; sorting/grouping/presentation defaults are not
 necessarily shared server preferences.
 
+## `execution-view`
+
+The task-list Execution view is a read-only projection over the company work
+timeline. The UI sends the current filtered issue ids (bounded to 200) and a
+24h/7d/30d window; task/agent lane selection is browser presentation state.
+No new write path or execution control is added.
+
+Review: `baseline`.
+
+API: `present` — representative operation IDs:
+
+- `GET /api/companies/{companyId}/timeline?issueIds=...&from=...&to=...`.
+
+Agent access: `available` — REST / native `call_api` for issues the agent may read;
+the lane/window controls are UI-only. Issue-level read authorization still applies.
+
+Policy: Company/task visibility and issue-read authorization; the timeline does not
+grant cross-company access or execution authority. `issueIds` is capped at 200.
+
+Evidence: `source-only` — [timeline service](../../server/src/services/work-timeline.ts)
+and [execution timeline](../../ui/src/components/IssueExecutionTimeline.tsx);
+focused component/service coverage is listed in the product map. Live agent
+execution is not claimed.
+
+Verification: `not-run` — exercise the listed read with agent credentials after
+the planned route regression, and confirm issue-list filters and the 200-id cap.
+
+Gaps: The view is read-only and has no dedicated native agent tool; it reuses
+the existing timeline REST surface.
+
 ## `properties`
 
 Review: `baseline`.

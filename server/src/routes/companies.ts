@@ -346,6 +346,7 @@ export function companyRoutes(db: Db, storage?: StorageService, options?: Compan
     goalId: z.string().guid().optional(),
     projectId: z.string().guid().optional(),
     issueId: z.string().guid().optional(),
+    issueIds: z.string().optional(),
     limit: z.string().optional(),
     offset: z.string().optional(),
   }).passthrough();
@@ -444,6 +445,15 @@ export function companyRoutes(db: Db, storage?: StorageService, options?: Compan
     }
 
     const query = timelineQuerySchema.parse(req.query);
+    const issueIds = query.issueIds
+      ? query.issueIds.split(",").map((id) => id.trim()).filter(Boolean)
+      : undefined;
+    if (issueIds && issueIds.length > 200) {
+      throw badRequest("issueIds supports at most 200 ids");
+    }
+    if (issueIds?.some((id) => !z.string().uuid().safeParse(id).success)) {
+      throw badRequest("issueIds must be comma-separated UUIDs");
+    }
     const timeline = workTimelineService(db);
     const result = await timeline.getTimeline({
       companyId,
@@ -453,6 +463,7 @@ export function companyRoutes(db: Db, storage?: StorageService, options?: Compan
       goalId: query.goalId,
       projectId: query.projectId,
       issueId: query.issueId,
+      issueIds,
       limit: parseIntegerQuery(query.limit, "limit"),
       offset: parseIntegerQuery(query.offset, "offset"),
       canReadIssue: async (issue) => {

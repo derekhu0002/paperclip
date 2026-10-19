@@ -9,6 +9,8 @@ export interface WorkTimelineParams {
   goalId?: string;
   projectId?: string;
   issueId?: string;
+  /** Bounded set of issue ids (max 200) for a task-filtered timeline. */
+  issueIds?: string[];
   limit?: number;
   offset?: number;
 }
@@ -21,6 +23,7 @@ function query(params: WorkTimelineParams): string {
   if (params.goalId) search.set("goalId", params.goalId);
   if (params.projectId) search.set("projectId", params.projectId);
   if (params.issueId) search.set("issueId", params.issueId);
+  if (params.issueIds && params.issueIds.length > 0) search.set("issueIds", params.issueIds.join(","));
   if (params.limit) search.set("limit", String(params.limit));
   if (params.offset) search.set("offset", String(params.offset));
   const qs = search.toString();

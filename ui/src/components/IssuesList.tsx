@@ -76,6 +76,8 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse,
   SquareKanban,
+  GanttChartSquare,
+  Clock3,
 } from "lucide-react";
 import {
   KanbanBoard,
@@ -85,6 +87,7 @@ import {
   KANBAN_COLUMN_PAGE_SIZE_OPTIONS,
   type KanbanColumnPageSize,
 } from "./KanbanBoard";
+import { IssueExecutionTimeline } from "./IssueExecutionTimeline";
 import { buildIssueTree, countDescendants } from "../lib/issue-tree";
 import { getInboxKeyboardSelectionIndex } from "../lib/inbox";
 import { hasBlockingShortcutDialog, isKeyboardShortcutTextInputTarget } from "../lib/keyboardShortcuts";
@@ -160,12 +163,16 @@ export type IssueSortField = "status" | "priority" | "title" | "created" | "upda
 export type BoardCardDensity = "auto" | "compact" | "comfortable";
 export type BoardColdLaneMode = "auto" | "collapsed" | "expanded";
 export type BoardColumnPageSize = KanbanColumnPageSize;
+export type ExecutionLane = "task" | "agent";
+export type ExecutionWindow = "24h" | "7d" | "30d";
 
 export type IssueViewState = IssueFilterState & {
   sortField: IssueSortField;
   sortDir: "asc" | "desc";
   groupBy: "status" | "priority" | "assignee" | "project" | "workspace" | "parent" | "none";
-  viewMode: "list" | "board";
+  viewMode: "list" | "board" | "execution";
+  executionLane: ExecutionLane;
+  executionWindow: ExecutionWindow;
   nestingEnabled: boolean;
   showDateGroupSeparators: boolean;
   collapsedGroups: string[];
@@ -181,6 +188,8 @@ const defaultViewState: IssueViewState = {
   sortDir: "desc",
   groupBy: "none",
   viewMode: "list",
+  executionLane: "task",
+  executionWindow: "24h",
   nestingEnabled: true,
   showDateGroupSeparators: true,
   collapsedGroups: [],
@@ -220,7 +229,11 @@ function normalizeIssueViewState(value: unknown): IssueViewState {
     groupBy: ["status", "priority", "assignee", "project", "workspace", "parent", "none"].includes(parsed.groupBy ?? "")
       ? parsed.groupBy as IssueViewState["groupBy"]
       : defaultViewState.groupBy,
-    viewMode: parsed.viewMode === "board" ? "board" : "list",
+    viewMode: parsed.viewMode === "board" || parsed.viewMode === "execution" ? parsed.viewMode : "list",
+    executionLane: parsed.executionLane === "agent" ? "agent" : "task",
+    executionWindow: parsed.executionWindow === "7d" || parsed.executionWindow === "30d"
+      ? parsed.executionWindow
+      : "24h",
     nestingEnabled: parsed.nestingEnabled !== false,
     showDateGroupSeparators: parsed.showDateGroupSeparators !== false,
     collapsedGroups: Array.isArray(parsed.collapsedGroups)
@@ -1834,7 +1847,80 @@ function StreamlinedIssuesList({
             >
               <SquareKanban className="h-3.5 w-3.5" />
             </button>
+            <button
+              className={`flex h-8 w-8 items-center justify-center transition-colors ${viewState.viewMode === "execution" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+              onClick={() => updateView({ viewMode: "execution" })}
+              title="Execution view"
+              aria-label="Execution view"
+              aria-pressed={viewState.viewMode === "execution"}
+            >
+              <GanttChartSquare className="h-3.5 w-3.5" />
+            </button>
           </div>
+
+          {viewState.viewMode === "execution" && (
+            <>
+              <div
+                className="flex h-8 items-center overflow-hidden rounded-md border border-border"
+                role="group"
+                aria-label="Execution lane"
+              >
+                {([
+                  ["task", "By task"],
+                  ["agent", "By agent"],
+                ] as const).map(([lane, label]) => (
+                  <button
+                    key={lane}
+                    type="button"
+                    className={cn(
+                      "h-full px-2 text-xs transition-colors",
+                      viewState.executionLane === lane
+                        ? "bg-accent text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => updateView({ executionLane: lane })}
+                    aria-pressed={viewState.executionLane === lane}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1.5 px-2"
+                    title="Execution window"
+                  >
+                    <Clock3 className="h-3.5 w-3.5" />
+                    <span className="text-xs tabular-nums">{viewState.executionWindow}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-40 p-0">
+                  <div className="space-y-0.5 p-2">
+                    {(["24h", "7d", "30d"] as const).map((window) => (
+                      <button
+                        key={window}
+                        type="button"
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm",
+                          viewState.executionWindow === window
+                            ? "bg-accent/50 text-foreground"
+                            : "text-muted-foreground hover:bg-accent/50",
+                        )}
+                        onClick={() => updateView({ executionWindow: window })}
+                      >
+                        <span>{window}</span>
+                        {viewState.executionWindow === window && <Check className="h-3.5 w-3.5" />}
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </>
+          )}
 
           {viewState.viewMode === "list" && (
             <Button
@@ -1926,17 +2012,19 @@ function StreamlinedIssuesList({
             </>
           )}
 
-          <IssueColumnPicker
-            availableColumns={availableIssueColumns}
-            visibleColumnSet={visibleIssueColumnSet}
-            onToggleColumn={toggleIssueColumn}
-            showDateGroupSeparators={viewState.showDateGroupSeparators}
-            onToggleDateGroupSeparators={(enabled) => updateView({ showDateGroupSeparators: enabled })}
-            onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
-            title="Choose which task columns stay visible"
-            iconOnly
-            rowPresentation={rowPresentation}
-          />
+          {viewState.viewMode !== "execution" && (
+            <IssueColumnPicker
+              availableColumns={availableIssueColumns}
+              visibleColumnSet={visibleIssueColumnSet}
+              onToggleColumn={toggleIssueColumn}
+              showDateGroupSeparators={viewState.showDateGroupSeparators}
+              onToggleDateGroupSeparators={(enabled) => updateView({ showDateGroupSeparators: enabled })}
+              onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
+              title="Choose which task columns stay visible"
+              iconOnly
+              rowPresentation={rowPresentation}
+            />
+          )}
 
           <IssueFiltersPopover
             state={viewState}
@@ -2074,6 +2162,14 @@ function StreamlinedIssuesList({
           initialVisibleCount={viewState.boardColumnPageSize}
           revealIncrement={viewState.boardColumnPageSize}
           onUpdateIssue={onUpdateIssue}
+        />
+      ) : viewState.viewMode === "execution" ? (
+        <IssueExecutionTimeline
+          companyId={selectedCompanyId ?? ""}
+          issues={filtered}
+          issueIds={filtered.slice(0, 200).map((issue) => issue.id)}
+          lane={viewState.executionLane}
+          timeWindow={viewState.executionWindow}
         />
       ) : (
         <div className="-mx-2 sm:mx-0">

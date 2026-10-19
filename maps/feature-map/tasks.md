@@ -14,6 +14,7 @@ Agent access: [companion](../agent-access-map/tasks.md).
 
 - `create`: capture a title/request with the intended agent, project, and attachments.
 - `organize`: filter, sort, group, and navigate tasks without losing the selected context.
+- `execution-view`: switch the task collection to an execution timeline, grouped by task or agent, with a selectable 24h/7d/30d window and run/event hover details.
 - `properties`: change status, priority, assignee, project, and relationships where authorized.
 - `discussion`: persist comments, references, and files on the task.
 - `completion`: distinguish backlog, active work, review, blocked, done, and cancelled outcomes.
@@ -51,11 +52,13 @@ Use a human/unassigned task to verify persistence without invoking a model.
 
 ### `task-list`
 
-Automated: [task-list helpers](../../ui/src/pages/Issues.test.tsx) cover search URLs, pagination, deduplication, and presentation constants. The suite does not render the page or exercise filtering, grouping, opening a task, and returning; those interactions still need a running-browser check.
+Automated: [task-list helpers](../../ui/src/pages/Issues.test.tsx) cover search URLs, pagination, deduplication, and presentation constants. [Execution timeline](../../ui/src/components/IssueExecutionTimeline.test.tsx) covers task/agent lanes, run bars, event markers, issueIds scoping, and the empty window; [task collection](../../ui/src/components/IssuesList.test.tsx) covers the view switch and restored lane/window. The suite does not render the page or exercise filtering, grouping, opening a task, and returning; those interactions still need a running-browser check.
 
 Manual: Seed human-created, agent-created, scheduled routine, human-initiated chat-channel, and creator-less tasks. Confirm automation is hidden by default, **show agent-created tasks** reveals it, reload preserves the choice, and Clear filters hides it again. Verify list and board search with automation newer than the human results, and expand contextual ancestors/subtasks without promoting unrelated automated roots. Repeat in project task lists. Agent profiles and task-detail subtasks retain complete history.
 
 Manual: Filter by status and assignee, change grouping/sort, open a task, and return. Verify the correct records and selected view survive navigation and reload. Include an empty result and a failed request.
+
+Manual: Switch to Execution, verify By task and By agent both render, change the 24h/7d/30d window, hover a run to inspect status/duration/tokens/cost, and click a bar to open its task. Confirm an empty execution window and a failed timeline request both surface a clear state.
 
 ### `task-detail`
 

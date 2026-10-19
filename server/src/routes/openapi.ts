@@ -1166,6 +1166,7 @@ const workTimelineQuerySchema = z
     goalId: z.string().guid().optional(),
     projectId: z.string().guid().optional(),
     issueId: z.string().guid().optional(),
+    issueIds: z.string().optional(),
     limit: z.string().optional(),
     offset: z.string().optional(),
   })
@@ -1197,6 +1198,16 @@ const workTimelineResponseSchema = z
           retryOfRunId: z.string().nullable().optional(),
           continuationAttempt: z.number().optional(),
           invocationSource: z.string().nullable().optional(),
+          usage: z
+            .object({
+              inputTokens: z.number(),
+              cachedInputTokens: z.number(),
+              outputTokens: z.number(),
+              totalTokens: z.number(),
+            })
+            .nullable()
+            .optional(),
+          costUsd: z.number().nullable().optional(),
         })
         .strict(),
     ),

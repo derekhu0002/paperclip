@@ -44,6 +44,8 @@ export interface WorkTimelineQuery {
   goalId?: string;
   projectId?: string;
   issueId?: string;
+  /** Optional bounded set of issue ids (max 200) to scope the timeline. */
+  issueIds?: string[];
   limit?: number;
   offset?: number;
   canReadIssue?: (issue: WorkTimelineIssueAccessInput) => Promise<boolean>;
@@ -96,6 +98,13 @@ function normalizeLimit(value: number | undefined) {
 function normalizeOffset(value: number | undefined) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value ?? 0));
+}
+
+const MAX_ISSUE_IDS = 200;
+
+function normalizeIssueIds(value: string[] | undefined) {
+  if (value === undefined) return undefined;
+  return Array.from(new Set(value.filter((id) => id.trim().length > 0))).slice(0, MAX_ISSUE_IDS);
 }
 
 export function normalizeTimelineWindow(input: { from?: Date; to?: Date }, now = new Date()) {
@@ -156,6 +165,18 @@ function normalizeRunUsage(usageJson: unknown): RunUsage | null {
   return totalTokens > 0 ? { inputTokens, cachedInputTokens, outputTokens, totalTokens } : null;
 }
 
+function normalizeRunCost(usageJson: unknown, resultJson: unknown): number | null {
+  for (const source of [resultJson, usageJson]) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) continue;
+    const record = source as Record<string, unknown>;
+    for (const key of ["costUsd", "cost_usd", "total_cost_usd", "costUsdExact", "cacheAdjustedCostUsd"]) {
+      const value = readNumber(record[key]);
+      if (value != null) return Math.max(0, value);
+    }
+  }
+  return null;
+}
+
 function maybeUuidList(ids: Iterable<string>) {
   return Array.from(new Set(Array.from(ids).filter((id) => id.length > 0)));
 }
@@ -200,10 +221,13 @@ export function workTimelineService(db: Db) {
 
   async function collectIssueIds(input: WorkTimelineQuery, from: Date, to: Date) {
     const ids = new Set<string>();
+    const issueIds = normalizeIssueIds(input.issueIds);
 
+    if (issueIds && issueIds.length === 0) return [];
     if (input.issueId) {
       ids.add(input.issueId);
     }
+    for (const id of issueIds ?? []) ids.add(id);
 
     const filterConditions = [
       eq(issues.companyId, input.companyId),
@@ -211,6 +235,7 @@ export function workTimelineService(db: Db) {
       input.goalId ? eq(issues.goalId, input.goalId) : undefined,
       input.projectId ? eq(issues.projectId, input.projectId) : undefined,
       input.issueId ? eq(issues.id, input.issueId) : undefined,
+      issueIds ? inArray(issues.id, issueIds) : undefined,
     ].filter(Boolean);
 
     const recentlyTouched = await db
@@ -237,6 +262,7 @@ export function workTimelineService(db: Db) {
           eq(heartbeatRuns.companyId, input.companyId),
           runOverlapsWindow(from, to),
           sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' is not null`,
+          issueIds ? inArray(sql<string>`${heartbeatRuns.contextSnapshot} ->> 'issueId'`, issueIds) : undefined,
         ),
       )
       .orderBy(desc(heartbeatRuns.createdAt))
@@ -252,6 +278,7 @@ export function workTimelineService(db: Db) {
         and(
           eq(activityLog.companyId, input.companyId),
           eq(activityLog.entityType, "issue"),
+          issueIds ? inArray(activityLog.entityId, issueIds) : undefined,
           gte(activityLog.createdAt, from),
           lte(activityLog.createdAt, to),
         ),
@@ -267,6 +294,7 @@ export function workTimelineService(db: Db) {
         and(
           eq(issueComments.companyId, input.companyId),
           isNull(issueComments.deletedAt),
+          issueIds ? inArray(issueComments.issueId, issueIds) : undefined,
           gte(issueComments.createdAt, from),
           lte(issueComments.createdAt, to),
         ),
@@ -281,6 +309,7 @@ export function workTimelineService(db: Db) {
       .where(
         and(
           eq(issueThreadInteractions.companyId, input.companyId),
+          issueIds ? inArray(issueThreadInteractions.issueId, issueIds) : undefined,
           or(
             and(gte(issueThreadInteractions.createdAt, from), lte(issueThreadInteractions.createdAt, to)),
             and(gte(issueThreadInteractions.resolvedAt, from), lte(issueThreadInteractions.resolvedAt, to)),
@@ -298,6 +327,7 @@ export function workTimelineService(db: Db) {
       .where(
         and(
           eq(issueApprovals.companyId, input.companyId),
+          issueIds ? inArray(issueApprovals.issueId, issueIds) : undefined,
           or(
             and(gte(approvals.createdAt, from), lte(approvals.createdAt, to)),
             and(gte(approvals.decidedAt, from), lte(approvals.decidedAt, to)),
@@ -338,6 +368,7 @@ export function workTimelineService(db: Db) {
           input.goalId ? eq(issues.goalId, input.goalId) : undefined,
           input.projectId ? eq(issues.projectId, input.projectId) : undefined,
           input.issueId ? eq(issues.id, input.issueId) : undefined,
+          input.issueIds ? inArray(issues.id, normalizeIssueIds(input.issueIds) ?? []) : undefined,
         ),
       );
   }
@@ -546,6 +577,7 @@ export function workTimelineService(db: Db) {
           continuationAttempt: heartbeatRuns.continuationAttempt,
           invocationSource: heartbeatRuns.invocationSource,
           usageJson: heartbeatRuns.usageJson,
+          resultJson: heartbeatRuns.resultJson,
         })
         .from(heartbeatRuns)
         .where(
@@ -568,6 +600,7 @@ export function workTimelineService(db: Db) {
           continuationAttempt: heartbeatRuns.continuationAttempt,
           invocationSource: heartbeatRuns.invocationSource,
           usageJson: heartbeatRuns.usageJson,
+          resultJson: heartbeatRuns.resultJson,
         })
         .from(activityLog)
         .innerJoin(heartbeatRuns, eq(activityLog.runId, heartbeatRuns.id))
@@ -679,6 +712,7 @@ export function workTimelineService(db: Db) {
         continuationAttempt: row.continuationAttempt,
         invocationSource: row.invocationSource ?? null,
         usage: normalizeRunUsage(row.usageJson),
+        costUsd: normalizeRunCost(row.usageJson, row.resultJson),
       });
     }
 
