@@ -161,7 +161,7 @@ describe("IssueExecutionTimeline", () => {
     root.unmount();
   });
 
-  it("shows an empty state when the window has no runs or events", async () => {
+  it("keeps task rows visible when the window has no runs or events", async () => {
     mockGet.mockResolvedValue(result({ actors: [], spans: [], events: [], edges: [] }));
     const { container, root } = render(
       <IssueExecutionTimeline
@@ -174,7 +174,10 @@ describe("IssueExecutionTimeline", () => {
     );
 
     await vi.waitFor(() => {
-      expect(container.textContent).toContain("No runs or task events in the last 24h");
+      expect(container.textContent).toContain("Execution task");
+      expect(container.textContent).toContain("0 runs / last 24h");
+      expect(container.querySelector('[aria-label^="Task span"]')).not.toBeNull();
+      expect(container.textContent).toContain("No delegation or assignment edges in this window.");
     });
 
     root.unmount();

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Issue, WorkTimelineEvent, WorkTimelineResult, WorkTimelineSpan } from "@paperclipai/shared";
+import { Minus, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { workTimelineApi } from "../api/workTimeline";
@@ -88,7 +90,7 @@ function taskSpan(issue: Issue | undefined, windowFrom: number, windowTo: number
   const start = new Date(issue.createdAt).getTime();
   const terminal = issue.status === "done" || issue.status === "cancelled";
   const end = terminal ? new Date(issue.updatedAt).getTime() : windowTo;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || start > windowTo) return null;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start || start > windowTo || end < windowFrom) return null;
   const clampedStart = Math.max(start, windowFrom);
   const clampedEnd = Math.min(end, windowTo);
   const total = Math.max(windowTo - windowFrom, 1);
@@ -136,8 +138,20 @@ function formatTick(iso: string, timeWindow: ExecutionWindow) {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function buildTaskLanes(result: WorkTimelineResult, issuesById: Map<string, Issue>) {
+function buildTaskLanes(result: WorkTimelineResult, issuesById: Map<string, Issue>, issues: Issue[]) {
   const lanes = new Map<string, TimelineLane>();
+
+  for (const issue of issues) {
+    lanes.set(issue.id, {
+      key: `issue:${issue.id}`,
+      title: issue.identifier ?? issue.id.slice(0, 8),
+      subtitle: issue.title,
+      issue,
+      spans: [],
+      events: [],
+      firstAt: new Date(issue.createdAt).getTime(),
+    });
+  }
 
   for (const span of result.spans) {
     const existing = lanes.get(span.issueId) ?? {
@@ -179,38 +193,41 @@ function buildAgentLanes(result: WorkTimelineResult) {
   const lanes = new Map<string, TimelineLane>();
   const actorById = new Map(result.actors.map((actor) => [actor.id, actor]));
 
-  for (const span of result.spans) {
-    const actor = actorById.get(span.actorId);
-    if (!actor || actor.type !== "agent") continue;
-    const existing = lanes.get(span.actorId) ?? {
-      key: `agent:${span.actorId}`,
+  const ensureLane = (actorId: string) => {
+    const actor = actorById.get(actorId);
+    if (!actor) return null;
+    const existing = lanes.get(actorId);
+    if (existing) return existing;
+    const lane: TimelineLane = {
+      key: `actor:${actorId}`,
       title: actor.name,
-      subtitle: "Agent",
-      actorId: span.actorId,
+      subtitle: actor.type === "agent" ? "Agent" : actor.type === "user" ? "Board / user" : "System",
+      actorId,
       spans: [],
       events: [],
       firstAt: Number.POSITIVE_INFINITY,
     };
-    existing.spans.push(span);
-    existing.firstAt = Math.min(existing.firstAt, Date.parse(span.start));
-    lanes.set(span.actorId, existing);
+    lanes.set(actorId, lane);
+    return lane;
+  };
+
+  for (const span of result.spans) {
+    const lane = ensureLane(span.actorId);
+    if (!lane) continue;
+    lane.spans.push(span);
+    lane.firstAt = Math.min(lane.firstAt, Date.parse(span.start));
   }
 
   for (const event of result.events) {
-    const actor = actorById.get(event.actorId);
-    if (!actor || actor.type !== "agent") continue;
-    const existing = lanes.get(event.actorId) ?? {
-      key: `agent:${event.actorId}`,
-      title: actor.name,
-      subtitle: "Agent",
-      actorId: event.actorId,
-      spans: [],
-      events: [],
-      firstAt: Number.POSITIVE_INFINITY,
-    };
-    existing.events.push(event);
-    existing.firstAt = Math.min(existing.firstAt, Date.parse(event.at));
-    lanes.set(event.actorId, existing);
+    const lane = ensureLane(event.actorId);
+    if (!lane) continue;
+    lane.events.push(event);
+    lane.firstAt = Math.min(lane.firstAt, Date.parse(event.at));
+  }
+
+  for (const edge of result.edges) {
+    ensureLane(edge.fromActorId);
+    ensureLane(edge.toActorId);
   }
 
   return Array.from(lanes.values()).sort((left, right) => left.firstAt - right.firstAt);
@@ -316,6 +333,7 @@ export function IssueExecutionTimeline({
   timeWindow,
 }: IssueExecutionTimelineProps) {
   const [anchor, setAnchor] = useState(() => Date.now());
+  const [zoom, setZoom] = useState(1);
   useEffect(() => {
     const timer = globalThis.setInterval(() => setAnchor(Date.now()), 60_000);
     return () => globalThis.clearInterval(timer);
@@ -339,17 +357,29 @@ export function IssueExecutionTimeline({
   });
 
   const issuesById = useMemo(() => new Map(issues.map((issue) => [issue.id, issue])), [issues]);
+  const issueIdSet = useMemo(() => new Set(issueIds), [issueIdsKey]);
+  const scopedData = useMemo(() => {
+    if (!query.data) return null;
+    return {
+      ...query.data,
+      spans: query.data.spans.filter((span) => issueIdSet.has(span.issueId)),
+      events: query.data.events.filter((event) => issueIdSet.has(event.issueId)),
+      edges: query.data.edges.filter((edge) => issueIdSet.has(edge.issueId)),
+    };
+  }, [issueIdSet, query.data]);
   const actorById = useMemo(
-    () => new Map((query.data?.actors ?? []).map((actor) => [actor.id, actor])),
-    [query.data?.actors],
+    () => new Map((scopedData?.actors ?? []).map((actor) => [actor.id, actor])),
+    [scopedData?.actors],
   );
   const lanes = useMemo(() => {
-    if (!query.data) return [];
-    return lane === "agent" ? buildAgentLanes(query.data) : buildTaskLanes(query.data, issuesById);
-  }, [lane, query.data, issuesById]);
+    if (!scopedData) return [];
+    return lane === "agent"
+      ? buildAgentLanes(scopedData)
+      : buildTaskLanes(scopedData, issuesById, issues);
+  }, [lane, scopedData, issuesById, issues]);
 
-  const windowFrom = query.data ? Date.parse(query.data.window.from) : from.getTime();
-  const windowTo = query.data ? Date.parse(query.data.window.to) : to.getTime();
+  const windowFrom = scopedData ? Date.parse(scopedData.window.from) : from.getTime();
+  const windowTo = scopedData ? Date.parse(scopedData.window.to) : to.getTime();
   const ticks = Array.from({ length: TICK_COUNT + 1 }, (_, index) => {
     const ratio = index / TICK_COUNT;
     return {
@@ -358,10 +388,10 @@ export function IssueExecutionTimeline({
     };
   });
   const edgePaths = useMemo<EdgePath[]>(() => {
-    if (!query.data || lanes.length === 0) return [];
+    if (!scopedData || lanes.length === 0) return [];
     const issueLane = new Map(lanes.flatMap((row, index) => row.issue ? [[row.issue.id, index] as const] : []));
     const actorLane = new Map(lanes.flatMap((row, index) => row.actorId ? [[row.actorId, index] as const] : []));
-    return query.data.edges.flatMap((edge, index) => {
+    return scopedData.edges.flatMap((edge, index) => {
       let fromIndex: number | undefined;
       let toIndex: number | undefined;
       if (lane === "agent") {
@@ -389,7 +419,7 @@ export function IssueExecutionTimeline({
         dashed: edge.kind === "assignment",
       }];
     });
-  }, [actorById, issuesById, lane, lanes, query.data, windowFrom, windowTo]);
+  }, [actorById, issuesById, lane, lanes, scopedData, windowFrom, windowTo]);
   const truncated = issues.length > issueIds.length;
 
   if (!enabled) {
@@ -439,7 +469,7 @@ export function IssueExecutionTimeline({
           ))}
           {lane === "task" ? (
             <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-4 rounded-sm border border-border/50 bg-muted-foreground/20" />
+              <span className="h-2 w-4 rounded-sm border border-primary/30 bg-primary/10" />
               Task span
             </span>
           ) : (
@@ -455,16 +485,43 @@ export function IssueExecutionTimeline({
             </>
           )}
         </div>
-        <span>
-          {query.data?.spans.length ?? 0} runs / last {timeWindow}
-          {truncated ? ` / first ${issueIds.length} tasks` : ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span>
+            {scopedData?.spans.length ?? 0} runs / last {timeWindow}
+            {truncated ? ` / first ${issueIds.length} tasks` : ""}
+          </span>
+          <div className="flex items-center gap-1" role="group" aria-label="Timeline zoom">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setZoom((current) => Math.max(1, current / 2))}
+              disabled={zoom <= 1}
+              aria-label="Zoom out timeline"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </Button>
+            <span className="min-w-8 text-center text-xs tabular-nums">{zoom}x</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setZoom((current) => Math.min(8, current * 2))}
+              disabled={zoom >= 8}
+              aria-label="Zoom in timeline"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-border bg-card">
-        <div className="w-full min-w-0">
+        <div className="min-w-0" style={{ width: `${zoom * 100}%` }}>
           <div className="flex border-b border-border">
-            <div className="flex w-48 shrink-0 items-end px-3 py-2 text-xs font-medium text-muted-foreground">
+            <div className="sticky left-0 z-20 flex w-48 shrink-0 items-end bg-card px-3 py-2 text-xs font-medium text-muted-foreground">
               {lane === "agent" ? "Agent" : "Task"}
             </div>
             <div className="relative min-w-64 flex-1 py-2">
@@ -484,8 +541,8 @@ export function IssueExecutionTimeline({
             {lanes.map((laneRow) => {
               const taskBar = laneRow.issue ? taskSpan(laneRow.issue, windowFrom, windowTo) : null;
               return (
-                <div key={laneRow.key} className="flex h-12 border-b border-border/60 last:border-b-0">
-                  <div className="flex w-48 shrink-0 items-center gap-2 px-3 py-2">
+                <div key={laneRow.key} className="flex h-16 border-b border-border/60 last:border-b-0 hover:bg-accent/30">
+                  <div className="sticky left-0 z-20 flex w-48 shrink-0 items-center gap-2 bg-card px-3 py-2">
                     {laneRow.issue ? (
                       <StatusIcon status={laneRow.issue.status} size="sm" className="shrink-0" />
                     ) : (
@@ -507,7 +564,7 @@ export function IssueExecutionTimeline({
                     ))}
                     {taskBar ? (
                       <div
-                        className="absolute top-1/2 h-4 -translate-y-1/2 rounded-sm border border-border/50 bg-muted-foreground/20"
+                        className="absolute top-1/2 h-5 -translate-y-1/2 rounded-sm border border-primary/30 bg-primary/10"
                         style={{ left: `${taskBar.left}%`, width: `${taskBar.width}%` }}
                         title={`${laneRow.title}: open ${formatDurationMs(taskBar.durationMs)}`}
                         aria-label={`Task span ${formatDurationMs(taskBar.durationMs)}`}
@@ -558,6 +615,32 @@ export function IssueExecutionTimeline({
             ) : null}
           </div>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card">
+        <div className="border-b border-border px-3 py-2 text-xs font-medium">Handoffs</div>
+        {scopedData && scopedData.edges.length > 0 ? (
+          <div>
+            {scopedData.edges
+              .slice()
+              .sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime())
+              .map((edge, index) => {
+                const issue = issuesById.get(edge.issueId);
+                const source = actorById.get(edge.fromActorId)?.name ?? edge.fromActorId.slice(0, 8);
+                const target = actorById.get(edge.toActorId)?.name ?? edge.toActorId.slice(0, 8);
+                return (
+                  <div key={`${edge.kind}:${edge.issueId}:${edge.at}:${index}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border/60 px-3 py-2 text-xs last:border-b-0">
+                    <span className="font-medium">{issue?.identifier ?? edge.issueId.slice(0, 8)}</span>
+                    <span className="text-muted-foreground">{edge.kind === "delegation" ? "Delegation" : edge.kind === "assignment" ? "Assignment" : "Handoff"}</span>
+                    <span>{source} to {target}</span>
+                    <span className="ml-auto text-(length:--text-nano) text-muted-foreground">{formatDateTime(edge.at)}</span>
+                  </div>
+                );
+              })}
+          </div>
+        ) : (
+          <div className="px-3 py-2 text-xs text-muted-foreground">No delegation or assignment edges in this window.</div>
+        )}
       </div>
     </div>
   );
