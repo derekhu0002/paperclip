@@ -421,6 +421,10 @@
           "name": "commit",
           "value": "ba45ff80b",
           "description": "chore(argo): record approval canvas lessons"
+        },
+        {
+          "name": "newOrganizationRunbook",
+          "value": "2026-10-19: 现有记忆对“从零新建 organization”不够完整；已补 T2 paperclip-new-organization-runbook-2026-10-19，覆盖 company 创建/instance-admin/owner membership、company 级 AI connection、environment/project/agent、test-environment、任务验收、回滚与新组织专属坑。新会话做新 organization 前先读它。"
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
@@ -994,6 +998,38 @@
           "description": "chore(argo): record approval canvas lessons — design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "id": "paperclip-new-organization-runbook-2026-10-19",
+      "type": "Requirement",
+      "name": "Paperclip 新建 organization 的适用性评估与最小 runbook（2026-10-19）",
+      "description": "【结论】现有 T2 记忆不足以完整覆盖“从零新建一个 organization”。它完整覆盖的是：在已存在 company 下新增 SSH environment、project、agent、heartbeat、reportsTo、remote workspace 验证。缺失的是：company/organization 本身的创建、权限与 owner membership、issue prefix、company 级 AI connection、org 级验收与回滚。新建组织前必须补读本元素。\n\n【已有记忆覆盖】\n- paperclip-control-plane-remote-device-onboarding-2026-10-17：47 控制面 + SSH environment + project + agent + remote workspace 的完整步骤与 7 个坑。\n- paperclip-vsoc-archgraph-agent-onboarding-2026-10-18：vsoc 下 5 组 project/agent/env 的具体 ID、统一 adapter 配置、验收证据。\n- agent-heartbeat：所有新项目/Agent 的标准 heartbeat。\n- paperclip-reports-to-ui-and-delegation-2026-10-17：Reports to 的 UI 路径与委派规则。\n- paperclip-approval-graph-canvas-lessons-2026-10-19：审批图证据画布。\n这些记忆可用于新组织的“下游接入”，但不能代替 organization 创建步骤。\n\n【新建 organization 最小 runbook】\n0) 前置：控制面 47.107.161.168（paperclip.service，dashboard https://paperclip.derekworkspacev5.com）；操作者必须是 instance admin 或 local implicit board；Cloud-managed 实例会拒绝 company 创建。\n1) 建组织：Organizations 页面 → New Organization（打开 onboarding），或直接 POST /api/companies，body 最小为 {\"name\":\"<org-name>\"}，可选 description/budgetMonthlyCents/defaultResponsibleUserId。服务端自动把当前 board user 加为 owner/active，并创建 issue prefix；返回 company.id/issuePrefix。不要手工伪造 company id。\n2) 选中新 company，先建 company 级 AI connection：UI 的 Connectors/AI connections，或 POST /api/companies/:companyId/ai-connections，body 至少 provider + method=api_key + apiKey + routing；随后 GET /api/companies/:companyId/ai-connections 验证。不要假设可复用 vsoc 的 connection 78401b6d/ grant 90a5bdd1；那是 vsoc 公司级的。\n3) 建 execution environment：Instance Settings 打开 Environments；Company Settings → Instance → Environments → New；Driver=SSH；host/port/username/privateKey（末尾必须有换行）/remoteWorkspacePath；保存后 Probe。同一设备多仓库 = 多 environment。\n4) 建设备准备：sshd 可达；authorized_keys 有公钥；远端有 opencode 且在 PATH；仓库已 clone 到 remoteWorkspacePath；.paperclip-runtime 已 gitignore。\n5) 建 project：Projects → New；不要填只在 47/Windows 存在的本地 workspace 路径；project.leadAgentId 后续绑定。\n6) 建 agent：Agents → New，adapter=opencode_local，model 用 provider/model；Environment override 选新 environment；heartbeat={enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}；需要时 Reports to；如用 vsoc 的 opencode-vsoc wrapper，必须保留 Paperclip 注入的 OPENCODE_CONFIG_CONTENT/OPENCODE_CONFIG/OPENCODE_CONFIG_DIR。\n7) 适配器验收：POST /api/companies/:companyId/adapters/opencode_local/test-environment（agentId+environmentId+saved config+aiConnection）；必须 status=pass/opencode_hello_probe_passed，agent 变 idle/ready。\n8) 任务验收：建一个 todo issue 并 assigneeAgentId=新 agent；服务端自动入队 issue_assigned wake；到远端看 <remoteWorkspacePath>/.paperclip-runtime/runs/<runId>/ 和 managed-auth/<runId>/data/opencode/opencode.db；确认 cwd/branch 与 run transcript。\n9) 组织级验收：GET /api/companies?scope=accessible 包含新 org；GET /api/companies/:id/projects 与 /agents；project.leadAgentId 唯一且对应 agent；agent.defaultEnvironmentId 对应 env；env probe ok；test-environment pass；todo issue 成功。\n\n【新组织专属注意】\n- 不要复用 vsoc 的 companyId 29f175e7...、project/agent/env ID；只复用配置模式。\n- 不要把 vsoc 的 AI connection 当成全局共享；新 company 要自己的连接/授权。\n- 新 company 的 issue prefix 由服务端生成；不要硬编码 VSO。\n- Company creation 需要 instance admin；普通 board 成员不行。\n- 如果走 onboarding：New Organization 会先建 company，再引导首个 agent；如果要做 SSH/多 agent，建完 company 后走上面的手动流程更可控。\n- 新环境 privateKey 结尾必须有换行，否则 ssh/libcrypto error in libcrypto。\n- 新 agent 创建后 lifecycle_state=verifying；必须 test-environment 后才 ready/idle。\n- 真实仓库 .paperclip-runtime 未 gitignore 会让 opencode 快照扫描挂起；先用 /root/.gitignore_global 排除。\n- argo MCP 必须 source /root/.argo/.env；否则 live provider configuration 报错。\n- graph-mcp 工具名是 graph_list；argo-init --help 会执行 init，验证任务不要跑。\n- 所有新建项目/Agent 仍由项目经理负责；heartbeat 标准值不可省。\n\n【回滚】\n- 如果 organization 创建后尚未接项目：Organizations → 删除/归档；不要留下空 company。\n- 如果 environment/agent 失败：先删 agent/project，再删 environment；检查 company_secret_bindings 与 privateKeySecretRef，避免 secret 悬挂。\n- 如果只是验证，优先用一次性 organization，完成后删除；不要污染现有 vsoc/argo。\n\n【与本次会话的关系】本次 VSO-22 审批画布是在 vsoc 内维护，不是新 org；但 canvas 经验可用于新 org 的审批门禁。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-19"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-19"
+        },
+        {
+          "name": "scope",
+          "value": "new organization runbook; complements paperclip-control-plane-remote-device-onboarding-2026-10-17 and paperclip-vsoc-archgraph-agent-onboarding-2026-10-18"
+        },
+        {
+          "name": "source",
+          "value": "Inspected ui/src/pages/Companies.tsx, ui/src/components/OnboardingWizard.tsx, ui/src/api/companies.ts, server/src/routes/companies.ts, server/src/routes/ai-connections.ts, packages/shared/src/validators/company.ts"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -1061,7 +1097,8 @@
         "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18",
         "paperclip-argo-env-privatekey-newline-fix-2026-10-18",
         "paperclip-secoops-commander-three-layer-2026-10-18",
-        "paperclip-approval-graph-canvas-lessons-2026-10-19"
+        "paperclip-approval-graph-canvas-lessons-2026-10-19",
+        "paperclip-new-organization-runbook-2026-10-19"
       ],
       "included_relationships": []
     },
