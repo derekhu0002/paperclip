@@ -341,6 +341,20 @@
           "name": "commit",
           "value": "a57264224a460f91faaf3f190815ea5f079de688",
           "description": "feat(tasks): group execution timeline by agent and segment task bars"
+        },
+        {
+          "name": "executionViewStatusSegments",
+          "value": "2026-10-19: 进一步修正 queue 语义。Time line 服务新增 status_changed 事件（issue.created/issue.updated 的 status 与 _previous.status）。UI 任务条按状态分为 Backlog/blocked（灰）、Queue（黄，todo 后到首次执行）、Execution（绿，run 区间）、Paused/waiting（灰，run 间/后）。用户当前 VSO-3..VSO-8 案例：14:42 创建为 backlog/blocked，VSO-3 15:59:39 才 todo，VSO-4 16:31:50、VSO-5/6 16:37、VSO-7 16:54、VSO-8 17:00 才释放；此前 2h 是依赖/人工释放等待，不是 Agent 排队执行。所有任务 created_by_user_id=7XgNme...（Board/operator），因此显示 Board/operator → Agent，而非 Agent→Agent。变更：server timeline status events、shared type、openapi、UI status segments；IssueExecutionPanel 未改。测试：work-timeline 9、IssueExecutionTimeline 3；UI typecheck/build、token gates、maps 通过。47 曾因在实例上 tsc 导致失联，已重启；本次改为本机构建，只部署 server/dist 三个编译文件与 UI dist，47 服务 active。本地 commits 671a05d89、cb5c5c58a；47 UI asset index-DKhx57xV.js，backup ui-dist.bak8。"
+        },
+        {
+          "name": "commit",
+          "value": "671a05d89b4e6df1faad0141cb1fc31af6cb869f",
+          "description": "fix(tasks): distinguish backlog queue and execution segments"
+        },
+        {
+          "name": "commit",
+          "value": "cb5c5c58addb45890cea35307a6c8830b21bb724",
+          "description": "docs(tasks): describe backlog wait in execution view"
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
