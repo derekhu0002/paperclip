@@ -443,6 +443,10 @@
           "name": "commit",
           "value": "3669b5325",
           "description": "chore(argo): record ArchGraph decoupling plan"
+        },
+        {
+          "name": "nextSessionHandoff",
+          "value": "2026-10-20: 下一个会话继续 Paperclip/ArchGraph 解耦。先读 T2 paperclip-archgraph-decoupling-plan-2026-10-20，再读本 T1 的 archgraphDecouplingPlan。当前人类明确不迁移，VSO/47/WSL 保持不动；不要删除 opencode-vsoc 或全局 ARGO 配置。开始迁移时按 T2 顺序：1) Paperclip graph provider contract + 把 helper 移到 integrations/archgraph；2) 建 ArchGraph profile，单 Agent 验证标准 opencode；3) 再迁其余 Agent；4) revert 5 个 AGENTS.md 提交并清理 .bak；5) 清理 Docker context 与 clean-room 验证。核心结论：Paperclip server/packages/ui 无 ArchGraph 依赖；archgraph 框架仓库干净；耦合在 WSL 全局配置、5 个 agent 仓库 AGENTS.md、approval helper/SKILL 的 design/KG 写死。"
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
@@ -1094,6 +1098,12 @@
           "description": "chore(argo): record ArchGraph decoupling plan — design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "id": "paperclip-ipd-department-onboarding-drill-2026-10-20",
+      "type": "Requirement",
+      "name": "IPD 开发部创建、角色项目 onboard 与端到端 APP 演练（2026-10-20）",
+      "description": "【目标】在 Paperclip 47 控制面（https://paperclip.derekworkspacev5.com，commit a450ab0e）新建 organization「IPD 开发部」，onboard D:\\Projects\\idpdv-demo，并按 IPD 业务角色拆分专业项目+Agent，最后跑一次 APP 开发端到端演练。\n\n【已完成】\n1) company 833b4f12-5dbf-4b42-aa91-083a773e0361（IPD，issue prefix IPD），AI connection 623c212a / grant 0b243edc（DeepSeek gateway，复用同实例 argo 的密钥，未打印密钥）。\n2) IDPDV：project 1b9b765b / agent c4bd3718（项目经理 · idpdv-demo，role=pm）/ env 2bd3bd44（SSH root@100.87.205.43:2222 → /mnt/d/Projects/idpdv-demo），probe ok，test-environment 最终 pass。\n3) 角色清单由 IDPDV Agent 基于图谱给出（issue IPD-1 done）：全量 15 类角色；人类保留 IPMT/CCB/最终发布签署；最小演练集 7 个：pdt-lead（复用 IDPDV PM）、requirements-analyst、systems-engineer、architect、developer、test-engineer、pqa。\n4) 在 D:\\Projects\\ipd department 下建 6 个角色目录（各自 git init + scaffold commit）：requirements-analyst / systems-engineer / architect / developer / test-engineer / pqa；父目录 README 记录角色-阶段映射。\n5) 6 个 SSH env + 6 个 agent + 6 个 project 全部创建并 ready：RE 5467eed3/ecfb56b5，SE d2a75ee9/52b932f8，SA d7f46e23/5e06181d，DE 4e71fed5/43ad2ea4，TSE 8e2fca4e/21af7500，PQA 541d4f6e/125ceb69；每个 project 都加了 remote_path workspace。\n6) 演练 issue IPD-2（ea421890）：PM 真实派发 10 个阶段/评审 issue + 2 个人类闸门（IPD-13 GATE-CHARTER、IPD-14 GATE-TR6），用 blockedByIssueIds 串行。S1 done（RE commit e0460de）；S2-SE 提前完成（b8c2481）；S3-SA 完成（494b7bf）；S4-DE 完成（8bd31d6，node tests/todo.test.cjs 11/11 pass）。IPD-13 已创建 human_only request_confirmation（interaction 7bd74af8-2290-4972-9af2-04ef9f1439f2），等待人类批准后放行 S2 后的 TSE/TR1/S3/TR2/S4/PQA/TR6。\n\n【关键决策/理由】\n- 组织名选「IPD 开发部」（比“ipd开发流程”更像组织）。\n- pdt-lead 复用 IDPDV 项目经理，不重复建 PM 项目；其余 6 角色独立项目。\n- 角色项目暂不初始化 ARGO 图谱（需人类 argo-init）；Agent 会先声明 ARGO 不可用再继续，演练以文件+测试证据为准。\n- 角色项目首次 probe 会因全局 wakeup gate 调 LLM 多轮而超 60s：必须给 agent adapterConfig.helloProbeTimeoutSec=300~420；PATCH 后验证要等 4-7 分钟。\n- 并发 probe 会互相拖慢/超时；6 个 agent 创建后由系统自动重试即可逐步 ready。\n\n【踩坑】\n- 控制面 authenticated 模式无法用 local implicit board；用实例 root SSH + embedded Postgres(127.0.0.1:54329, user/pass paperclip/paperclip) 建临时 board_api_key（sha256，name=ipd-onboarding-temp），用完立即 revoked。\n- ConvertTo-Json 5.1 会把多行私钥转成 {value,Count} 对象；用 Node JSON.stringify 构造 env 请求体。\n- `.paperclip-runtime` 必须清空，否则 test-environment 会把 runtime 递归拷进 staged workspace，probe 假死。\n- 角色 agents 创建后自动验证；不要重复手动 test-environment，避免并发。\n\n【待人类】在 Paperclip UI 打开 IPD-13（/IPD/issues/IPD-13）批准 Charter；之后 PM 自动继续，最终 IPD-14 TR6 还需第二次人类批准。\n\n【证据】仓库：D:\\Projects\\ipd department\\*（各 HEAD clean）；IDPDV 仓 commit 未改（仅清理 .paperclip-runtime）。"
     }
   ],
   "relationships": [
@@ -1163,7 +1173,8 @@
         "paperclip-secoops-commander-three-layer-2026-10-18",
         "paperclip-approval-graph-canvas-lessons-2026-10-19",
         "paperclip-new-organization-runbook-2026-10-19",
-        "paperclip-archgraph-decoupling-plan-2026-10-20"
+        "paperclip-archgraph-decoupling-plan-2026-10-20",
+        "paperclip-ipd-department-onboarding-drill-2026-10-20"
       ],
       "included_relationships": []
     },
