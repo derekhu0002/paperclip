@@ -173,7 +173,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-19"
+          "value": "2026-10-20"
         },
         {
           "name": "memoryTier",
@@ -430,6 +430,14 @@
           "name": "commit",
           "value": "67d194f6a",
           "description": "chore(argo): add new organization onboarding runbook"
+        },
+        {
+          "name": "archgraphDecouplingPlan",
+          "value": "2026-10-20: 人类决定暂不迁移。已审计 Paperclip/ArchGraph 边界并写入 T2 paperclip-archgraph-decoupling-plan-2026-10-20。核心结论：archgraph 框架仓库干净；5 个 agent 仓库 AGENTS.md 有 Paperclip 规则提交；WSL 有全局 opencode-vsoc/ARGO 耦合；Paperclip server/packages/ui 无 ArchGraph 引用；只有 approval graph helper/SKILL 硬编码 design/KG。目标边界=Paperclip Core 通用 + ArchGraph profile/provider 可选 + ArchGraph 框架独立。迁移时先做 provider/profile，逐 Agent 切换，最后 revert AGENTS.md 提交。当前不要删除全局配置。"
+        },
+        {
+          "name": "handoff20261020",
+          "value": "Current VSO remains working. Do not migrate or remove opencode-vsoc/global ARGO until the ArchGraph profile and provider are built and one Agent is verified. Read the T2 decoupling plan when migration starts."
         }
       ],
       "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
@@ -1040,6 +1048,42 @@
           "description": "chore(argo): add new organization onboarding runbook — design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "id": "paperclip-archgraph-decoupling-plan-2026-10-20",
+      "type": "Requirement",
+      "name": "Paperclip 与 ArchGraph 解耦方案与审计（2026-10-20，暂不迁移）",
+      "description": "【人类决定 2026-10-20】暂不迁移。保留当前 vsoc 运行状态，后续真正迁移时再按本方案执行。不要删除当前 WSL 全局 ARGO 配置或 opencode-vsoc，否则会中断现有 Agent。\n\n【目标】把 ArchGraph 作为 Paperclip 发行版的标准执行体 Agent 形态（profile/agent template），但 Paperclip 核心不依赖 ArchGraph；ArchGraph 作为独立框架，不被 Paperclip 二次修改；未来可替换成其他图框架而不影响 Paperclip。\n\n【审计结论】\n1. ArchGraph 框架仓库 D:\\Projects\\archgraph 工作区干净；未发现我们对其源码的二次修改；最新提交是 docs/release/memory。\n2. 5 个 agent 项目仓库的 AGENTS.md 有 Paperclip 规则提交：blue 571c0df、green 78a8bd1、intel 445b5dd、purple 37b0353、red a4ab1f9。内容是 todo/blockedBy、dependency auto-release、禁止空 heartbeat、graph-mcp 移除等 Paperclip 规则；不是 ArchGraph 框架代码。迁移时应 revert 或把规则移到 Paperclip managed instructions / ArchGraph profile。5 个仓库还有未跟踪的 AGENTS.md.bak-dependency-20261019-183833 备份。\n3. new-era-cybersecurity-strategy 的 .qea 有修改，但那是 Agent 业务输出/项目数据，不是框架耦合；迁移时不要当作配置回滚。\n4. WSL 执行体存在全局 ArchGraph 耦合：/usr/local/bin/opencode-vsoc（private mount namespace，绑定 /etc/opencode/opencode.json、/root/.config/opencode/opencode.json、/etc/hosts，剥离 graph-mcp，只留 argo）；/root/.config/opencode/opencode-vsoc.json；/root/.config/opencode/hosts-vsoc；/etc/opencode/opencode.json；/root/.config/opencode/opencode.json；/root/.config/opencode/AGENTS.md（约 23KB ArchGraph/ARGO 规则）；/root/.argo + ARGO MCP + graph-mcp + Neo4j reverse tunnel。Agent 配置还有 ARGO_REPO_ROOT、OPENCODE_ALLOW_ALL_MODELS、PAPERCLIP_OPENCODE_SMALL_MODEL、DEEPSEEK_API_KEY 等。这些是执行环境改造，不是 ArchGraph 仓库源码修改。\n5. Paperclip 核心基本干净：在 server/src、packages、ui/src 的搜索中没有 ArchGraph/ARGO/design-KG/SystemArchitecture 生产代码引用。GraphEvidencePanel、ApprovalCard、ApprovalDetail、DecisionGraphContext 都是通用 graph DTO；控制面只消费 payload.graphContext.preview。directRemoteWorkspace 是通用 fork 能力，不是 ArchGraph 耦合。\n6. 唯一明显的 Paperclip 侧耦合：skills/paperclip/scripts/paperclip-approval-with-graph.mjs 默认读取 design/KG/SystemArchitecture.json（约 line 103），并按 elements/relationships/views 归一化；skills/paperclip/SKILL.md 约 line 373-390 写死 design/KG 规则。另有 ApprovalCard.test 的 summary 字符串只是测试文案。\n\n【目标边界】\n- Paperclip Core：通用 OpenCode 执行 + 通用 GraphContext DTO + 通用审批 UI；不出现 ArchGraph/ARGO/design-KG 字样。\n- Paperclip ArchGraph Integration（可作为发行版默认 profile，但可选）：ArchGraph execution profile、ARGO MCP、ArchGraph AGENTS/skills、graph context provider、安装脚本。\n- ArchGraph Framework：独立仓库，不被 Paperclip 修改，可独立升级/替换。\n\n【GraphContext provider 方案】\n- 定义通用 provider contract：输入 task/project/focus，输出 {projectId,snapshotHash,focusElementIds,preview,summary,highlight}。Paperclip 只校验并渲染。\n- 通过 PAPERCLIP_GRAPH_CONTEXT_CMD 或 integration provider 调用；无 provider 时走普通 approval，不报错。\n- 把 paperclip-approval-with-graph.mjs 从 skills/paperclip 核心移到 integrations/archgraph；ArchGraph provider 负责读 design/KG 或调用 ARGO MCP。\n- SKILL.md 改为：有 provider 就用 provider；不要写死 design/KG。UI/ApprovalCard 不动。\n\n【Execution profile 方案】\n- 建立 /opt/paperclip/profiles/archgraph/（建议）：opencode.json、AGENTS.md、hosts、skills、bin/opencode-archgraph、install.sh。\n- Agent 只在自己的 profile 下运行；通用 Agent 用标准 opencode。\n- 移除全局 /etc/opencode 和 ~/.config/opencode 修改；不要全局绑定 hosts。\n- 保留 directRemoteWorkspace（通用）。\n- 把 ARGO_REPO_ROOT、graph-mcp、Neo4j tunnel、ARGO_* 归入 profile；通用执行体不需要。\n\n【Agent 仓库清理方案】\n- 迁移时对 5 个 AGENTS.md 提交做 git revert（不重写历史），把 Paperclip dependency/todo 规则移到 Paperclip managed instructions 或 ArchGraph profile。\n- 删除 AGENTS.md.bak-* 未跟踪文件。\n- new-era .qea 保留（业务数据）。\n\n【Docker/打包解耦】\n- 根 Dockerfile 目前 COPY . .；.dockerignore 未排除 design/KG、paperclip.qea、.argo、.agents 等 ArchGraph 资产；通用 Paperclip 镜像应排除。\n- ArchGraph integration 可作为单独层/包（integrations/archgraph）附带，不作为 Paperclip core 默认运行配置。\n- 未来替换 graph 框架时只换 provider/profile，不改 Paperclip 镜像核心。\n\n【迁移顺序（后续执行）】\n0) 备份当前 vsoc/WSL/47 配置；冻结现状。\n1) Paperclip 代码层解耦：provider contract + helper 移到 integrations/archgraph；SKILL 去 design/KG 写死；加 mock provider 测试。\n2) 建 ArchGraph profile；用 1 个 Agent 验证标准 opencode；不删当前 opencode-vsoc。\n3) 验证通过后迁移其余 Agent；移除全局 ARGO/OpenCode 修改。\n4) revert 5 个 AGENTS.md 提交，规则移到 managed instructions/profile；清理 .bak。\n5) 清理 Docker context；做 clean-room 构建；做替换 provider 测试。\n\n【验收标准】\n- 通用执行体不装 ARGO，Agent 可完成普通任务。\n- mock graph provider 下审批卡正常显示。\n- ArchGraph profile 下 Agent 正常使用 ARGO。\n- 把 provider 换成另一个图引擎，Paperclip 核心代码不变。\n- 当前 VSO/47 在迁移过程中不断服。\n\n【风险】\n- 直接删除 WSL 全局配置会中断现有 vsoc；必须先建 profile 并逐 Agent 迁移。\n- revert AGENTS.md 可能改变 Agent 行为；规则要迁移到 managed instructions。\n- Docker 镜像携带 ArchGraph 资产会造成发行版耦合/信息泄露；需排除。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-20"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-20"
+        },
+        {
+          "name": "decision",
+          "value": "Defer migration; keep current vsoc working; revisit when human asks."
+        },
+        {
+          "name": "scope",
+          "value": "Paperclip/ArchGraph boundary audit and decoupling plan; no code migration yet."
+        },
+        {
+          "name": "source",
+          "value": "Audited D:/Projects/archgraph, archgraph-agent-*, new-era-cybersecurity-strategy, WSL ocpc configs, Paperclip server/packages/ui/skills."
+        }
+      ]
     }
   ],
   "relationships": [
@@ -1108,7 +1152,8 @@
         "paperclip-argo-env-privatekey-newline-fix-2026-10-18",
         "paperclip-secoops-commander-three-layer-2026-10-18",
         "paperclip-approval-graph-canvas-lessons-2026-10-19",
-        "paperclip-new-organization-runbook-2026-10-19"
+        "paperclip-new-organization-runbook-2026-10-19",
+        "paperclip-archgraph-decoupling-plan-2026-10-20"
       ],
       "included_relationships": []
     },
