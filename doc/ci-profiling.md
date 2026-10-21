@@ -162,7 +162,7 @@ readiness fixtures, `profile-ci` also runs **CI work benchmark**. It uses one
 GitHub-hosted runner without secrets or AWS access. It compares the unchanged
 PR base and candidate sequentially. It records complete command times, test
 inventories, revisions, and failure logs in the `ci-work-benchmark` artifact.
-The serialized shard must retain the same cases. The fixture comparison retains
+The complete general-server shard must retain the same cases. The fixture comparison retains
 the database contract and splits large Git scanning from bounded staging.
 These command timings exclude queue time and setup; use the full Honeycomb
 waterfall to assess the complete CI critical path.
@@ -195,3 +195,29 @@ Its configured readiness window stays long. The Git regression keeps all four
 filename lanes above 32 MiB, while the staging case transfers and deletes 4,000
 files whose filename list exceeds 2 MiB. It still checks every staged file,
 unusual names, snapshot ownership, cleanup, and bounded command lengths.
+
+The Linux public-install check serves metadata read from the actual packed
+archives through a temporary loopback registry inside its download container.
+This avoids npm's file-spec manifest extraction of every archive before the
+real install. npm still verifies each archive's SHA-512 and installs the same
+packed bytes into an empty consumer. Other dependency metadata redirects to
+the public npm registry; public tarball URLs remain unchanged. The temporary
+registry closes before the existing offline lifecycle rebuild and runtime
+probes. No lifecycle, network-isolation, lock-preservation or provider checks
+are skipped. Native ARM and Mac qualification keep their existing file installs.
+
+The Linux verifier also shares `PAPERCLIP_PUBLIC_INSTALL_NPM_CACHE` with the
+producer installs that prepare bundled dependencies. These run after the existing
+cache warm-up and reuse its downloaded archives instead of populating a second
+host cache. Each producer still installs into a separate empty directory, applies
+the release patches, and packs fresh output. npm resolution and integrity checks
+remain enabled; cache misses download normally. Without an explicit shared cache,
+producer installs keep their normal npm cache configuration.
+
+After the offline lifecycle finishes, Pi setup runs in its own download sandbox
+while the independent Codex/Grok probes run offline. Pi admission still waits
+for successful setup and an unchanged consumer lock. The setup container has a
+unique verifier-owned name and is removed on early failure as well as completion.
+`pi_setup_prefetch_ms` measures setup wall time; `pi_setup_wait_ms` measures only
+the remaining wait after the other probes. These overlapping durations must not
+be added when interpreting total verification time.

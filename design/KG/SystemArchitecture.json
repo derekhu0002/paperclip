@@ -1520,6 +1520,13 @@
           "view_id": "fork-capabilities-acceptance-2026-10-21",
           "view_name": "Fork Capabilities and Acceptance"
         }
+      ],
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "c6bef10dbf02ec584caec4604e0b79e11e276100",
+          "description": "design/KG/SystemArchitecture.json, paperclip.qea, server/src/services/heartbeat/scheduling.ts, server/src/__tests__/issues-service.test.ts, ui/src/lib/onboarding-launch.test.ts, packages/adapters/opencode-local/src/ui/build-config.test.ts, scripts/run-posix-suite.mjs, scripts/acceptance"
+        }
       ]
     },
     {

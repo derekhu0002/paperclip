@@ -3,7 +3,7 @@ import { hasPendingNativeChildCompletion } from "./native-child-completion-deliv
 import { dismissAutomaticCompletionReviews, decisionHasRetiredAutomaticReview } from "./automatic-completion-reviews.js";
 import { logger } from "../../middleware/logger.js";
 import { createHash, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, ne, notInArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, lte, ne, not, notInArray, or, sql, type SQL } from "drizzle-orm";
 import type { Db } from "@paperclipai/db";
 import {
   completionContracts,
@@ -35,7 +35,7 @@ import {
 import { issueRecoveryActionService } from "../issue-recovery-actions.js";
 import { issueService } from "../issues.js";
 import { emitAgentTaskRun } from "../agent-task-run-telemetry.js";
-import { reportRunFailure } from "../run-failure-report.js";
+import { isNewTerminalRunFailure, reportRunFailure } from "../run-failure-report.js";
 import { resumeNativeWorkspaceFinalization } from "./native-workspace-finalizer.js";
 import { dismissObsoleteNativePolicyReviews } from "./obsolete-policy-reviews.js";
 import {
@@ -519,9 +519,10 @@ export async function claimNativeSessionResumptions(input: {
         }).where(eq(heartbeatRuns.id, row.run.id)).returning();
         // Only a genuine transition into "failed" is a new terminal failure.
         // A candidate that is already "failed" (the filter above admits
-        // both "running" and "failed") must not send a second Sentry event.
+        // both "running" and "failed") must not send a second Sentry event,
+        // unless that earlier write was an unreported pending retry.
         terminalRunToEmit =
-          updatedRun && updatedRun.status !== row.run.status ? updatedRun : null;
+          updatedRun && isNewTerminalRunFailure(row.run, updatedRun) ? updatedRun : null;
         await issueService(tx as unknown as Db).update(
           row.coordinator.issueId,
           { status: "blocked" },
@@ -634,6 +635,52 @@ type NativeReconciliationOptions = {
 
 type NativeReconciliationPassTiming = ReturnType<typeof createNativeReconciliationPassTiming>;
 
+export const NATIVE_SETTLED_COMMITTED_GRACE_MS = 60 * 60 * 1000;
+export const NATIVE_SETTLED_COMMITTED_UPKEEP_PER_PASS = 10;
+const NATIVE_SETTLED_RUN_STATUSES = ["succeeded", "failed", "cancelled", "timed_out"];
+let settledCommittedUpkeepCursor: string | null = null;
+
+export function resetSettledCommittedUpkeepForTests() {
+  settledCommittedUpkeepCursor = null;
+}
+
+function settledCommittedFinalization(now: Date): SQL {
+  return and(
+    eq(nativeRunFinalizations.phase, "committed"),
+    inArray(heartbeatRuns.status, NATIVE_SETTLED_RUN_STATUSES),
+    isNotNull(heartbeatRuns.finishedAt),
+    lt(heartbeatRuns.finishedAt, new Date(now.getTime() - NATIVE_SETTLED_COMMITTED_GRACE_MS)),
+    sql<boolean>`not exists (
+      select 1 from ${statusDecisionEffects} effect
+      where effect.company_id = ${nativeRunFinalizations.companyId}
+        and effect.issue_id = ${nativeRunFinalizations.issueId}
+        and effect.decision_id = ${nativeRunFinalizations.decisionId}
+        and effect.delivery_state in ('pending', 'failed')
+    )`,
+  )!;
+}
+
+async function nextSettledCommittedUpkeep(db: Db, now: Date): Promise<string[]> {
+  const page = (after: string | null) => db
+    .select({ runId: heartbeatRuns.id })
+    .from(heartbeatRuns)
+    .innerJoin(nativeRunFinalizations, eq(nativeRunFinalizations.runId, heartbeatRuns.id))
+    .where(and(
+      eq(heartbeatRuns.runtimeMode, "native"),
+      isNotNull(nativeRunFinalizations.resultId),
+      settledCommittedFinalization(now),
+      ...(after ? [gt(heartbeatRuns.id, after)] : []),
+    ))
+    .orderBy(asc(heartbeatRuns.id))
+    .limit(NATIVE_SETTLED_COMMITTED_UPKEEP_PER_PASS);
+  let rows = await page(settledCommittedUpkeepCursor);
+  if (rows.length === 0 && settledCommittedUpkeepCursor !== null) rows = await page(null);
+  settledCommittedUpkeepCursor = rows.length === NATIVE_SETTLED_COMMITTED_UPKEEP_PER_PASS
+    ? rows[rows.length - 1]!.runId
+    : null;
+  return rows.map((row) => row.runId);
+}
+
 /** Recovery is keyed only by persisted mode/coordinator state, never the live flag. */
 export async function reconcileNativeFinalizations(
   db: Db,
@@ -675,6 +722,9 @@ async function reconcileNativeFinalizationsPass(
     await dismissAutomaticCompletionReviews(db);
   }
   timing.phase("candidate_scan");
+  const now = new Date();
+  const unscoped = !(runIds && runIds.length > 0);
+  const upkeepRunIds = unscoped ? await nextSettledCommittedUpkeep(db, now) : [];
   const rows = await db
     .select({
       runId: heartbeatRuns.id,
@@ -711,6 +761,11 @@ async function reconcileNativeFinalizationsPass(
         lte(nativeRunFinalizations.leaseExpiresAt, new Date()),
       ),
       ...(runIds && runIds.length > 0 ? [inArray(heartbeatRuns.id, runIds)] : []),
+      ...(unscoped
+        ? [upkeepRunIds.length > 0
+          ? or(not(settledCommittedFinalization(now)), inArray(heartbeatRuns.id, upkeepRunIds))!
+          : not(settledCommittedFinalization(now))]
+        : []),
     ));
   timing.candidates(rows.length);
   timing.phase("candidates");
