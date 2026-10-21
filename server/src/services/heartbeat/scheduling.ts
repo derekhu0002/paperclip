@@ -1269,22 +1269,32 @@ export function createHeartbeatScheduling(
         }
         enqueued += 1;
         dispatchedAgents.add(agentId);
-        await logActivity(db, {
-          companyId: candidate.companyId,
-          actorType: "system",
-          actorId: "idle_watchdog",
-          agentId,
-          runId: run.id,
-          action: "issue.idle_watchdog_dispatched",
-          entityType: "issue",
-          entityId: candidate.id,
-          details: {
-            issueId: candidate.id,
+        // The dispatch already happened. A bookkeeping failure must not be
+        // reported as a skipped dispatch, and it must not abort the remaining
+        // candidates in this tick.
+        try {
+          await logActivity(db, {
+            companyId: candidate.companyId,
+            actorType: "system",
+            actorId: "idle_watchdog",
             agentId,
-            idempotencyKey,
-            reason: "company had no queued/running agent run",
-          },
-        });
+            runId: run.id,
+            action: "issue.idle_watchdog_dispatched",
+            entityType: "issue",
+            entityId: candidate.id,
+            details: {
+              issueId: candidate.id,
+              agentId,
+              idempotencyKey,
+              reason: "company had no queued/running agent run",
+            },
+          });
+        } catch (logErr) {
+          logger.warn(
+            { err: logErr, companyId: candidate.companyId, issueId: candidate.id, agentId },
+            "idle watchdog dispatched but could not record the dispatch activity",
+          );
+        }
         logger.warn(
           { companyId: candidate.companyId, issueId: candidate.id, agentId },
           "idle watchdog dispatched an assigned todo issue with no active run",

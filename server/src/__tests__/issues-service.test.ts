@@ -4349,6 +4349,12 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
     ]);
     await svc.update(dependentId, { blockedByIssueIds: [blockerId] });
 
+    const beforeRelease = await db
+      .select({ statusVersion: issues.statusVersion })
+      .from(issues)
+      .where(eq(issues.id, dependentId))
+      .then((rows) => rows[0]!);
+
     const released = await svc.autoReleaseBlockedDependent({
       issueId: dependentId,
       companyId,
@@ -4367,7 +4373,7 @@ describeEmbeddedPostgres("issueService blockers and dependency wake readiness", 
       .then((rows) => rows[0]!);
     expect(row).toMatchObject({
       status: "todo",
-      statusVersion: 1,
+      statusVersion: beforeRelease.statusVersion + 1,
       blockedTransitionAt: null,
     });
   });

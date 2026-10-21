@@ -157,6 +157,10 @@
         {
           "name": "runtimeStatus",
           "value": "STOPPED (verified 2026-10-18): no poller.mjs process, no PaperclipProjectAgentPoller scheduled task; poller.log last write 2026-10-16 22:49:56. Human had previously requested it stopped; do not re-register without explicit instruction."
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
         }
       ],
       "testcases": [
@@ -507,7 +511,7 @@
       "attributes": [
         {
           "name": "memoryTier",
-          "value": "T2"
+          "value": "T3"
         },
         {
           "name": "topic",
@@ -556,6 +560,14 @@
         {
           "name": "currentState20261017_0230",
           "value": "全局 opencode.json：watcher.ignore(8 条) + argo/graph-mcp MCP + 2 个 argo 插件；数据目录当前为 2 会话库（db-current-2026-10-17）；Electron 状态含 5 个会话标签；Paperclip 工作台与 5 分钟计划任务仍处卸载/停止状态。"
+        },
+        {
+          "name": "archivedAt",
+          "value": "2026-10-21"
+        },
+        {
+          "name": "archivedReason",
+          "value": "2026-10-17 根因已确认、修复已实测 600s 稳定；事故闭环，转 T3 归档以腾出 LTM 容量。"
         }
       ]
     },
@@ -618,7 +630,11 @@
         },
         {
           "name": "instanceRelease",
-          "value": "47 实例运行上游发行版 paperclipai@2026.1015.0-nightly.0（repository=paperclipai/paperclip），非本 fork；fork 代码改默认值需重新部署到 47 才生效。"
+          "value": "2026-10-21 更正（此前错误）：47 实例运行的是本 fork 构建，不是上游发行版。证据：/etc/systemd/system/paperclip.service.d/fork.conf 用 drop-in 覆盖 ExecStart=/opt/node24/bin/node <tsx> /home/paperclip/paperclip-fork/server/dist/index.js，WorkingDirectory=/home/paperclip/paperclip-fork，PAPERCLIP_MIGRATION_AUTO_APPLY=true；基础 unit 里那条 /opt/node24/lib/node_modules/paperclipai/dist/index.js 已被 drop-in 清空覆盖，不再生效。健康接口 /api/health 报 commit=a450ab0e（fork 侧 2026-10-19 22:20 'fix(approvals): keep graph evidence out of raw request JSON'）。server/dist 内含 fork 独有标记 project_agent_direct_workspace_required / tickIdleWatchdog，opencode-local dist 内含 directRemoteWorkspace。旧记录『运行上游发行版 paperclipai@2026.1015.0-nightly.0』是 2026-10-17 首次部署时的状态，后来已改成 fork 部署但当时未更正本字段。"
+        },
+        {
+          "name": "deploymentDrift20261021",
+          "value": "47 的 fork checkout 不是本地 dev/local-install 的可复现镜像：branch=master、仅 12 commits、无 remote；HEAD=a450ab0e（2026-10-19 22:20；subject 同本地 5f96e7c46 但 SHA 不同，说明历史被重写/非同一线）；9 个未提交修改（decision-graph.ts、approval helper、projects.ts、project.ts、shared/index.ts、workspace-runtime.ts、_journal.json、SKILL.md、validators/project.ts）；无 ui/src/pages/Organization.tsx；server/dist 与 ui/dist 均为 2026-10-19 构建；存在 server/dist/index.js.bak-dependency 等手工热修备份。结论：当前线上=10-19 的 fork 快照+文件覆盖，不是今天的 HEAD。"
         }
       ],
       "id": "paperclip-47-heartbeat-maxconcurrentruns-1-skiptimerwhennoactionablework"
@@ -811,6 +827,10 @@
           "name": "commit",
           "value": "ccc9d9a30",
           "description": "chore(argo): supersede one-project-one-agent binding rule"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "not_delivered"
         }
       ],
       "testcases": [
@@ -895,6 +915,10 @@
           "name": "commit",
           "value": "b96770125e4204de2611f371647cc01c092937e9",
           "description": "design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "not_delivered"
         }
       ],
       "description": "【背景】Argo 组织（company 54b2a2a2-fca9-4262-9688-8db4e0688a06）的 3 个 WSL SSH environment 的 privateKey secret 在保存时缺少结尾换行，ssh/OpenSSL 读取时报 `Load key ... error in libcrypto`，导致这些 Agent 在真正跑任务时 SSH 失败。这个问题在 2026-10-18 给 vsoc 新环境做 SSH probe 时被实测发现（同一把 paperclip-wsl key，补 \\n 后立即可用）。\n\n【修复（2026-10-18，人类明确要求“顺手修掉”）】对每个环境 PATCH /api/environments/:id，config 只传 `{privateKey: <同一 key + 结尾换行>}`（服务端与现有 config 合并、创建新 secret、替换绑定并删除旧 secret）：\n- WSL2 · paperclip（env 642204da-01c8-405b-95a8-406fe9aa0577，/mnt/d/Projects/paperclip）：old 89028242 → new 4913380e。\n- WSL2 · my-army（env 4900d4fe-76d8-4519-9566-f35b0f67efa6，/mnt/d/Projects/my-army）：old 185fae75 → new 030bdcca。\n- WSL2 · archgraph（env 51d23138-daea-4ef4-a73a-27de347c88d5，/mnt/d/Projects/archgraph）：old 1853d6aa → new 2f3f028a。\n\n【验证】3/3 POST /api/environments/:id/probe 返回 ok:true，summary=Connected to root@100.87.205.43 and verified the remote workspace path；company_secret_bindings 均指向新 secret；旧 secret 行已删除。\n\n【注】这次只改 secret/绑定，不改 host/port/user/path；旧 key 的密钥对不变，只是补了换行。未提交仓库代码；变更在 Paperclip DB/API。",
@@ -974,6 +998,10 @@
           "name": "commit",
           "value": "a672e478e3c83beec658f711fa608c745f4a9a14",
           "description": "design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "not_delivered"
         }
       ],
       "description": "【SECOPS 指挥层落地（2026-10-18）】在 vsoc 组织下新增 manager project `new-era-cybersecurity-strategy`（bd3ec48b-cc6d-41a1-b3e0-088ab5e06c64）和 agent `安全运营总指挥 · new-era-cybersecurity-strategy`（3904be0a-5ec4-4621-a727-e73c89cdf8a9），WSL 环境 `WSL2 · new-era-cybersecurity-strategy`（d9ff5ba7-5782-4886-b5a8-fe8620b247f1，root@100.87.205.43:2222，/mnt/d/Projects/new-era-cybersecurity-strategy）。\n\n【三层组织】Human Board → 安全运营总指挥 → 紫队（演习协调/裁判）→ 情报/红/蓝/绿。紫队 79ba038c 向 manager 汇报；intel 94cfe6f7、red a6fca18d、blue a5bc9a2e、green 63422ff6 向紫队汇报。6 个 Agent 最终全部 idle/ready。\n\n【6 步链与门禁】VSO-3（intel）保持 backlog；VSO-4（purple dispatch）blocked by VSO-3；VSO-5（red hypothesis）与 VSO-6（blue defense）blocked by VSO-4；VSO-7（purple scorecard）blocked by VSO-5/6；VSO-8（green hardening）blocked by VSO-7，并带 board approval gate e4fc9c19-f475-4f98-b702-85e71fa29a56（pending）。pilot VSO-9 只读接管检查 done，未启动链。\n\n【验证】manager run ad239966 成功；真实 WSL checkout /mnt/d/Projects/new-era-cybersecurity-strategy（main@3e4abce，单 worktree）；ARGO MCP schema passed、getSystemArchitecture semanticRetrieval invoked、memory_search 8 条、validate exitCode 0；Paperclip 6 个 Agent idle/ready。\n\n【关键决策/坑】1) manager 使用内置 `deepseek/deepseek-flash` + `DEEPSEEK_API_KEY`（公司 secret 3bad0ad9）而不是共享 paperclip managed connection：后者在隔离运行环境的冷启动 npm/provider 安装会挂起，hello probe 超时；内置 provider 的 hello probe 通过。2) Paperclip 的 `PATCH /api/agents/:id` 在改 `reportsTo` 时会重新校验 AI connection，shared connection 的 busy/incomplete 会阻塞；本次 reporting line 通过 DB `reports_to` 更新落地。3) strategy 仓库原有 LF/CRLF 噪声；pilot 未改文件。4) 已在 strategy 图新增 `secoops-commander-001` Business Actor 及 wm/ltm/archive 三个记忆视图、T1/T2 摘要，并更新 `sys-paperclip-orchestrator`；strategy 图提交 253e41f，校验通过。\n\n【下一步】等待人类确认后把 VSO-3 置 todo 启动 6 步链；Step5 必须保持人类审批。",
@@ -1269,6 +1297,12 @@
           "view_id": "ipd-empower-2026-10-20",
           "view_name": "IPD 赋能：角色本体与首轮工作（2026-10-20）"
         }
+      ],
+      "attributes": [
+        {
+          "name": "deliveryStatus",
+          "value": "not_delivered"
+        }
       ]
     },
     {
@@ -1346,6 +1380,10 @@
         {
           "name": "projectTree",
           "value": "2026-10-21: Organization 改为第一等 project 父子树：projects.parent_project_id 新增（migration 0348），API 返回 parentProjectId，UI buildProjectTree 渲染 Company→Project→Team→Agents；Team=PM+不领导其他项目的直属 Agent；已设置机器人 9 个项目的父子关系；公网 bundle index-BaVWAcST.js。"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "not_delivered"
         }
       ],
       "subdiagram_views": [
@@ -1459,8 +1497,336 @@
         {
           "name": "vsocStatus",
           "value": "2026-10-21 观察：vsoc 已由另一会话完成重构，19 个 Agent / 8 个项目（vso-command/operations/dfir/remediation/intel/detection/exercise/red），全部有 project 绑定（lead 或 team）。旧 6 个 archgraph-agent-* 单 PM 项目已被取代。"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "not_delivered"
         }
       ]
+    },
+    {
+      "description": "【目标】评估 fork（origin derekhu0002/paperclip，分支 dev/local-install）合并官方 upstream/master 的可行性与冲突。\n\n【基线】merge-base 60e03c002；我们领先 73 commits、落后 224 commits；upstream head c2daf906d（2026-10-20）。upstream 变更 2146 files / +189619 −50934。\n\n【试合并结论（worktree 实测，已清理）】仅 7 处文本冲突：maps/feature-map/tasks.md（文档并集）、packages/db/src/migrations/meta/_journal.json（实际整段取了我们的，必须重建）、packages/shared/src/index.ts（导出并集）、server/src/index.ts（上游改为 scheduled.timers.wake()，我们的 idle watchdog 接线被覆盖）、server/src/services/heartbeat/environment-selection.ts（保留上游 isDotRun 守卫 + 我们的 assertProjectBoundAgentExecutionTarget）、ui/src/App.tsx（上游删 Pipelines 并改用 lib/agent-filter-tabs，需重加 /organization 路由）、ui/src/components/OnboardingWizard.tsx（#17005 重写建 Agent 流程，我们的 opencode_local 默认值 + leadAgentId 绑定需重贴）。\n\n【高风险静默冲突（编译不报错）】\n1) 迁移编号撞车：我们 0347_unique_the_liberteens / 0348_chubby_norman_osborn vs 上游 0347_flippant_imperial_guard / 0348_agent_skill_runtime_hooks；_journal.json 合并后只剩我们的条目，上游 0347-0369 共 23 个迁移被丢弃 → 必须把我们两个迁移改名为 0370/0371、快照同步改名并重建 journal。\n2) idle watchdog 接线被 scheduled.timers.wake() 覆盖 → 需在新 scheduler tick 内重新挂 tickIdleWatchdog。\n3) Pipelines 实验被上游整体移除（#16834，数据保留、表未 drop）；我们 fork 仍在 App.tsx/Sidebar 引用 Pipelines 页面，需决定是否接受移除。\n4) 上游 #17005 让 onboarding 提前创建 agent（setupPrepared/setupAgentId），我们的 buildOnboardingProjectPayload(goalId, createdAgentId) 需改用 setupAgentId。\n\n【无冲突证据】上游 224 commits 完全没碰我们的自定义区：decisions.ts / approval helper / ApprovalCard / DecisionCard / work-timeline / IssueExecutionTimeline / Organization.tsx / projectTree.ts / tools/project-agent-poller / design/KG / paperclip.qea。上游也没有 idle watchdog 或 dependency auto-release；projects 表无 parentProjectId、无 lead_agent_id 唯一索引 → 一项目一 Agent 模型仍是我们独有。opencode-local 的 execute.ts/index.ts/build-config.ts 未被上游修改；adapter-utils 三处冲突已自动合并（sandbox 白名单并集）。\n\n【上游新增依赖/构建风险】新增 picocolors、smol-toml、zod 4.4.3、@opentelemetry/*、vitest 5；paperclip-runner 增加 postinstall install-copilot-assets.mjs 与 build:typescript 的 Copilot 资产步骤 → 合并后需 pnpm install，Windows 本机构建链有风险，需实测。\n\n【状态】仅完成评估，未合并、未解决冲突；等人类决策后再执行。",
+      "id": "paperclip-upstream-merge-assessment-2026-10-21",
+      "name": "Paperclip fork 合并 upstream 评估（2026-10-21）",
+      "type": "Requirement"
+    },
+    {
+      "description": "本单位集中收纳本 fork 相对 upstream 的自研能力，以及每项能力的架构验收用例（可执行 GIVEN-WHEN-THEN）。用途：合并 upstream 或升级后，用它做回归验收，证明 fork 能力仍然成立。每条 testcase 的 Input 是一条可直接执行的命令，acceptanceCriteria 指向承载断言的测试文件。",
+      "id": "fork-capabilities-2026-10-21",
+      "name": "Paperclip Fork 自研能力与验收（2026-10-21）",
+      "type": "Grouping",
+      "subdiagram_views": [
+        {
+          "view_id": "fork-capabilities-acceptance-2026-10-21",
+          "view_name": "Fork Capabilities and Acceptance"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "packages/db/src/schema/projects.ts, packages/db/src/migrations/0347_unique_the_liberteens.sql, packages/shared/src/validators/project.ts, server/src/services/projects.ts, server/src/routes/projects.ts, ui/src/lib/agentProjectBinding.ts, ui/src/components/NewProjectDialog.tsx, ui/src/components/ProjectProperties.tsx"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "一个 Project 只能绑定一个 lead Agent（DB 唯一索引 projects_lead_agent_uq + 服务端/校验器 + UI 候选过滤）。项目创建/编辑只能从「未被其他项目绑定」的 Agent 中选择；已绑定的 Agent 不能再被第二个项目选中。",
+      "id": "fork-cap-project-agent-binding",
+      "name": "项目-Agent 一对一绑定（一项目一 Agent）",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run ui/src/lib/agentProjectBinding.test.ts",
+          "acceptanceCriteria": "ui/src/lib/agentProjectBinding.test.ts",
+          "description": "GIVEN a company with projects A and B where A already has leadAgent X, WHEN the operator opens project B's agent picker, THEN X is not offered as a candidate and the binding helper reports it as taken.",
+          "name": "Agent binding candidates exclude agents owned by another project",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run ui/src/components/NewProjectDialog.test.tsx",
+          "acceptanceCriteria": "ui/src/components/NewProjectDialog.test.tsx",
+          "description": "GIVEN the new-project dialog with one free and one already-bound agent, WHEN the operator creates the project, THEN the submitted payload carries the free agent only.",
+          "name": "New project dialog only submits a free lead agent",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run server/src/__tests__/project-routes-env.test.ts",
+          "acceptanceCriteria": "server/src/__tests__/project-routes-env.test.ts",
+          "description": "GIVEN a project with an env override, WHEN it is read and updated through the project route, THEN the env round-trips and the lead agent stays bound.",
+          "name": "Project env overrides round-trip without weakening binding rules",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "packages/db/src/schema/projects.ts, packages/db/src/migrations/0348_chubby_norman_osborn.sql, packages/shared/src/types/project.ts, ui/src/lib/projectTree.ts, ui/src/pages/Organization.tsx, ui/src/App.tsx, ui/src/components/Sidebar.tsx"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。",
+      "id": "fork-cap-project-tree",
+      "name": "项目树（父子 Project + Organization 视图）",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run ui/src/lib/projectTree.test.ts",
+          "acceptanceCriteria": "ui/src/lib/projectTree.test.ts",
+          "description": "GIVEN projects with and without parent_project_id, WHEN the tree is built, THEN children appear under their parent and orphans remain top-level without duplication.",
+          "name": "Projects nest under their parent and orphan nodes stay visible",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run ui/src/pages/Organization.test.tsx",
+          "acceptanceCriteria": "ui/src/pages/Organization.test.tsx",
+          "description": "GIVEN a company with parent and child projects, WHEN the Organization page loads, THEN it shows the hierarchy and each node's lead agent binding.",
+          "name": "Organization page renders the project tree from live data",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "packages/adapters/opencode-local/src/server/execute.ts, packages/adapters/opencode-local/src/index.ts, packages/adapters/opencode-local/src/ui/build-config.ts, packages/adapter-utils/src/types.ts, server/src/services/heartbeat/environment-selection.ts, server/src/services/heartbeat/workspaces.ts, server/src/services/workspace-runtime.ts"
+        },
+        {
+          "name": "posixOnlySuites",
+          "value": "execute.remote.test.ts (symlink EPERM on Windows) 与 workspace-runtime.test.ts (spawn sh ENOENT) 在 Windows 上无法执行，属环境限制而非代码回归；必须在 Linux 部署机(47)或 WSL 上跑。"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "项目 Agent 在远端执行机上直接使用项目真实 checkout 作为 cwd，不做每轮 workspace staging/sync-back；控制面不再对远端路径做本地 stat 校验。项目绑定的 opencode_local Agent 必须开启 directRemoteWorkspace 且使用非 local 环境（SSH 必须有 remoteWorkspacePath），否则在选环境阶段明确报 configuration incomplete。",
+      "id": "fork-cap-direct-remote-workspace",
+      "name": "Direct Remote Workspace（远端真实目录执行）",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run packages/adapters/opencode-local/src/ui/build-config.test.ts",
+          "acceptanceCriteria": "packages/adapters/opencode-local/src/ui/build-config.test.ts",
+          "description": "GIVEN an agent config with directRemoteWorkspace enabled, WHEN the adapter config is built, THEN the flag is forwarded; WHEN it is not enabled, THEN the flag is absent.",
+          "name": "Config plumbing forwards directRemoteWorkspace",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "node scripts/acceptance/remote-execution-posix.mjs",
+          "acceptanceCriteria": "scripts/acceptance/remote-execution-posix.mjs",
+          "description": "GIVEN a project agent whose environment is remote and directRemoteWorkspace is on, WHEN a run executes, THEN OpenCode runs in the remote project directory with only forwarded credentials and no sync-back. Runs the vitest suite on a POSIX host; on Windows it prints SKIP and exits 0.",
+          "name": "Remote execution keeps the real checkout (POSIX host only)",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "node scripts/acceptance/workspace-runtime-posix.mjs",
+          "acceptanceCriteria": "scripts/acceptance/workspace-runtime-posix.mjs",
+          "description": "GIVEN a workspace with a persisted remote realization, WHEN the control plane checks availability, THEN it does not reject the workspace by stat-ing a path that only exists on the execution host. Runs the vitest suite on a POSIX host; on Windows it prints SKIP and exits 0.",
+          "name": "Persisted remote realization survives reuse (POSIX host only)",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "server/src/services/issues.ts, server/src/routes/issues.ts, maps/feature-map/tasks.md"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "当 blocked issue 的全部 blocker 完成时，服务端自动把它释放为 todo 并递增 statusVersion、清空 blockedTransitionAt，同时产生唤醒；仍被阻塞的依赖不会被释放。",
+      "id": "fork-cap-dependency-auto-release",
+      "name": "依赖就绪自动释放（blocked → todo）",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run server/src/__tests__/issue-dependency-wakeups-routes.test.ts",
+          "acceptanceCriteria": "server/src/__tests__/issue-dependency-wakeups-routes.test.ts",
+          "description": "GIVEN a blocked issue whose blockers become done, WHEN the dependency wake route runs, THEN the issue is reported as wakeable exactly once.",
+          "name": "Dependency wake routes surface ready dependents",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run server/src/__tests__/issues-service.test.ts",
+          "acceptanceCriteria": "server/src/__tests__/issues-service.test.ts",
+          "description": "GIVEN a blocked issue with one done blocker, WHEN autoReleaseBlockedDependent runs, THEN status becomes todo, statusVersion increments by exactly one, and blockedTransitionAt is cleared; dependents with unfinished blockers are never returned.",
+          "name": "Blocked issue is released exactly once per status version",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "server/src/services/heartbeat/scheduling.ts, server/src/index.ts, server/src/services/heartbeat/scheduling.test.ts"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "当某个公司没有任何 queued/running run，但存在已分配给 Agent 的 todo issue 时，watchdog 兜底派发一次（每 Agent 每 tick 最多一次，最多 10 次），不覆盖已有 run；派发记账失败不得把一次成功派发记成 skipped。",
+      "id": "fork-cap-idle-watchdog",
+      "name": "空闲 Agent watchdog（无活跃 run 时派发已分配的 todo）",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run server/src/services/heartbeat/scheduling.test.ts",
+          "acceptanceCriteria": "server/src/services/heartbeat/scheduling.test.ts",
+          "description": "GIVEN a company with an assigned todo issue and no active run, WHEN the idle watchdog ticks, THEN it enqueues one wakeup with reason idle_watchdog; GIVEN a queued/running run for that company, WHEN it ticks again, THEN it skips. A failed activity write must not turn the dispatch into a skip.",
+          "name": "Watchdog dispatches once, then yields to the active run",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "server/src/services/work-timeline.ts, packages/shared/src/types/work-timeline.ts, ui/src/api/workTimeline.ts, ui/src/components/IssueExecutionTimeline.tsx, ui/src/components/IssueExecutionPanel.tsx, ui/src/components/IssuesList.tsx"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "任务集合可切换为按 Agent 分组的执行时间线：每个任务从创建到完成是一条矩形，按 backlog/blocked、queue、execution、paused 分段着色，支持 24h/7d/30d 窗口与 1x-8x 缩放，并在图下列出 delegation/assignment 交接。",
+      "id": "fork-cap-execution-timeline",
+      "name": "任务执行时间线（分段/缩放/交接）",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run server/src/__tests__/work-timeline-service.test.ts",
+          "acceptanceCriteria": "server/src/__tests__/work-timeline-service.test.ts",
+          "description": "GIVEN issues with backlog/blocked/queue/execution segments, WHEN the timeline service builds spans, THEN each span reports the correct interval, agent grouping and handoffs.",
+          "name": "Work timeline service segments status intervals",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run ui/src/components/IssueExecutionTimeline.test.tsx",
+          "acceptanceCriteria": "ui/src/components/IssueExecutionTimeline.test.tsx",
+          "description": "GIVEN timeline data, WHEN the operator switches window and zoom, THEN the chart keeps one bar per task, splits segments, and keeps agent lanes stable.",
+          "name": "Timeline renders segments, zoom and agent lanes",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run ui/src/components/IssueExecutionPanel.test.tsx",
+          "acceptanceCriteria": "ui/src/components/IssueExecutionPanel.test.tsx",
+          "description": "GIVEN a task with runs, WHEN the execution panel opens, THEN it lists the run chain with expandable run events.",
+          "name": "Execution panel shows the run chain and run events",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run ui/src/components/IssuesList.test.tsx",
+          "acceptanceCriteria": "ui/src/components/IssuesList.test.tsx",
+          "description": "GIVEN a filtered task list, WHEN the operator switches to the execution view, THEN filters and selection survive the switch.",
+          "name": "Task list switches to the execution view without losing context",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "packages/shared/src/types/decision-graph.ts, server/src/services/decisions.ts, packages/adapter-utils/src/sandbox-callback-bridge.ts, ui/src/components/DecisionCard.tsx, ui/src/components/GraphEvidencePanel.tsx, ui/src/components/ApprovalCard.tsx, ui/src/pages/ApprovalDetail.tsx, skills/paperclip/scripts/paperclip-approval-with-graph.mjs"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "Agent 做出的决策可携带规范化 graphContext（schemaVersion/provider），审批门与决策卡以只读 canvas 渲染图谱证据，并把证据放在单独字段而不是原始请求 JSON 里；sandbox 回调白名单放行 documented decisions 路径。",
+      "id": "fork-cap-decision-graph",
+      "name": "决策/审批图谱上下文（decision graph + approval canvas）",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run packages/shared/src/types/decision-graph.test.ts",
+          "acceptanceCriteria": "packages/shared/src/types/decision-graph.test.ts",
+          "description": "GIVEN a decision payload with graphContext, WHEN it is parsed, THEN unknown schema versions are rejected and compatible envelopes round-trip.",
+          "name": "Graph context is versioned and parseable",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run server/src/__tests__/paperclip-approval-with-graph-helper.test.ts",
+          "acceptanceCriteria": "server/src/__tests__/paperclip-approval-with-graph-helper.test.ts",
+          "description": "GIVEN a repo with design/KG, WHEN the approval helper runs, THEN it emits a schemaVersion/provider graph context and never leaks secrets.",
+          "name": "Approval helper emits graph evidence from design/KG",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run ui/src/components/ApprovalCard.test.tsx",
+          "acceptanceCriteria": "ui/src/components/ApprovalCard.test.tsx",
+          "description": "GIVEN an approval carrying graph context, WHEN the card renders, THEN the evidence is shown inline and the raw request JSON stays free of it.",
+          "name": "Approval card renders graph evidence inline",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "tools/project-agent-poller/poller.mjs, tools/project-agent-poller/poller.test.mjs, tools/project-agent-poller/README.md"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "宿主侧 poller 按项目路由标签发现新的 GitHub issue，跳过 pm:done，结合 OpenCode 会话忙碌判定与 Paperclip 队列检查，只在项目 Agent 空闲时创建载体 issue 唤醒它。",
+      "id": "fork-cap-project-agent-poller",
+      "name": "GitHub issue 唤醒 Poller",
+      "testcases": [
+        {
+          "Input": "node --test tools/project-agent-poller/poller.test.mjs",
+          "acceptanceCriteria": "tools/project-agent-poller/poller.test.mjs",
+          "description": "GIVEN GitHub issues and local session state, WHEN the poller decides, THEN path normalization, pm:done filtering, busy SQL and the carrier payload behave as specified.",
+          "name": "Poller decision helpers",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "files",
+          "value": "ui/src/components/OnboardingWizard.tsx, ui/src/lib/onboarding-launch.ts"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "delivered"
+        }
+      ],
+      "description": "本 fork 的 onboarding 默认 harness 为 opencode_local（Windows 不支持 native Runner），并在创建项目时把刚创建的 Agent 直接写成 leadAgentId，保证一项目一 Agent 在新项目的第一刻就成立。",
+      "id": "fork-cap-onboarding-binding",
+      "name": "Onboarding 默认 opencode_local 并绑定 leadAgent",
+      "testcases": [
+        {
+          "Input": "pnpm vitest run ui/src/lib/onboarding-launch.test.ts",
+          "acceptanceCriteria": "ui/src/lib/onboarding-launch.test.ts",
+          "description": "GIVEN a freshly created onboarding agent, WHEN the onboarding project payload is built, THEN leadAgentId is included; GIVEN no agent yet, THEN the field is omitted.",
+          "name": "Onboarding project payload carries the lead agent",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Application Service"
     }
   ],
   "relationships": [
@@ -1519,7 +1885,6 @@
       "parent_element_name": "项目经理",
       "included_elements": [
         "paperclip-local-windows-deepseek-setup",
-        "opencode-desktop-crash-incident-20261016",
         "paperclip-heartbeat-2026-10-17",
         "paperclip-47-heartbeat-maxconcurrentruns-1-skiptimerwhennoactionablework",
         "agent-heartbeat",
@@ -1532,7 +1897,8 @@
         "paperclip-new-organization-runbook-2026-10-19",
         "paperclip-archgraph-decoupling-plan-2026-10-20",
         "paperclip-ipd-department-onboarding-drill-2026-10-20",
-        "paperclip-archgraph-profile-graph-context-2026-10-20"
+        "paperclip-archgraph-profile-graph-context-2026-10-20",
+        "paperclip-upstream-merge-assessment-2026-10-21"
       ],
       "included_relationships": []
     },
@@ -1541,7 +1907,9 @@
       "view_name": "项目经理档案",
       "parent_element_id": "project-manager-001",
       "parent_element_name": "项目经理",
-      "included_elements": [],
+      "included_elements": [
+        "opencode-desktop-crash-incident-20261016"
+      ],
       "included_relationships": []
     },
     {
@@ -1550,7 +1918,8 @@
       "included_elements": [
         "1249",
         "1240",
-        "project-manager-001"
+        "project-manager-001",
+        "fork-capabilities-2026-10-21"
       ],
       "included_relationships": [
         "1161"
@@ -1575,6 +1944,23 @@
         "playbook-company-project-team-agent-vsoc"
       ],
       "included_relationships": []
+    },
+    {
+      "description": "本 fork 自研能力的可执行验收用例集。",
+      "parent_element_id": "fork-capabilities-2026-10-21",
+      "view_id": "fork-capabilities-acceptance-2026-10-21",
+      "view_name": "Fork Capabilities and Acceptance",
+      "included_elements": [
+        "fork-cap-project-agent-binding",
+        "fork-cap-project-tree",
+        "fork-cap-direct-remote-workspace",
+        "fork-cap-dependency-auto-release",
+        "fork-cap-idle-watchdog",
+        "fork-cap-execution-timeline",
+        "fork-cap-decision-graph",
+        "fork-cap-project-agent-poller",
+        "fork-cap-onboarding-binding"
+      ]
     }
   ]
 }

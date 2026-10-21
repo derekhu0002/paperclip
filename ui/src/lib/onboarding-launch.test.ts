@@ -134,6 +134,20 @@ describe("onboarding launch payloads", () => {
     expect(payload.onboardingFirstTask).toBe(true);
   });
 
+  it("binds the onboarding project to its lead agent when one exists", () => {
+    expect(buildOnboardingProjectPayload("goal-1", "agent-1")).toEqual({
+      name: "Onboarding",
+      status: "in_progress",
+      goalIds: ["goal-1"],
+      leadAgentId: "agent-1",
+    });
+
+    expect(buildOnboardingProjectPayload(null, null)).toEqual({
+      name: "Onboarding",
+      status: "in_progress",
+    });
+  });
+
   it("omits goal links when no default company goal exists", () => {
     expect(buildOnboardingProjectPayload(null)).toEqual({
       name: "Onboarding",
