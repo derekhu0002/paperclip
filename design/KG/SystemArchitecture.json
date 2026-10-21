@@ -1526,6 +1526,15 @@
           "name": "commit",
           "value": "c6bef10dbf02ec584caec4604e0b79e11e276100",
           "description": "design/KG/SystemArchitecture.json, paperclip.qea, server/src/services/heartbeat/scheduling.ts, server/src/__tests__/issues-service.test.ts, ui/src/lib/onboarding-launch.test.ts, packages/adapters/opencode-local/src/ui/build-config.test.ts, scripts/run-posix-suite.mjs, scripts/acceptance"
+        },
+        {
+          "name": "commit",
+          "value": "2d6d117f1",
+          "description": "合并 upstream c2daf906d（224 commits）到 dev/local-install；冲突仅 7 处；迁移 0347/0348 重编为 0370/0371；能力验收 20/20 通过。"
+        },
+        {
+          "name": "upstreamBaseline",
+          "value": "upstream/master c2daf906d (2026-10-20); merge-base 60e03c002; 之前落后 224 commits"
         }
       ]
     },
@@ -1830,6 +1839,13 @@
           "acceptanceCriteria": "ui/src/lib/onboarding-launch.test.ts",
           "description": "GIVEN a freshly created onboarding agent, WHEN the onboarding project payload is built, THEN leadAgentId is included; GIVEN no agent yet, THEN the field is omitted.",
           "name": "Onboarding project payload carries the lead agent",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm vitest run ui/src/components/OnboardingWizard.test.tsx",
+          "acceptanceCriteria": "ui/src/components/OnboardingWizard.test.tsx",
+          "description": "GIVEN a qualified Copilot source on a paperclip_runner onboarding draft, WHEN the operator restores it and clicks Connect, THEN the wizard hires with setupAgentId and paperclip_runner instead of forcing opencode_local; the fork default remains opencode_local for a fresh wizard.",
+          "name": "Qualified Copilot onboarding still hires with paperclip_runner",
           "type": "Acceptance Test"
         }
       ],
