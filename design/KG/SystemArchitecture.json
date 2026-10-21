@@ -173,7 +173,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-20"
+          "value": "2026-10-21"
         },
         {
           "name": "memoryTier",
@@ -446,12 +446,20 @@
         },
         {
           "name": "nextSessionHandoff",
-          "value": "2026-10-20: 下一个会话继续 Paperclip/ArchGraph 解耦。先读 T2 paperclip-archgraph-decoupling-plan-2026-10-20，再读本 T1 的 archgraphDecouplingPlan。当前人类明确不迁移，VSO/47/WSL 保持不动；不要删除 opencode-vsoc 或全局 ARGO 配置。开始迁移时按 T2 顺序：1) Paperclip graph provider contract + 把 helper 移到 integrations/archgraph；2) 建 ArchGraph profile，单 Agent 验证标准 opencode；3) 再迁其余 Agent；4) revert 5 个 AGENTS.md 提交并清理 .bak；5) 清理 Docker context 与 clean-room 验证。核心结论：Paperclip server/packages/ui 无 ArchGraph 依赖；archgraph 框架仓库干净；耦合在 WSL 全局配置、5 个 agent 仓库 AGENTS.md、approval helper/SKILL 的 design/KG 写死。"
+          "value": "2026-10-21: 组织重构 Playbook 已记录在 T2 元素 playbook-company-project-team-agent-vsoc（视图 org-refactor-playbook-2026-10-21）。vsoc 会话先 memory_search '组织重构 Playbook vsoc project tree' 再 getIntentElementContext 读全文。vsoc company=29f175e7-7ec0-4d34-86e0-49f46dcedd72，旧 6 个项目/Agent 需备份→归档/暂停→按架构建 Project 树+Team+Agents。"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-20"
+        },
+        {
+          "name": "vsocOrgV2",
+          "value": "2026-10-21: VSO V2 org implemented in-place. 8 projects / 19 agents; root vso-command; lines vso-exercise (+vso-red), vso-operations (+vso-dfir); shared vso-detection/vso-intel/vso-remediation. UI /VSO/organization verified. Smoke VSO-28 done. Details in playbook-company-project-team-agent-vsoc attributes vsoProjects/vsoAgents/vsoReporting/vsoSmoke. Old projects preserved/repurposed, not archived. Backup /root/backups/vsoc-pre-org-20261020T230000Z.json."
         }
       ],
-      "description": "【T1 会话总结 2026-10-18】主题：在 Paperclip 47 控制面的 vsoc 组织下，为 5 个 archgraph-agent-* 仓库各建一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（root@100.87.205.43:2222，真实目录 /mnt/d/Projects/<repo>）执行，并具备 ARGO 全局规则 + argo/graph-mcp 两个 MCP。\n\n【已完成】\n- vsoc（company 29f175e7-7ec0-4d34-86e0-49f46dcedd72；实际名是 vsoc 不是 vsock）下 5 组 project/agent/env 全部创建：blue 7d2ea81f/a5bc9a2e/2bde1d9d；green fdfef5a4/63422ff6/249e7dfd；intel 63788f88/94cfe6f7/40c63daa；purple c16c9e91/79ba038c/d3a2ebad；red a319ca0f/a6fca18d/fa5c605c。\n- 5 个 Agent 统一 opencode_local、model=paperclip/deepseek-flash、directRemoteWorkspace=true、仅 ARGO_REPO_ROOT、heartbeat {enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}、共享 vsoc AI connection 78401b6d / grant 90a5bdd1；最终全部 status=idle、lifecycle_state=ready。\n- 5/5 SSH env probe ok；5/5 adapter test-environment pass（hello probe passed）；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done。\n- 对 5 个仓库逐一直接调用 argo MCP：schema/bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validate exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键修复（都是本次实测踩到的坑）】\n1) 环境 privateKey 末尾缺换行 → ssh/libcrypto 'error in libcrypto'；新环境创建时补 \\n。\n2) 真实 checkout 的 .paperclip-runtime 未被忽略（曾 12.8 万文件），opencode 启动快照 git ls-files 扫描挂起，表现为 hello probe/标题 LLM 流永不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。\n3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复：/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 的 argo 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'。/root/.argo/.env 仍是唯一 ARGO 配置源。\n4) graph-mcp 工具名是 graph_list，不是 graph_graph_list。\n5) argo-init --help 会实际执行 init；验证任务禁止运行。\n6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才转 ready/idle。\n7) 并发创建 environment 可能 directory-merge lock timeout，重试即可。\n\n【遗留 / 待人类决定】\n- 之前 Argo 组织 3 个环境（paperclip/my-army/archgraph）的 privateKey secret 同样缺结尾换行；本次未改（避免越界），但未来这些 Agent 的 SSH 会失败。要修就 PATCH /api/environments/:id 用同一 key + '\\n'。\n- 本次无 repo commit：变更是 Paperclip DB/API 数据 + WSL 主机配置（/etc/opencode、~/.config/opencode、/root/.gitignore_global），未改 ArchGraph 仓库源码、未切分支、未写 47 Neo4j。\n- poller 保持停止。\n\n【稳定事实】47.107.161.168，paperclip.service（paperclip-fork，dashboard paperclip.derekworkspacev5.com）；argo company 54b2a2a2... 的 3 个 PM agent 仍为 archgraph c6f768c5、paperclip 91ccc3f1、my-army 82f67f31。",
+      "description": "【T1 会话总结 2026-10-20】主题：Paperclip↔ArchGraph 解耦 + 框架 0.29.19 + 全项目图谱 + IPD 组织按架构责任重构 + 组织树 UI。\n\n【人类要求】所有 Paperclip 项目必须走 ArchGraph；组织按子系统/模块责任域拆；每个 Project 唯一 PM；要有一棵组织树。\n\n【Paperclip 映射】层级用 goals（company/team/agent + parentId + ownerAgentId），project 挂 goal；lead_agent_id 唯一索引保证一 PM 一 Project。\n\n【新组织 Robot System】9 Project / 43 Agent；9 仓库 argo-init OK。PM 链：子系统→robot-product PM，模块→子系统 PM，角色→本项目 PM。旧组织已备份、归档/暂停。\n\n【组织树 UI】新增 ui/src/pages/Organization.tsx + ui/src/lib/orgTree.ts，路由 /organization，两个 Sidebar 均加入口；goal 树节点显示 Project/PM/团队，可展开。测试 4 passed，UI typecheck + token gates 通过；已构建并替换 47 的 server/ui-dist（备份 /root/backups/ui-dist-pre-org-20261021-004532），/organization 返回 200。\n\n【关键坑】normalizeAgentUrlKey 丢弃中文→同项目 Agent 名碰撞；命名「中文角色 · <slug>-<role>」。Agent API 创建后 preparing/paused→已置 ready/idle。\n\n【验证】IPD-37/38 两个真实 Agent run 均 MCP passed、db 正确、组织链正确。\n\n【遗留】Organization 树目前只读；Paperclip 仓改动未 commit。\n\n【nextSessionHandoff】读 T2 ipd-2026-10-20。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-10-18：vsoc 5 个 archgraph-agent-* 项目/Agent 接入；含 MCP 修复与遗留风险）",
+      "name": "T1 会话总结（2026-10-20：解耦最终方案与端到端验证）",
       "type": "Requirement"
     },
     {
@@ -1104,6 +1112,258 @@
       "type": "Requirement",
       "name": "IPD 开发部创建、角色项目 onboard 与端到端 APP 演练（2026-10-20）",
       "description": "【目标】在 Paperclip 47 控制面（https://paperclip.derekworkspacev5.com，commit a450ab0e）新建 organization「IPD 开发部」，onboard D:\\Projects\\idpdv-demo，并按 IPD 业务角色拆分专业项目+Agent，最后跑一次 APP 开发端到端演练。\n\n【已完成】\n1) company 833b4f12-5dbf-4b42-aa91-083a773e0361（IPD，issue prefix IPD），AI connection 623c212a / grant 0b243edc（DeepSeek gateway，复用同实例 argo 的密钥，未打印密钥）。\n2) IDPDV：project 1b9b765b / agent c4bd3718（项目经理 · idpdv-demo，role=pm）/ env 2bd3bd44（SSH root@100.87.205.43:2222 → /mnt/d/Projects/idpdv-demo），probe ok，test-environment 最终 pass。\n3) 角色清单由 IDPDV Agent 基于图谱给出（issue IPD-1 done）：全量 15 类角色；人类保留 IPMT/CCB/最终发布签署；最小演练集 7 个：pdt-lead（复用 IDPDV PM）、requirements-analyst、systems-engineer、architect、developer、test-engineer、pqa。\n4) 在 D:\\Projects\\ipd department 下建 6 个角色目录（各自 git init + scaffold commit）：requirements-analyst / systems-engineer / architect / developer / test-engineer / pqa；父目录 README 记录角色-阶段映射。\n5) 6 个 SSH env + 6 个 agent + 6 个 project 全部创建并 ready：RE 5467eed3/ecfb56b5，SE d2a75ee9/52b932f8，SA d7f46e23/5e06181d，DE 4e71fed5/43ad2ea4，TSE 8e2fca4e/21af7500，PQA 541d4f6e/125ceb69；每个 project 都加了 remote_path workspace。\n6) 演练 issue IPD-2（ea421890）：PM 真实派发 10 个阶段/评审 issue + 2 个人类闸门（IPD-13 GATE-CHARTER、IPD-14 GATE-TR6），用 blockedByIssueIds 串行。S1 done（RE commit e0460de）；S2-SE 提前完成（b8c2481）；S3-SA 完成（494b7bf）；S4-DE 完成（8bd31d6，node tests/todo.test.cjs 11/11 pass）。IPD-13 已创建 human_only request_confirmation（interaction 7bd74af8-2290-4972-9af2-04ef9f1439f2），等待人类批准后放行 S2 后的 TSE/TR1/S3/TR2/S4/PQA/TR6。\n\n【关键决策/理由】\n- 组织名选「IPD 开发部」（比“ipd开发流程”更像组织）。\n- pdt-lead 复用 IDPDV 项目经理，不重复建 PM 项目；其余 6 角色独立项目。\n- 角色项目暂不初始化 ARGO 图谱（需人类 argo-init）；Agent 会先声明 ARGO 不可用再继续，演练以文件+测试证据为准。\n- 角色项目首次 probe 会因全局 wakeup gate 调 LLM 多轮而超 60s：必须给 agent adapterConfig.helloProbeTimeoutSec=300~420；PATCH 后验证要等 4-7 分钟。\n- 并发 probe 会互相拖慢/超时；6 个 agent 创建后由系统自动重试即可逐步 ready。\n\n【踩坑】\n- 控制面 authenticated 模式无法用 local implicit board；用实例 root SSH + embedded Postgres(127.0.0.1:54329, user/pass paperclip/paperclip) 建临时 board_api_key（sha256，name=ipd-onboarding-temp），用完立即 revoked。\n- ConvertTo-Json 5.1 会把多行私钥转成 {value,Count} 对象；用 Node JSON.stringify 构造 env 请求体。\n- `.paperclip-runtime` 必须清空，否则 test-environment 会把 runtime 递归拷进 staged workspace，probe 假死。\n- 角色 agents 创建后自动验证；不要重复手动 test-environment，避免并发。\n\n【待人类】在 Paperclip UI 打开 IPD-13（/IPD/issues/IPD-13）批准 Charter；之后 PM 自动继续，最终 IPD-14 TR6 还需第二次人类批准。\n\n【证据】仓库：D:\\Projects\\ipd department\\*（各 HEAD clean）；IDPDV 仓 commit 未改（仅清理 .paperclip-runtime）。"
+    },
+    {
+      "type": "Requirement",
+      "description": "【目标】Graph 框架（ArchGraph/ARGO）可独立升级；Paperclip 不侵入框架，框架也不改 Paperclip。\n\n【人类要求（最终口径）】所有跑在 Paperclip（本机）下的项目都必须走 ArchGraph，每个项目都必须有 design/KG；没有图谱的项目本身就是要修的问题。全局 ArchGraph 规则对所有 Agent 生效是预期行为。\n\n【最终边界】ArchGraph 用自己的部署脚本管理 ~/.argo 与 opencode 全局/系统目录；Paperclip 不自建 profile/仓，不包装 launcher。适配代码只在 Paperclip 仓内的可选 skill helper；Agent 用 /usr/local/bin/opencode + 框架配置。\n\n【关键认知】argo MCP 不是 Paperclip↔Graph 桥梁。真正的依赖点=(A) Agent POST 的 payload.graphContext 通用 DTO，(B) Paperclip 仓内的可选适配代码（approval helper 读 design/KG）。\n\n【Paperclip 侧】\n1) approval helper 默认读 design/KG（--graph/ARGO_REPO_ROOT/cwd），加 schemaVersion=1 + provider{name:archgraph}；支持 --graph-context/--graph-context-cmd。\n2) packages/shared decision-graph.ts：schemaVersion/provider + GRAPH_CONTEXT_SCHEMA_VERSION=1 + graphContextCompatibility()；9 tests passed。\n3) Paperclip 规则在 /etc/paperclip/instructions/paperclip-runtime.md，经 opencode instructions 加载；已部署 47。\n4) 错误方案（/opt/paperclip/profiles/archgraph、opencode-archgraph）已全部撤销，6 个 vsoc Agent 改回 /usr/local/bin/opencode。\n\n【框架侧（issue #16 → archgraph-argo@0.29.19）】新增 OPENCODE_SYSTEM_CONFIG_PATH，部署整套 /etc/opencode/{opencode.json,AGENTS.md,skills}；从用户级 AGENTS.md 移除 ArchGraph 块；幂等；Windows 不启用。框架自读 ~/.argo/.env（argo-mcp-server.js:437 → loadRepositoryArgoEnvironment）。\n\n【IPD 6 个角色项目已初始化（2026-10-20）】6/6 argo-init 成功，均生成 design/KG + 自己的 .qea，canonical 3 el/1 rel/7 views，Neo4j db=仓库 basename，semanticLifecycle aligned：\n- requirements-analyst、architect、developer、test-engineer、pqa 直接成功。\n- SE 原目录 systems-engineer 被 Neo4j 拒绝（库名不能以 system 开头）；经人类同意重命名为 sys-engineer，并同步更新 env 9d9a5a30 remoteWorkspacePath、agent d2a75ee9 ARGO_REPO_ROOT、project_workspaces b0195298 cwd/name；重跑 init → db=sys-engineer。\n验证：6 仓库直接 MCP 探针均 schema passed、count=3、database 各自正确；IPD-29（SE agent）pwd=sys-engineer、MCP passed、db=sys-engineer、ARGO_REPO_ROOT 正确。\n未完成：6 个仓库的 design/ 与 .qea 仍是未跟踪文件；默认模板唯一 Actor 是 project-manager-001（项目经理），尚无与各角色对应的 Actor（如系统工程师），若按 Actor 做记忆/委派需补齐角色 Actor + wm/ltm/archive 视图。\n\n【其他端到端】VSO-26（helper 默认 design/KG，schemaVersion=1）；VSO-27（0.29.19 后：MCP passed、memory_search 2/2、helper schemaVersion=1）；IPD-27/28（PM 只读 + DE blockedBy 自动放行 wakeReason=issue_blockers_resolved，todo.test.cjs 34/34）。\n\n【升级路径】跑 ArchGraph 部署脚本（可带 OPENCODE_SYSTEM_CONFIG_PATH=/etc/opencode/opencode.json）→ 不改 Paperclip、不重启。\n\n【遗留】1) Paperclip 仓库改动未 commit。2) SKILL.md capability inventory 在 HEAD 已陈旧。3) 5 个 agent 项目仓库 AGENTS.md 仍有 Paperclip 规则副本。4) opencode-vsoc 保留未用。5) /root/.argo 无 VERSION。6) IPD 6 仓库图谱未 commit、角色 Actor 未补。7) Neo4j system* 库名限制可建议框架做库名清洗。",
+      "name": "Paperclip 与 ArchGraph 解耦落地：适配在 Paperclip 仓内 + 框架自管部署（2026-10-20）",
+      "testcases": [
+        {
+          "Input": "Replace /root/.argo on WSL ocpc; run node /opt/paperclip/profiles/archgraph/bin/graph-context.mjs --check; trigger one vsoc agent run",
+          "acceptanceCriteria": "check ok:true; no file under /root/.argo references paperclip; no agent adapter_config references /root/.argo.",
+          "description": "GIVEN the ArchGraph profile at /opt/paperclip/profiles/archgraph and a running Paperclip control plane, WHEN the framework install /root/.argo is replaced wholesale, THEN graph-context --check reports the new fingerprint, the next vsoc agent run uses the argo MCP through the stable launcher, and no Paperclip code, config, or service restart is required.",
+          "name": "graph 框架可独立替换而不改 Paperclip",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "GET /api/approvals/af01eb39-ff89-48b8-9394-2b1b9fd19b2c",
+          "acceptanceCriteria": "schemaVersion=1, provider.name=archgraph, preview 12 nodes/11 edges, no full graph key",
+          "description": "GIVEN a vsoc agent run, WHEN it creates a board approval with the profile provider output, THEN the stored payload.graphContext has schemaVersion=1 and provider.name=archgraph, and the approval preview contains bounded nodes and edges.",
+          "name": "graphContext 契约带版本且可被 Paperclip 渲染",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "VSO-23 comment; grep -i paperclip /root/.config/opencode/AGENTS.md",
+          "acceptanceCriteria": "VSO-23 names /etc/paperclip/instructions/paperclip-runtime.md; grep returns nothing",
+          "description": "GIVEN a vsoc agent using the archgraph profile, WHEN it reads its loaded instructions, THEN it cites /etc/paperclip/instructions/paperclip-runtime.md for dependency auto-release and the framework AGENTS.md contains no Paperclip lines.",
+          "name": "规则分层后 Agent 仍遵守 Paperclip 运行时规则",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "Run a vsoc agent with default command /usr/local/bin/opencode; call queryNeo4jGraph",
+          "acceptanceCriteria": "command=/usr/local/bin/opencode for all 6 vsoc agents; MCP passed; no /opt/paperclip profile exists",
+          "description": "GIVEN a vsoc agent and the framework-deployed global OpenCode config, WHEN the agent runs, THEN it uses /usr/local/bin/opencode without any Paperclip wrapper and the argo MCP responds.",
+          "name": "Agent 使用框架自管部署，无 Paperclip 包装层",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "VSO-26 + GET /api/approvals/2256e050-3387-4630-9be3-7c851cbd9838",
+          "acceptanceCriteria": "schemaVersion=1, provider.name=archgraph, preview 12 nodes/11 edges",
+          "description": "GIVEN the Paperclip-local ArchGraph adapter, WHEN an agent creates an approval with the helper's default path, THEN the DTO carries schemaVersion=1 and provider archgraph and Paperclip renders the bounded preview.",
+          "name": "适配在 Paperclip 仓内且契约带版本",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "grep -i paperclip AGENTS.md; inspect install-argo.ps1 merge behavior",
+          "acceptanceCriteria": "AGENTS.md has no Paperclip lines; installer preserves instructions array; graph re-renders after helper change",
+          "description": "GIVEN the framework's own install/upgrade script, WHEN it rewrites AGENTS.md and opencode.json, THEN the ArchGraph rule block is replaced while Paperclip instructions and non-MCP config keys survive.",
+          "name": "框架升级不破坏 Paperclip 规则装载",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "node /root/.argo/scripts/argo-mcp-server.js with ARGO_* stripped; tools/call memory_search",
+          "acceptanceCriteria": "loadRepositoryArgoEnvironment assigns ~/.argo/.env keys; memory_search returns hits; global config uses the plain node command",
+          "description": "GIVEN the framework's own MCP entry, WHEN it starts without inherited ARGO_* variables, THEN it loads ~/.argo/.env itself and semantic retrieval works.",
+          "name": "框架自读 .env，无需 Paperclip 包装",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "ArchGraph 0.29.19 install with OPENCODE_SYSTEM_CONFIG_PATH; opencode debug config as root",
+          "acceptanceCriteria": "/etc/opencode/{opencode.json,AGENTS.md,skills} exist; merged mcp=[argo,graph-mcp]; instructions deduped to 3",
+          "description": "GIVEN the framework installer with OPENCODE_SYSTEM_CONFIG_PATH set, WHEN it runs on Linux/WSL, THEN it deploys the full OpenCode framework config to /etc/opencode and removes the ArchGraph block from the user AGENTS.md.",
+          "name": "框架安装器自行部署系统级配置",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "VSO-27 run 969e6a44",
+          "acceptanceCriteria": "MCP passed; memory_search hits; Paperclip rule source correct; helper schemaVersion=1",
+          "description": "GIVEN a vsoc agent on plain opencode after 0.29.19, WHEN it runs read-only checks, THEN MCP, semantic retrieval, instructions, and the helper all work.",
+          "name": "升级后端到端回归",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "IPD-27 (pm) then IPD-28 (DE, blockedBy IPD-27)",
+          "acceptanceCriteria": "IPD-28 wakeReason=issue_blockers_resolved; tests 34/34; correct cwd",
+          "description": "GIVEN two IPD issues with a blockedBy dependency, WHEN the first completes, THEN Paperclip releases the second and both agents report correct repo state.",
+          "name": "IPD 组织端到端与依赖自动放行",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "Scan all Paperclip projects; then argo-init the 6 IPD role repos; then query each via MCP",
+          "acceptanceCriteria": "All 16 projects have design/KG; each of the 6 has its own Neo4j db (db name == repo basename), count=3, semanticLifecycle aligned",
+          "description": "GIVEN the requirement that every Paperclip project uses ArchGraph, WHEN the 6 IPD role repositories are initialized, THEN each contains design/KG and resolves its own Neo4j graph.",
+          "name": "所有 Paperclip 项目均有图谱",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "IPD-29 assigned to agent d2a75ee9 (sys-engineer)",
+          "acceptanceCriteria": "pwd=sys-engineer; database=sys-engineer; count=3; ARGO_REPO_ROOT matches",
+          "description": "GIVEN the renamed sys-engineer workspace and updated environment/ARGO_REPO_ROOT, WHEN the SE agent runs, THEN it resolves its own repository and graph database.",
+          "name": "SE 重命名后 Agent 端到端",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "VSO-27 run 969e6a44; IPD-27/28",
+          "acceptanceCriteria": "MCP passed; memory_search hits; helper schemaVersion=1; IPD-28 wakeReason=issue_blockers_resolved",
+          "description": "GIVEN agents on plain opencode after 0.29.19, WHEN they run read-only checks and a blockedBy chain, THEN MCP, instructions, helper and dependency release all work.",
+          "name": "解耦后系统回归",
+          "type": "Acceptance Test"
+        }
+      ],
+      "id": "paperclip-archgraph-profile-graph-context-2026-10-20",
+      "subdiagram_views": [
+        {
+          "view_id": "ipd-empower-2026-10-20",
+          "view_name": "IPD 赋能：角色本体与首轮工作（2026-10-20）"
+        }
+      ]
+    },
+    {
+      "type": "Requirement",
+      "description": "【背景】人类要求：IPD 开发部不再按 RE→SE→SA→DE→TSE→PQA 串行流程切顶层；改为按架构责任域（子系统/模块）组织，并要有一棵可视化组织树。\n\n【Paperclip 映射】projects 无 parentId；层级用 goals（company/team/agent + parentId + ownerAgentId），project.goal_id 挂在 goal 上；projects.lead_agent_id 唯一索引保证一 PM 一 Project；company 只是租户边界。\n\n【旧组织】备份 /root/backups/ipd-org-pre-robot-2026-10-20T14-00-57-931Z.json；7 project 归档、7 agent 暂停，仓库/图谱保留。\n\n【新组织 Robot System】9 Project / 43 Agent：robot-product（整机，4）；brain（6）→ brain-perception（3）；limbs（6）→ limbs-actuation（3）、limbs-motion-control（3）；power（6）；compute-platform（6）；safety-connectivity（6）。9 个仓库 /mnt/d/Projects/robot-system/<slug> 全部 argo-init OK。\n\n【组织树 UI（2026-10-20 新增）】新增 ui/src/pages/Organization.tsx + ui/src/lib/orgTree.ts；路由 /organization；侧边栏（streamlined 与 production）在 Projects 旁增加 Organization。树由 goals 层级构建，每个节点显示 goal level/title/status，并挂载对应 Project（名称/状态/PM/团队直接下级），可展开；项目与 Agent 均可点击。纯函数 buildOrgTree 带环保护、忽略已归档 Project。测试：orgTree.test.ts + Organization.test.tsx（4 tests passed）；UI typecheck 与 token gates 通过。\n【部署】UI 已构建并替换 47 的 /home/paperclip/paperclip-fork/server/ui-dist（备份 /root/backups/ui-dist-pre-org-20261021-004532）；/organization 返回 200，bundle 含路由与 Organization。\n【说明】当前组织树是只读视图；若要直接拖拽/编辑项目父子关系或脱离 goal 独立设 parent_project_id，需要下一步加 first-class parentProjectId + 编辑接口。\n\n【关键坑】normalizeAgentUrlKey 丢弃中文，同项目多 Agent shortname 碰撞；命名用「中文角色 · <slug>-<role>」。Agent API 创建后为 preparing/paused，已置 ready/idle。\n\n【验证】IPD-37（perception PM）、IPD-38（limbs PM）：MCP passed、db=repo basename、count=3、组织链/团队列表正确。\n\n【遗留】旧 IPD 项目/Agent 保持 archived/paused；Paperclip 仓改动未 commit；Organization 树仍只读。",
+      "name": "IPD 组织重构：机器人产品线 goal/project/agent 三层（2026-10-20）",
+      "testcases": [
+        {
+          "Input": "select reports_to from agents where company=IPD",
+          "acceptanceCriteria": "6 role agents report to c4bd3718; PM reports_to null",
+          "description": "GIVEN the 6 IPD role agents, WHEN their reporting line is set, THEN each reports to the IDPDV project manager and the manager has no parent.",
+          "name": "Organization 关系",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "argo-init report in each of the 6 repos",
+          "acceptanceCriteria": "schemaBundle.kind=workspace; bundleValidation passed; db==repo basename; semanticLifecycle Aligned",
+          "description": "GIVEN the global IPD ontology, WHEN role bundles are derived and argo-init runs, THEN each role repo activates a workspace schema with only its role types.",
+          "name": "角色本体派生",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "IPD-31..IPD-36 status transitions",
+          "acceptanceCriteria": "All done in order; each graph contains role-specific elements/relations; PQA audit records chain closure",
+          "description": "GIVEN six chained role issues, WHEN each agent runs, THEN it appends role-specific graph elements and the chain auto-releases to completion.",
+          "name": "首轮工作链",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "Query IPD company projects/goals/agents after rebuild",
+          "acceptanceCriteria": "9 active projects; 5 subsystem PMs report to robot-product PM; 3 module PMs report to their subsystem PM; 43 agents idle/ready",
+          "description": "GIVEN the robot product line, WHEN the goal/project/agent tree is created, THEN each project has exactly one PM and every PM reports to the parent responsibility unit.",
+          "name": "机器人产品线三层组织",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "argo-init report in each of the 9 robot repos",
+          "acceptanceCriteria": "schemaKind=default; Neo4j db==repo basename; semanticLifecycle Aligned",
+          "description": "GIVEN the 9 robot projects, WHEN argo-init runs per repo, THEN each has design/KG and its own Neo4j graph database.",
+          "name": "每个新项目都有 ArchGraph",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "IPD-37 and IPD-38 live runs",
+          "acceptanceCriteria": "MCP passed; correct database; correct org chain; no file changes",
+          "description": "GIVEN the new subsystem/module agents, WHEN they run read-only checks, THEN they resolve their own workspace/graph and report the correct parent PM, project and goal.",
+          "name": "新组织端到端",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "Open /organization with the robot company",
+          "acceptanceCriteria": "Tree renders Robot System → Brain → Perception and Limbs → Actuation/Motion Control with project, PM and team",
+          "description": "GIVEN the robot responsibility goals and projects, WHEN the Organization page loads, THEN it renders an expandable tree with each node's project, PM and direct team.",
+          "name": "组织树可视化",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "buildOrgTree unit tests",
+          "acceptanceCriteria": "3 tests pass: nesting, orphan/archived, cycle guard",
+          "description": "GIVEN goals/projects/agents, WHEN buildOrgTree runs, THEN it nests goals, attaches projects and teams, ignores archived projects and never recurses on cycles.",
+          "name": "树构建逻辑",
+          "type": "Acceptance Test"
+        }
+      ],
+      "id": "ipd-2026-10-20",
+      "attributes": [
+        {
+          "name": "orgTreeNav",
+          "value": "2026-10-21: 组织树入口从 streamlined-only 的 Work 区块移到始终可见的 Organization/Company 分组，label=Project Tree，路径 /organization；与原生 Org（Agent 汇报树，/org）并列。47 已重新构建部署（index-2vQHlZwa.js）。"
+        },
+        {
+          "name": "orgTreeRoute",
+          "value": "2026-10-21: /organization 需先命中 UnprefixedBoardRedirect 才会重定向到 /<companyPrefix>/organization；已在 App.tsx 的无前缀重定向块补充。公网 bundle index-Dkpenxw8.js。"
+        },
+        {
+          "name": "projectTree",
+          "value": "2026-10-21: Organization 改为第一等 project 父子树：projects.parent_project_id 新增（migration 0348），API 返回 parentProjectId，UI buildProjectTree 渲染 Company→Project→Team→Agents；Team=PM+不领导其他项目的直属 Agent；已设置机器人 9 个项目的父子关系；公网 bundle index-BaVWAcST.js。"
+        }
+      ],
+      "subdiagram_views": [
+        {
+          "view_id": "org-refactor-playbook-2026-10-21",
+          "view_name": "组织重构 Playbook（Company→Project 树→Team→Agent）"
+        }
+      ]
+    },
+    {
+      "type": "Requirement",
+      "name": "组织重构 Playbook：Company → Project 树 → Team → Agent（供 vsoc 复用）",
+      "description": "【目标模型】Company = 产品线/租户边界；Company 下是 Project 树，Project 对应系统架构的子系统/模块（一 Project 一子系统/模块）；每个 Project 与一个 Team 一一对应；Team = 1 个 PM（lead agent）+ 按项目属性配置的专家 Agent（开发项目：系统设计/架构/开发/测试/交付/QA；咨询项目：调查/分析专家等）；一个 PM 只能带一个 Project；一个 Project 只有一个 PM；子 Project 的 PM 不作为父 Team 成员（父 Team = PM 的直属 Agent 中不领导其他 Project 的那些）；归档 Project 不进树。\n\n【Paperclip 实现（fork 已落地）】\n- `projects.parent_project_id`（migration `0348_chubby_norman_osborn.sql`）已在 47 应用；`Project.parentProjectId` 可选；create/update validator 已接受；API `GET /api/companies/:id/projects` 返回 parentProjectId。\n- UI：`ui/src/lib/projectTree.ts`（buildProjectTree）+ `ui/src/pages/Organization.tsx`；路由 `/<issuePrefix>/organization`；无前缀 `/organization` 必须命中 `UnprefixedBoardRedirect`，否则会被当成 company prefix 报 “No organization matches prefix”。\n- 入口：streamlined → 左侧 `Org` 分组 → `Project Tree`；非 streamlined → `Organization/Company` 分组 → `Project Tree`（两处都要加）。\n- 部署：`pnpm --filter @paperclipai/ui build` → 备份并替换 `/home/paperclip/paperclip-fork/server/ui-dist`；服务端需重建 `packages/shared` 与 `packages/db`；迁移 SQL + `meta/_journal.json` + `meta/0348_snapshot.json` 需同时复制到 `packages/db/dist/migrations`；重启（`PAPERCLIP_MIGRATION_AUTO_APPLY=true` 会自动应用）。\n- Windows 上 `pnpm db:generate`/`build` 会因 `rm`/`ls` 失败：改用 `packages/db` 下 `tsc -p tsconfig.json` + `drizzle-kit generate`，手动复制/清理快照。\n\n【执行步骤】\n0) 审计目标 org：company id、projects、agents、environments、repo 路径、design/KG 状态；列出旧 org。\n1) 备份：导出 agents/projects/goals/environments/secret bindings/issues 到 `/root/backups/<org>-pre-<ts>.json`；旧 project `archived_at=now()`；旧 agent `status='paused', pause_reason='superseded by <model>'`；不删仓库/图谱/issue。\n2) 按系统架构定义 Project 树（子系统→模块），每个节点一个 Project；确定每 Project 的仓库路径、环境、PM、专家角色。\n3) 每 Project 建仓库（如 `/mnt/d/Projects/<root>/<slug>`）：`git init`、`.gitignore`（`.paperclip-runtime/`、`.argo/temp/`、`*.qea`）、README；`/opt/node24/bin/argo-init`（Neo4j db=repo basename；避免 `system*`；避免与已有库冲突）。\n4) 每 Project 克隆一个 SSH environment：复制 host/port/username/privateKeySecretRef，新增 `company_secret_bindings`（target_type=environment, target_id=new env, config_path=privateKeySecretRef, secret_id=原 secret），改 remoteWorkspacePath。\n5) 创建 agents（先 PM，后专家）：`POST /api/companies/:cid/agents`；adapterConfig（opencode_local、model、directRemoteWorkspace、env.ARGO_REPO_ROOT、instructionsBundle）；runtimeConfig（heartbeat `{enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}` + shared aiConnection）；defaultEnvironmentId；reportsTo：专家→PM，子 PM→父 PM。\n6) 回填：project.lead_agent_id=PM；project.parent_project_id=架构父节点；goal 可选（若用 goal 责任树）；project_goals 可选。\n7) Agent 创建后是 `preparing/paused`：置 `lifecycle_state='ready', status='idle'`（或用 test-environment 正式验证）；每 Project 至少用一个真实只读 issue 验证 pwd/MCP/db/org chain。\n8) 验证：API projects 含 parentProjectId；UI `/<prefix>/organization` 显示 Company→Project→Team；每个 repo argo-init OK；每个 Project 只有一个 PM。\n\n【坑（必须记住）】\n- Agent 命名：`normalizeAgentUrlKey` 会把中文整段丢弃；同 Project 多 Agent 若都用「角色 · project」会 shortname 碰撞并被自动加 “ 2/3”。命名用「中文角色 · <slug>-<role>」，如 `需求分析师 · limbs-re`。\n- Neo4j 保留库名：`system` / `system*` 创建失败。实例：`system`→`robot-product`、`systems-engineer`→`sys-engineer`。\n- Project 名 URL key 碰撞会自动加后缀，创建后核对 `name`。\n- 克隆 environment 不补 secret binding 会报 `Secret is not bound to environment:<id>`。\n- API 创建 agent 默认 paused/preparing；不置 ready 或跑 test-environment 不会执行。\n- `/organization` 漏了 UnprefixedBoardRedirect 会报 “No organization matches prefix”。\n- 侧边栏只加一个分支（streamlined 或非 streamlined）会看不到入口；两边都要加。\n- UI 替换 `server/ui-dist` 前先备份；浏览器可能缓存，需强刷。\n- 47 运行 `packages/db/dist`；迁移 SQL 在 `dist/migrations` 也必须存在。\n- 团队渲染必须排除领导其他 Project 的直属 Agent（子 PM），否则父 Team 人数不对。\n- 旧 org 不删；archive/pause；保留 issue 历史与仓库。\n\n【vsoc 现状（下一个会话直接可用）】\n- vsoc company `29f175e7-7ec0-4d34-86e0-49f46dcedd72`；6 个 project/agent：archgraph-agent-blue `a5bc9a2e-5476-4fc6-a5b7-6db455098cd7`、green `63422ff6-1829-453b-a46c-73886a07c402`、intel `94cfe6f7-c0e6-41de-bd36-85d50532d362`、purple `79ba038c-86f4-4cb0-b63f-8626054d1958`、red `a6fca18d-768d-4384-9e98-bea6f3b321fb`、new-era `3904be0a-5ec4-4621-a727-e73c89cdf8a9`。\n- 这些是单 PM Agent 的项目（无角色团队），仓库均有 design/KG（各自的 ArchGraph workspace schema）；environment 同一 WSL 主机不同路径。重构时先按 vsoc 的业务/系统架构定义 Project 树，再为每个 Project 配 PM + 专家团队；旧 6 个项目备份后归档/暂停。\n- 47：`/home/paperclip/paperclip-fork`；/root/backups 存放 org 与 ui-dist 备份；临时 board token 用 DB 插入 board_api_keys（sha256），用完 revoke。\n\n【参考（IPD 已交付）】9 Projects / 43 Agents；机器人树 Robot System→Brain/Limbs/Power/Compute/Safety→Perception/Actuation/Motion Control；migration 0348；UI bundle `index-BaVWAcST.js`；VSO-37/38 验证 MCP/db/org chain；组织树 UI 测试 projectTree.test.ts + Organization.test.tsx。",
+      "testcases": [
+        {
+          "Input": "Follow the playbook for a new organization",
+          "acceptanceCriteria": "Company→Project tree renders; each project has exactly one PM; teams contain PM + specialists; each repo has design/KG and a matching Neo4j db",
+          "description": "GIVEN an organization with old flat projects, WHEN the playbook is applied, THEN the org is rebuilt as a project tree with 1:1 teams and graph-backed projects.",
+          "name": "Playbook 可复用",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "vsoc audit: company 29f175e7... projects/agents/environments",
+          "acceptanceCriteria": "Backup JSON exists; old projects archived; old agents paused; new project tree + teams created; /vsoc issue smoke passes",
+          "description": "GIVEN the vsoc organization, WHEN it is restructured, THEN its 6 old projects are backed up and archived and the new architecture-aligned project tree is verified.",
+          "name": "vsoc 重构验收",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "UI /organization and /IPD/organization",
+          "acceptanceCriteria": "Route redirects to /<prefix>/organization; nav Project Tree visible in Org/Organization section; tree nodes are Projects with Team blocks",
+          "description": "GIVEN the new project tree data, WHEN opening the Organization page, THEN the company root, nested projects, teams and agents render without company-prefix errors.",
+          "name": "组织树 UI",
+          "type": "Acceptance Test"
+        }
+      ],
+      "id": "playbook-company-project-team-agent-vsoc",
+      "attributes": [
+        {
+          "name": "vsoImplementedAt",
+          "value": "2026-10-21"
+        },
+        {
+          "name": "vsoDecision",
+          "value": "In-place restructure: old 6 projects/agents preserved and repurposed (renamed/reparented), not archived; issue/repo history retained. Backup /root/backups/vsoc-pre-org-20261020T230000Z.json."
+        },
+        {
+          "name": "vsoProjects",
+          "value": "vso-command bd3ec48b-cc6d-41a1-b3e0-088ab5e06c64 (root; PM VSO 指挥官 3904be0a); vso-operations 47c98c8a-1a31-43ea-8b63-197f8f1066e8 (parent command; PM 运营经理 0f5e56fa); vso-dfir 36642811-20ba-4640-9521-7d1d27758fa0 (parent operations; PM DFIR 负责人 934bce3b); vso-exercise c16c9e91-6a43-46ce-a69f-0b1c09562b44 (parent command; PM 演练总导演 79ba038c); vso-red a319ca0f-d31f-4e75-855d-edea9b5382e4 (parent exercise; PM 红队负责人 a6fca18d); vso-detection 7d2ea81f-1018-4618-966c-8ba07c311074 (parent command; PM 检测负责人 a5bc9a2e); vso-intel 63788f88-1fa8-4f74-a15a-d292daea1f0a (parent command; PM 情报负责人 94cfe6f7); vso-remediation fdfef5a4-e2c7-418e-b4c4-9f702cc7faa2 (parent command; PM 加固负责人 63422ff6)."
+        },
+        {
+          "name": "vsoAgents",
+          "value": "19 agents. Operations: 运营经理 0f5e56fa; L1 02a0b84b; L2 dd5c719d; 处置恢复 44f8a551; 服务沟通 4860c379. DFIR: 934bce3b; 取证 920abbf9; 恶意样本 b4c75c4b. Exercise: 演练策划 4f52b57f; red operator 1fa3dbda. Shared: detection engineer db14230c; intel analyst 82a91f92; remediation engineer 2cafa587. Existing 6 renamed: 3904be0a VSO 指挥官, 79ba038c 演练总导演, a6fca18d 红队负责人, a5bc9a2e 检测负责人, 94cfe6f7 情报负责人, 63422ff6 加固负责人."
+        },
+        {
+          "name": "vsoReporting",
+          "value": "reportsTo single: 3904be0a null; 79ba038c/0f5e56fa/a5bc9a2e/94cfe6f7/63422ff6 -> 3904be0a; a6fca18d -> 79ba038c; operations team -> 0f5e56fa; DFIR 934bce3b -> 0f5e56fa; 920abbf9/b4c75c4b -> 934bce3b; exercise planner -> 79ba038c; red operator -> a6fca18d; detection engineer -> a5bc9a2e; intel analyst -> 94cfe6f7; remediation engineer -> 63422ff6."
+        },
+        {
+          "name": "vsoSmoke",
+          "value": "VSO-28 d271c1cd-f940-49b6-a1f7-7b37aa145211 done; run bc81d43e-5652-4312-8f91-d9942945bea5 succeeded; pwd=/mnt/d/Projects/new-era-cybersecurity-strategy; branch=main; Paperclip skill available; ARGO MCP schema passed; no file changes."
+        },
+        {
+          "name": "vsoUi",
+          "value": "/VSO/organization returns 200; UI shows 8 Projects / 19 Agents and all teams."
+        },
+        {
+          "name": "vsoCaveat",
+          "value": "New ops/DFIR agents reuse new-era environment/repo; future split may be needed. Existing projects were not archived. Paperclip still has single reportsTo; no true multi-manager."
+        }
+      ]
     }
   ],
   "relationships": [
@@ -1174,7 +1434,8 @@
         "paperclip-approval-graph-canvas-lessons-2026-10-19",
         "paperclip-new-organization-runbook-2026-10-19",
         "paperclip-archgraph-decoupling-plan-2026-10-20",
-        "paperclip-ipd-department-onboarding-drill-2026-10-20"
+        "paperclip-ipd-department-onboarding-drill-2026-10-20",
+        "paperclip-archgraph-profile-graph-context-2026-10-20"
       ],
       "included_relationships": []
     },
@@ -1197,6 +1458,26 @@
       "included_relationships": [
         "1161"
       ]
+    },
+    {
+      "view_id": "ipd-empower-2026-10-20",
+      "view_name": "IPD 赋能：角色本体与首轮工作（2026-10-20）",
+      "parent_element_id": "paperclip-archgraph-profile-graph-context-2026-10-20",
+      "description": "IPD 6 个角色 Agent 的角色本体派生、组织关系与首轮工作证据（挂在解耦 T2 记忆下的子视图，避免 ltm 视图 15 元素上限）。",
+      "included_elements": [
+        "ipd-2026-10-20"
+      ],
+      "included_relationships": []
+    },
+    {
+      "view_id": "org-refactor-playbook-2026-10-21",
+      "view_name": "组织重构 Playbook（Company→Project 树→Team→Agent）",
+      "parent_element_id": "ipd-2026-10-20",
+      "description": "可复用的组织重构方法与踩坑记录，供 vsoc 及其他 organization 复用。挂在 IPD 组织重构记忆下，避免 ltm 顶层 15 元素上限。",
+      "included_elements": [
+        "playbook-company-project-team-agent-vsoc"
+      ],
+      "included_relationships": []
     }
   ]
 }
