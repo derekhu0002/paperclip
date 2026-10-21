@@ -109,6 +109,8 @@ export interface Project {
   goalId: string | null;
   goalIds: string[];
   goals: ProjectGoalRef[];
+  /** Parent project in the organization tree. Null/omitted for a top-level project. */
+  parentProjectId?: string | null;
   name: string;
   description: string | null;
   /** Omitted by older servers/fixtures; clients must treat omission as open. */

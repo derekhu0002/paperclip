@@ -122,6 +122,7 @@ const projectFields = {
   /** @deprecated Use goalIds instead */
   goalId: z.string().guid().optional().nullable(),
   goalIds: z.array(z.string().guid()).optional(),
+  parentProjectId: z.string().guid().optional().nullable(),
   name: z.string().min(1),
   description: z.string().optional().nullable(),
   visibility: z.enum(["open", "private"]).optional().default("open"),

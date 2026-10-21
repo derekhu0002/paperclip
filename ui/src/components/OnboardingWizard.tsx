@@ -161,7 +161,7 @@ function restoreOnboardingAdapterType(savedAdapterType: unknown, provider?: unkn
   if (savedAdapterType === "paperclip_runner" && (provider === undefined || provider === "codex")) return "codex_local";
   return typeof savedAdapterType === "string" && savedAdapterType !== "paperclip_runner"
     ? savedAdapterType
-    : "claude_local";
+    : "opencode_local";
 }
 
 /**
@@ -1648,7 +1648,7 @@ function OnboardingWizardInner({
     setAgentName("");
     setAgentAppearance(randomAgentAppearance());
     setAgentRole(DEFAULT_AGENT_ROLE);
-    setAdapterType("claude_local");
+    setAdapterType("opencode_local");
     setRunner("auto");
     setModel("");
     setCommand("");
@@ -2084,7 +2084,7 @@ function OnboardingWizardInner({
   async function handleGiveHeartbeat() {
     if (!createdCompanyId) return;
     if (adapterType === "paperclip_runner") {
-      setAdapterType("claude_local");
+      setAdapterType("opencode_local");
       setModel("");
       setError("Choose a harness to continue onboarding.");
       return;

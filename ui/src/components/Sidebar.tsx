@@ -275,6 +275,7 @@ export function Sidebar({ children }: { children?: ReactNode }) {
             collapsible={{ open: organizationOpen, onOpenChange: setOrganizationOpen }}
           >
             <SidebarNavItem to="/agents" label="Agents" icon={Users} />
+            <SidebarNavItem to="/organization" label="Project Tree" icon={Network} />
             <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
             <SidebarNavItem to="/apps" label="Connectors" icon={Unplug} />
             <SidebarNavItem to="/activity" label="Audit" icon={History} />
@@ -294,6 +295,7 @@ export function Sidebar({ children }: { children?: ReactNode }) {
               collapsible={{ open: organizationOpen, onOpenChange: setOrganizationOpen }}
             >
               <SidebarNavItem to="/org" label="Org" icon={Network} />
+              <SidebarNavItem to="/organization" label="Project Tree" icon={Network} />
               <SidebarNavItem to="/apps" label="Connectors" icon={Unplug} />
               <SidebarNavItem to="/timeline" label="Timeline" icon={GanttChartSquare} />
               <SidebarNavItem to="/costs" label="Costs" icon={DollarSign} />

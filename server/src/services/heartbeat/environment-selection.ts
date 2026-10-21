@@ -1,4 +1,5 @@
-import { heartbeatRuns, issues, type Db, type agents } from "@paperclipai/db";
+import { heartbeatRuns, issues, projects, type Db, type agents } from "@paperclipai/db";
+import { and, eq } from "drizzle-orm";
 import type { ExecutionWorkspace, IssueExecutionWorkspaceSettings, ProjectExecutionWorkspacePolicy } from "@paperclipai/shared";
 import { parseObject } from "../../adapters/utils.js";
 import { logger } from "../../middleware/logger.js";
@@ -74,6 +75,71 @@ export interface HeartbeatEnvironmentSelectionInput {
 
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+/**
+ * A project-bound agent must execute on its execution machine, in the project's
+ * real directory. Direct workspace mode gives the run process, and the MCP
+ * servers it spawns, the real checkout as their cwd instead of a staged copy.
+ */
+async function assertProjectBoundAgentExecutionTarget(
+  db: Db,
+  agent: Pick<typeof agents.$inferSelect, "id" | "companyId" | "adapterType" | "adapterConfig"> & { name?: string | null },
+  selectedEnvironmentForConfig: { driver: string; config: unknown } | null,
+) {
+  if (agent.adapterType !== "opencode_local") return;
+  const agentName = agent.name ?? agent.id;
+  const [bound] = await db
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .where(and(eq(projects.companyId, agent.companyId), eq(projects.leadAgentId, agent.id)))
+    .limit(1);
+  if (!bound) return;
+
+  const config = parseObject(agent.adapterConfig);
+  if (config.directRemoteWorkspace !== true) {
+    throw new ConfigurationIncompleteFailure(
+      `Project agent "${agentName}" must run with Direct remote workspace enabled so the project checkout is the real execution directory. Open Agent > Configuration and enable Direct remote workspace.`,
+      {
+        configurationIncomplete: {
+          reason: "project_agent_direct_workspace_required",
+          projectId: bound.id,
+          agentId: agent.id,
+        },
+      },
+    );
+  }
+
+  const driver = selectedEnvironmentForConfig?.driver ?? null;
+  if (!driver || driver === "local") {
+    throw new ConfigurationIncompleteFailure(
+      `Project agent "${agentName}" is bound to project "${bound.name}" but resolves to the local environment. Set a remote execution environment on the agent so its task runs on the execution machine.`,
+      {
+        configurationIncomplete: {
+          reason: "project_agent_remote_environment_required",
+          projectId: bound.id,
+          agentId: agent.id,
+        },
+      },
+    );
+  }
+
+  if (driver === "ssh") {
+    const environmentConfig = parseObject(selectedEnvironmentForConfig?.config);
+    const remoteWorkspacePath = readNonEmptyString(environmentConfig.remoteWorkspacePath);
+    if (!remoteWorkspacePath) {
+      throw new ConfigurationIncompleteFailure(
+        `Project agent "${agentName}" uses an SSH environment without a remote workspace path. Set the environment's remote workspace path to project "${bound.name}"'s real checkout.`,
+        {
+          configurationIncomplete: {
+            reason: "project_agent_remote_workspace_path_required",
+            projectId: bound.id,
+            agentId: agent.id,
+          },
+        },
+      );
+    }
+  }
 }
 
 export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnvironmentSelectionInput) {
@@ -253,6 +319,7 @@ export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnviron
       : selectedEnvironmentId
         ? await environmentsSvc.getById(selectedEnvironmentId)
         : null;
+  await assertProjectBoundAgentExecutionTarget(db, agent, selectedEnvironmentForConfig);
   const nativeChatWorkspaceScope = await findNativeChatWorkspaceScope(db, {
     adapterType: agent.adapterType,
     environmentDriver: selectedEnvironmentForConfig?.driver ?? null,

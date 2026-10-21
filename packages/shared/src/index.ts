@@ -2888,5 +2888,18 @@ export { HUMAN_TASK_ORIGIN_KINDS, isAgentCreatedIssue, type IssueCreationSourceF
 
 export * from "./grok-bot.js";
 
-export { parseDecisionGraphContext } from './types/decision-graph.js';
-export type { DecisionGraph, DecisionGraphContext, DecisionGraphEdge, DecisionGraphNode, DecisionGraphNodeChange, DecisionGraphView } from './types/decision-graph.js';
+export {
+  GRAPH_CONTEXT_SCHEMA_VERSION,
+  graphContextCompatibility,
+  parseDecisionGraphContext,
+} from './types/decision-graph.js';
+export type {
+  DecisionGraph,
+  DecisionGraphContext,
+  DecisionGraphEdge,
+  DecisionGraphNode,
+  DecisionGraphNodeChange,
+  DecisionGraphProvider,
+  DecisionGraphView,
+  GraphContextCompatibility,
+} from './types/decision-graph.js';

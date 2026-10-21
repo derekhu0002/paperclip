@@ -6,10 +6,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PROJECT_COLORS } from "@paperclipai/shared";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { projectsApi } from "../api/projects";
+import { agentsApi } from "../api/agents";
 import { getLastProjectId } from "../lib/recent-projects";
 import { NewProjectForm } from "./NewProjectDialog";
 
-vi.mock("../api/projects", () => ({ projectsApi: { create: vi.fn() } }));
+vi.mock("../api/projects", () => ({ projectsApi: { create: vi.fn(), list: vi.fn() } }));
+vi.mock("../api/agents", () => ({ agentsApi: { list: vi.fn() } }));
 vi.mock("./ProjectRepositoryInput", () => ({
   ProjectRepositoryInput: () => null,
   repositoryOptionsKey: (companyId: string) => ["repositories", companyId],
@@ -26,6 +28,8 @@ let container: HTMLDivElement;
 beforeEach(() => {
   localStorage.clear();
   vi.mocked(projectsApi.create).mockReset();
+  vi.mocked(projectsApi.list).mockResolvedValue([]);
+  vi.mocked(agentsApi.list).mockResolvedValue([{ id: "agent-1", name: "Agent 1", status: "idle" } as never]);
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -55,6 +59,12 @@ describe("new project colors", () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Colorful project");
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
+    await settle();
+    const agentSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Lead agent"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(agentSelect, "agent-1");
+      agentSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
     act(() => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     await settle();
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("Try again");
@@ -65,7 +75,7 @@ describe("new project colors", () => {
     expect(previewColor).toBe(expected.style.backgroundColor);
     act(() => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     await settle();
-    expect(vi.mocked(projectsApi.create).mock.calls[1][1]).toEqual({ name: "Colorful project", color: firstColor, status: "planned", repositoryIds: [] });
+    expect(vi.mocked(projectsApi.create).mock.calls[1][1]).toEqual({ name: "Colorful project", color: firstColor, status: "planned", leadAgentId: "agent-1", repositoryIds: [] });
     expect(getLastProjectId("company-1")).toBe("project-created");
     expect(onClose).toHaveBeenCalledOnce();
   });

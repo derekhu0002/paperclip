@@ -33,7 +33,22 @@ export interface DecisionGraph {
   views?: DecisionGraphView[];
 }
 
+export interface DecisionGraphProvider {
+  name: string;
+  version?: string | null;
+  fingerprint?: string | null;
+  profileVersion?: string | null;
+}
+
 export interface DecisionGraphContext {
+  /**
+   * Version of the graph-context contract emitted by the external graph
+   * framework. Paperclip does not interpret the framework; it only needs to
+   * know whether the payload shape is one it can render. Missing means a
+   * pre-versioning producer.
+   */
+  schemaVersion?: number;
+  provider?: DecisionGraphProvider;
   projectId?: string;
   snapshotHash?: string;
   viewId?: string;
@@ -48,6 +63,18 @@ export interface DecisionGraphContext {
   summary?: string;
   maxDepth?: number;
 }
+
+export const GRAPH_CONTEXT_SCHEMA_VERSION = 1;
+
+export type GraphContextCompatibility = "supported" | "legacy" | "unsupported";
+
+export function graphContextCompatibility(
+  context: Pick<DecisionGraphContext, "schemaVersion"> | null | undefined,
+): GraphContextCompatibility {
+  if (!context || context.schemaVersion === undefined) return "legacy";
+  return context.schemaVersion === GRAPH_CONTEXT_SCHEMA_VERSION ? "supported" : "unsupported";
+}
+
 
 const MAX_PREVIEW_NODES = 24;
 const MAX_PREVIEW_EDGES = 48;
@@ -104,7 +131,20 @@ export function parseDecisionGraphContext(value: unknown): DecisionGraphContext 
       changed: Array.isArray(value.highlight.changed) ? value.highlight.changed.filter((id): id is string => typeof id === "string") : [],
     }
     : undefined;
+  const schemaVersion = typeof value.schemaVersion === "number" && Number.isFinite(value.schemaVersion)
+    ? value.schemaVersion
+    : undefined;
+  const provider = isRecord(value.provider) && typeof value.provider.name === "string"
+    ? {
+      name: value.provider.name,
+      version: typeof value.provider.version === "string" ? value.provider.version : null,
+      fingerprint: typeof value.provider.fingerprint === "string" ? value.provider.fingerprint : null,
+      profileVersion: typeof value.provider.profileVersion === "string" ? value.provider.profileVersion : null,
+    }
+    : undefined;
   return {
+    ...(schemaVersion !== undefined ? { schemaVersion } : {}),
+    ...(provider ? { provider } : {}),
     projectId: typeof value.projectId === "string" ? value.projectId : undefined,
     snapshotHash: typeof value.snapshotHash === "string" ? value.snapshotHash : undefined,
     viewId: typeof value.viewId === "string" ? value.viewId : undefined,
@@ -116,3 +156,4 @@ export function parseDecisionGraphContext(value: unknown): DecisionGraphContext 
     maxDepth: typeof value.maxDepth === "number" && Number.isFinite(value.maxDepth) ? value.maxDepth : undefined,
   };
 }
+

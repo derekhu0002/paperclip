@@ -2423,6 +2423,13 @@
       "when": 1792257089329,
       "tag": "0347_unique_the_liberteens",
       "breakpoints": true
+    },
+    {
+      "idx": 348,
+      "version": "7",
+      "when": 1792541093589,
+      "tag": "0348_chubby_norman_osborn",
+      "breakpoints": true
     }
   ]
 }

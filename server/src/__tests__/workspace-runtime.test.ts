@@ -4233,6 +4233,71 @@ process.stderr.write(${JSON.stringify(stderr)}, () => { process.exitCode = ${cod
   });
 });
 
+describe("ensurePersistedExecutionWorkspaceAvailable remote realizations", () => {
+  const base = {
+    baseCwd: "/definitely/missing/control-plane/path",
+    source: "project_primary" as const,
+    projectId: "project-1",
+    workspaceId: "workspace-1",
+    repoUrl: null,
+    repoRef: null,
+  };
+  const issue = { id: "issue-1", identifier: "IPD-25", title: "Remote workspace reuse" };
+  const agent = { id: "agent-1", name: "Test Engineer", companyId: "company-1" };
+  const remoteCwd = "/mnt/d/Projects/ipd department/test-engineer";
+
+  it("reuses a persisted SSH workspace without requiring the remote path on the control plane", async () => {
+    const restored = await ensurePersistedExecutionWorkspaceAvailable({
+      base,
+      workspace: {
+        mode: "shared_workspace",
+        strategyType: "project_primary",
+        cwd: remoteCwd,
+        providerRef: null,
+        projectId: "project-1",
+        projectWorkspaceId: "workspace-1",
+        repoUrl: null,
+        baseRef: null,
+        branchName: null,
+        metadata: {
+          workspaceRealization: {
+            provider: "ssh",
+            remote: { host: "100.87.205.43", port: 2222, username: "root", path: remoteCwd },
+          },
+        },
+      },
+      issue,
+      agent,
+    });
+
+    expect(restored).not.toBeNull();
+    expect(restored?.cwd).toBe(remoteCwd);
+    expect(restored?.strategy).toBe("project_primary");
+  });
+
+  it("still rejects a missing local project workspace without a remote realization", async () => {
+    const restored = await ensurePersistedExecutionWorkspaceAvailable({
+      base,
+      workspace: {
+        mode: "shared_workspace",
+        strategyType: "project_primary",
+        cwd: "/definitely/missing/local/workspace",
+        providerRef: null,
+        projectId: "project-1",
+        projectWorkspaceId: "workspace-1",
+        repoUrl: null,
+        baseRef: null,
+        branchName: null,
+        metadata: null,
+      },
+      issue,
+      agent,
+    });
+
+    expect(restored).toBeNull();
+  });
+});
+
 describe("ensureRuntimeServicesForRun", () => {
   function configureRuntimeProvisionTestHome(workspaceRoot: string, suffix: string) {
     const previousPaperclipHome = process.env.PAPERCLIP_HOME;

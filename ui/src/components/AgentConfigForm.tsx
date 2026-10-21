@@ -27,6 +27,7 @@ import type {
 import { AGENT_DEFAULT_MAX_CONCURRENT_RUNS, supportedEnvironmentDriversForAdapter, isValidBrowserCode, ADAPTER_AUTH_MISSING_CHECK_CODE } from "@paperclipai/shared";
 import type { AdapterModel } from "../api/agents";
 import { agentsApi } from "../api/agents";
+import { projectsApi } from "../api/projects";
 import { ApiError } from "../api/client";
 import { environmentsApi } from "../api/environments";
 import { instanceSettingsApi } from "../api/instanceSettings";
@@ -96,6 +97,7 @@ import { buildAgentUpdatePatch, omitUndefinedEntries, type AgentConfigOverlay } 
 import { useAdapterCapabilities } from "../adapters/use-adapter-capabilities";
 import { resolveForcedKubernetesEnvironment } from "../lib/forced-kubernetes-environment";
 import { codexReasoningEffortOptions } from "../lib/codex-reasoning-effort";
+import { resolveAgentBoundProject } from "../lib/agentProjectBinding";
 
 /* ---- Create mode values ---- */
 
@@ -964,6 +966,16 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     queryFn: () => agentsApi.list(selectedCompanyId!),
     enabled: Boolean(!isCreate && selectedCompanyId),
   });
+  const { data: companyProjects = [] } = useQuery({
+    queryKey: selectedCompanyId
+      ? queryKeys.projects.list(selectedCompanyId)
+      : ["projects", "none", "list"],
+    queryFn: () => projectsApi.list(selectedCompanyId!),
+    enabled: Boolean(!isCreate && selectedCompanyId),
+  });
+  const boundProject = isCreate
+    ? null
+    : resolveAgentBoundProject(props.agent, companyProjects);
 
   /** Props passed to adapter-specific config field components */
   const adapterFieldProps = {
@@ -1514,6 +1526,16 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 excludeAgentIds={[props.agent.id]}
                 chooseLabel="Choose manager…"
               />
+            </Field>
+            <Field label="Bound project" hint="The project this agent leads, or the project led by its manager. A project can include multiple agents.">
+              <span className="inline-flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+                {boundProject?.project.name ?? "Not bound to a project"}
+                {boundProject && (
+                  <Badge variant="outline" className="px-1.5 py-0 text-(length:--text-micro)">
+                    {boundProject.via === "lead" ? "Lead" : "Team"}
+                  </Badge>
+                )}
+              </span>
             </Field>
             {isLocal && !props.hidePromptTemplate && (
               <>

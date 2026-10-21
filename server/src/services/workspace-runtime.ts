@@ -3767,6 +3767,16 @@ export async function realizeExecutionWorkspace(input: {
   };
 }
 
+function readRemoteWorkspaceRealization(
+  metadata: Record<string, unknown> | null | undefined,
+): { host: string; path: string } | null {
+  const realization = parseObject(parseObject(metadata).workspaceRealization);
+  const remote = parseObject(realization.remote);
+  const host = asString(remote.host, "").trim();
+  const remotePath = asString(remote.path, "").trim();
+  return host && remotePath ? { host, path: remotePath } : null;
+}
+
 export async function ensurePersistedExecutionWorkspaceAvailable(input: {
   db?: Db | null;
   base: ExecutionWorkspaceInput;
@@ -3826,7 +3836,12 @@ export async function ensurePersistedExecutionWorkspaceAvailable(input: {
   const provisionCommand = asString(input.workspace.config?.provisionCommand, "").trim();
 
   if (strategy !== "git_worktree") {
-    if (!await directoryExists(cwd)) {
+    // A remote realization (SSH/sandbox) lives on the execution host. The
+    // control plane cannot stat that path, so a local directoryExists(cwd)
+    // check falsely rejects every reuse of a persisted remote workspace. Keep
+    // the persisted realization and let the adapter report a genuinely missing
+    // remote directory with the execution host's error.
+    if (!readRemoteWorkspaceRealization(input.workspace.metadata) && !await directoryExists(cwd)) {
       return null;
     }
     return realized;

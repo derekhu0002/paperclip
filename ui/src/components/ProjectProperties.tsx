@@ -10,6 +10,7 @@ import type { Project, SharedWorkspaceConcurrency } from "@paperclipai/shared";
 import { ProjectRepositories } from "./ProjectRepositories";
 import { cn, formatDate } from "../lib/utils";
 import { environmentsApi } from "../api/environments";
+import { agentsApi } from "../api/agents";
 import { instanceSettingsApi } from "../api/instanceSettings";
 import { projectsApi } from "../api/projects";
 import { secretsApi } from "../api/secrets";
@@ -26,6 +27,7 @@ import { InlineEditor } from "./InlineEditor";
 import { EnvironmentVariablesEditor } from "./environment-variables-editor";
 import { Badge } from "@/components/ui/badge";
 import { ProjectAccessMembers } from "./ProjectAccessMembers";
+import { resolveProjectTeamAgents } from "../lib/agentProjectBinding";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
 
@@ -56,7 +58,8 @@ export type ProjectConfigFieldKey =
   | "execution_workspace_worktree_parent_dir"
   | "execution_workspace_provision_command"
   | "execution_workspace_runtime_provision_command"
-  | "execution_workspace_teardown_command";
+  | "execution_workspace_teardown_command"
+  | "agent";
 
 const SHARED_WORKSPACE_CONCURRENCY_OPTIONS: {
   value: SharedWorkspaceConcurrency;
@@ -239,6 +242,19 @@ export function ProjectProperties({ project, repositories, onUpdate, onFieldUpda
     queryFn: () => instanceSettingsApi.getExperimental(),
     retry: false,
   });
+  const { data: agents = [] } = useQuery({
+    queryKey: selectedCompanyId ? queryKeys.agents.list(selectedCompanyId) : ["agents", "none"],
+    queryFn: () => agentsApi.list(selectedCompanyId!),
+    enabled: Boolean(selectedCompanyId),
+  });
+  const { data: companyProjects = [] } = useQuery({
+    queryKey: selectedCompanyId ? queryKeys.projects.list(selectedCompanyId) : ["projects", "none"],
+    queryFn: () => projectsApi.list(selectedCompanyId!),
+    enabled: Boolean(selectedCompanyId),
+  });
+  const teamAgents = project.leadAgentId
+    ? agents.filter((agent) => agent.reportsTo === project.leadAgentId && agent.id !== project.leadAgentId)
+    : [];
   const environmentsEnabled = experimentalSettings?.enableEnvironments === true;
   const { data: availableSecrets = [] } = useQuery({
     queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
@@ -507,6 +523,49 @@ export function ProjectProperties({ project, repositories, onUpdate, onFieldUpda
             </p>
             {project.visibility === "private" ? <ProjectAccessMembers project={project} canManage={canManagePrivacy} /> : null}
           </div>
+        </PropertyRow>
+        <PropertyRow
+          label={<FieldLabel label="Lead agent" state={fieldState("agent")} />}
+          alignStart
+          valueClassName="space-y-1"
+        >
+          <select
+            aria-label="Lead agent"
+            value={project.leadAgentId ?? ""}
+            disabled={!onUpdate && !onFieldUpdate}
+            onChange={(event) =>
+              commitField("agent", { leadAgentId: event.target.value || null })
+            }
+            className="h-9 w-full max-w-sm rounded border border-border bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <option value="">Select an agent</option>
+            {agents.map((agent) => {
+              const boundTo = companyProjects.find(
+                (candidate) =>
+                  candidate.id !== project.id && candidate.leadAgentId === agent.id,
+              );
+              return (
+                <option key={agent.id} value={agent.id} disabled={Boolean(boundTo)}>
+                  {agent.name}
+                  {boundTo ? ` - leads ${boundTo.name}` : ""}
+                </option>
+              );
+            })}
+          </select>
+          <p className="text-(length:--text-micro) text-muted-foreground">
+            A project has one lead agent and can include additional team agents.
+            Team members report to the lead; each agent belongs to at most one project.
+          </p>
+          {teamAgents.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-(length:--text-micro) text-muted-foreground">Team</span>
+              {teamAgents.map((agent) => (
+                <Badge key={agent.id} variant="outline" className="px-1.5 py-0 text-(length:--text-micro)">
+                  {agent.name}
+                </Badge>
+              ))}
+            </div>
+          )}
         </PropertyRow>
         {repositories ?? <ProjectRepositories key={project.id} project={project} />}
         <PropertyRow

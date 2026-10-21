@@ -94,3 +94,48 @@ writes: it updates the mirror, not the project's `design/KG/SystemArchitecture.j
   behavior.
 - On Windows, `pnpm db:generate` / `prune:snapshots` use POSIX shell helpers; generate the
   migration with the underlying `tsc` + `drizzle-kit` commands if the wrapper fails.
+
+## Final operational topology (2026-10-18)
+
+This section records the state reached after live verification. It supersedes the earlier
+"no global environment changes" assumption for the WSL execution host.
+
+- Paperclip control plane: 47, source deploy from `/home/paperclip/paperclip-fork`.
+- Execution host: WSL distro `ocpc` on the Windows machine; reachable at its Tailscale
+  address on SSH port 2222. The agent process runs
+  `ssh://root@<wsl-tailscale>:2222//mnt/d/Projects/archgraph :: opencode`.
+- Workspace: `/mnt/d/Projects/archgraph` is the real checkout used by the run. It is
+  branch `main`, HEAD `4bccf46a0b22e883a4a9f743fb7d88d9c9104af6`, and the only
+  `git worktree`; there is no staging copy, fork, or extra worktree for the run.
+- OpenCode config: the WSL `opencode` loads `/etc/opencode/opencode.json` in addition to
+  its per-run XDG config. That file supplies the global AGENTS rules, global skills under
+  `/root/.config/opencode/skills`, the local `argo` MCP, and the remote `graph-mcp`.
+  `ripgrep` is installed so the skill tool works. `experimental.mcp_timeout` is 180000 ms.
+- ARGO environment: `/root/.argo/.env` is the single source for ARGO settings. The agent's
+  `adapterConfig.env` contains only `ARGO_REPO_ROOT`; do not duplicate ARGO variables there.
+  `ARGO_ONTOLOGY_PYTHON` in `.env` points at the venv with `rdflib`
+  (`/root/.argo/.venv/bin/python3`). The ARGO MCP loads `.env` itself.
+- Neo4j for the agent: the **Windows Neo4j Desktop** at `127.0.0.1:7474/7687`. Database
+  `archgraph` was verified at 418 elements / 298 relationships / 93 views, matching the
+  canonical graph. The WSL side reaches it over a Windows-to-WSL SSH reverse tunnel:
+  WSL `127.0.0.1:7474/7687` -> Windows `127.0.0.1:7474/7687`. The launcher is
+  `C:\paperclip\neo4j-reverse-tunnel.ps1`; Startup entries
+  `neo4j-reverse-tunnel.vbs` and `paperclip-wsl-keepalive.vbs` restart it at logon.
+- Neo4j on 47: the shared `argo-neo4j` Docker container (`neo4j:5.26-enterprise`,
+  `/opt/argo-neo4j/data`) also serves graph-store sharing. It holds many databases,
+  including `paperclip`, `my-army`, `archgraph-agent-*`, and `archgraph-eval`. **Do not
+  delete the container or database.** The WSL-to-47 tunnel was disabled; the agent no
+  longer uses 47. An earlier `argo-init` run updated 47's `archgraph` database from
+  404/91 to 418/93; if the graph store must stay on the older version, leave 47 alone and
+  verify its backup/old state before any recovery action.
+- Skills: `argo-init`, `ea-human-reconcile`, and `agent-search-diagnosis` are
+  human-triggered. Do not require model invocation of them; the project-skill path was
+  removed from the global config.
+- Verification issues: `ARG-14` (argo-init and projection rebuild), `ARG-15` (session
+  visibility), `ARG-16` (post-fix skill/validate/env), `ARG-17` (full ARGO MCP pass:
+  semantic `getSystemArchitecture`, `queryNeo4jGraph` 418/298/93, `memory_search` 3 hits,
+  `validateSystemArchitecture` passed, `graph_graph_list` 6 assets).
+- Remaining risks: the reverse tunnel is a logon Startup item, not a Windows service; the
+  Windows Neo4j Desktop and a persistent WSL client must be running. The write-side MCP
+  mutation tools were not exercised in the read-only verification; the projection write
+  path was exercised by `argo-init`. No ArchGraph source files or branches were changed.

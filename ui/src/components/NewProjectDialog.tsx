@@ -34,6 +34,11 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
     queryFn: () => agentsApi.list(companyId),
     enabled: Boolean(companyId),
   });
+  const { data: companyProjects = [] } = useQuery({
+    queryKey: queryKeys.projects.list(companyId),
+    queryFn: () => projectsApi.list(companyId),
+    enabled: Boolean(companyId),
+  });
   const create = useMutation({
     mutationFn: () => projectsApi.create(companyId, { name: name.trim(), color, status: "planned", leadAgentId: agentId, repositoryIds: repos.map((repo) => repo.id) }),
     onSuccess: (project) => {
@@ -64,19 +69,27 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
               className="h-10 w-full min-w-0 border-0 bg-transparent text-base outline-none placeholder:text-muted-foreground md:text-sm" />
           </div>
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="text-muted-foreground">Bound agent</span>
+            <span className="text-muted-foreground">Lead agent</span>
             <select
-              aria-label="Bound agent"
+              aria-label="Lead agent"
               value={agentId}
               disabled={create.isPending}
               onChange={(event) => setAgentId(event.target.value)}
               className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
               required
             >
-              <option value="">Select an agent…</option>
-              {agents.map((agent) => (
-                <option key={agent.id} value={agent.id}>{agent.name}</option>
-              ))}
+              <option value="">Select an agent</option>
+              {agents.map((agent) => {
+                const boundTo = companyProjects.find(
+                  (project) => project.leadAgentId === agent.id,
+                );
+                return (
+                  <option key={agent.id} value={agent.id} disabled={Boolean(boundTo)}>
+                    {agent.name}
+                    {boundTo ? ` - leads ${boundTo.name}` : ""}
+                  </option>
+                );
+              })}
             </select>
           </label>
         </div>

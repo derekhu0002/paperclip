@@ -446,11 +446,11 @@
         },
         {
           "name": "nextSessionHandoff",
-          "value": "2026-10-21: 组织重构 Playbook 已记录在 T2 元素 playbook-company-project-team-agent-vsoc（视图 org-refactor-playbook-2026-10-21）。vsoc 会话先 memory_search '组织重构 Playbook vsoc project tree' 再 getIntentElementContext 读全文。vsoc company=29f175e7-7ec0-4d34-86e0-49f46dcedd72，旧 6 个项目/Agent 需备份→归档/暂停→按架构建 Project 树+Team+Agents。"
+          "value": "2026-10-21: 先读 T2 playbook-company-project-team-agent-vsoc、ipd-2026-10-20、paperclip-archgraph-profile-graph-context-2026-10-20。优先 commit Paperclip 仓改动；组织树目前只读，若要编辑再加 parent_project_id UI/接口。active agents 65/65 有 project 绑定；vsoc 已重构 19/8。"
         },
         {
           "name": "sessionDate",
-          "value": "2026-10-20"
+          "value": "2026-10-21"
         },
         {
           "name": "vsocOrgV2",
@@ -494,9 +494,9 @@
           "description": "chore(argo): supersede one-project-one-agent binding rule"
         }
       ],
-      "description": "【T1 会话总结 2026-10-20】主题：Paperclip↔ArchGraph 解耦 + 框架 0.29.19 + 全项目图谱 + IPD 组织按架构责任重构 + 组织树 UI。\n\n【人类要求】所有 Paperclip 项目必须走 ArchGraph；组织按子系统/模块责任域拆；每个 Project 唯一 PM；要有一棵组织树。\n\n【Paperclip 映射】层级用 goals（company/team/agent + parentId + ownerAgentId），project 挂 goal；lead_agent_id 唯一索引保证一 PM 一 Project。\n\n【新组织 Robot System】9 Project / 43 Agent；9 仓库 argo-init OK。PM 链：子系统→robot-product PM，模块→子系统 PM，角色→本项目 PM。旧组织已备份、归档/暂停。\n\n【组织树 UI】新增 ui/src/pages/Organization.tsx + ui/src/lib/orgTree.ts，路由 /organization，两个 Sidebar 均加入口；goal 树节点显示 Project/PM/团队，可展开。测试 4 passed，UI typecheck + token gates 通过；已构建并替换 47 的 server/ui-dist（备份 /root/backups/ui-dist-pre-org-20261021-004532），/organization 返回 200。\n\n【关键坑】normalizeAgentUrlKey 丢弃中文→同项目 Agent 名碰撞；命名「中文角色 · <slug>-<role>」。Agent API 创建后 preparing/paused→已置 ready/idle。\n\n【验证】IPD-37/38 两个真实 Agent run 均 MCP passed、db 正确、组织链正确。\n\n【遗留】Organization 树目前只读；Paperclip 仓改动未 commit。\n\n【nextSessionHandoff】读 T2 ipd-2026-10-20。",
+      "description": "【T1 会话总结 2026-10-21】主题：Paperclip↔ArchGraph 解耦、全项目图谱化、IPD 组织按架构重构、组织树、旧 Agent 清理。\n\n【最终边界与决策】\n1) 不建独立 profile/适配仓；ArchGraph 自管 ~/.argo 与 opencode 全局/系统配置；适配代码只在 Paperclip 仓的 approval helper。\n2) graphContext DTO 带 schemaVersion/provider；helper 默认读 design/KG，支持 --graph-context / --graph-context-cmd 供其他框架。\n3) 框架 issue #16 已在 archgraph-argo@0.29.19 实现系统级 /etc/opencode 部署（OPENCODE_SYSTEM_CONFIG_PATH）；框架自读 ~/.argo/.env，无需 bash 包装。\n4) 组织模型：Company=产品线；Project 树按系统架构的子系统/模块；Project↔Team 1:1；一个 Project 唯一 PM；Team=PM+不领导其他项目的直属 Agent；树节点必须是 Project，不是 goal 或 agent。\n5) Agent 绑定 project = 自己 lead 的 active project，或直属上级 PM lead 的 active project（Paperclip 原生 resolveAgentBoundProject）。\n\n【已完成】\n- 解耦：shared DTO、helper、SKILL、9 tests；47 部署；global argo 命令改回框架原生 node。\n- 6 个 IPD 角色仓库 argo-init；SE `systems-engineer` 因 Neo4j `system*` 限制改名 `sys-engineer`，env/ARGO_REPO_ROOT/workspace 已同步。\n- IPD 机器人组织：9 Projects / 43 Agents；migration 0348 新增 `projects.parent_project_id`；组织树 UI `/organization`（Org→Project Tree）；修复无前缀重定向与两个 Sidebar 入口；验证 IPD-37/38、VSO-26/27、IPD-27/28/29；IPD-30..36 完成角色本体与首轮工作链。\n- vsoc 已由另一会话完成重构：19 Agents / 8 Projects，全部绑定。\n- 旧 7 个 IPD Agent 已删除：备份 `/root/backups/ipd-legacy-agents-2026-10-21T01-39-24-038Z.json`；清理 projects.lead/assets/interactions，删除 80 条 cost_events；旧 issues 保留。active Agent 65/65 均有 project 绑定（IPD43/argo3/vsoc19）。\n\n【关键坑】\n- Agent 名：normalizeAgentUrlKey 丢弃中文，同项目多 Agent 必须用「中文角色 · <slug>-<role>」。\n- Neo4j 保留库名：`system` / `system*` 创建失败。\n- 克隆 environment 必须补 company_secret_bindings。\n- API 创建 Agent 默认 preparing/paused，需置 ready/idle 或跑 test-environment。\n- PM lifecycle 可能卡在 terminating（hostComplete=false），可手动置 `lifecycle_state='terminated'` 后再走 API 删除。\n- 官方 purge 不处理 projects.lead_agent_id / assets.created_by / issue_thread_interactions / cost_events，删除前要先清理并备份。\n- `/organization` 必须加 UnprefixedBoardRedirect，否则被当成 company prefix。\n- 入口要同时加到 streamlined 的 `Org` 分组与非 streamlined 的 `Organization` 分组。\n- 迁移 SQL + journal + snapshot 必须同时复制到 `packages/db/dist/migrations`；重启自动应用。\n- Windows 上 `pnpm db:generate`/`build` 因 rm/ls 失败，应在 47 Linux 上构建或手动 tsc+drizzle-kit。\n- 组织树 Team 渲染要排除领导其他 Project 的直属 Agent。\n\n【遗留】\n1) Paperclip 仓库改动未 commit（DTO/helper/SKILL/UI/migration 等）。\n2) SKILL.md capability inventory 在 HEAD 已陈旧（317 vs 320），非本次引入。\n3) 5 个 agent 项目仓库 AGENTS.md 仍有 Paperclip 规则副本。\n4) opencode-vsoc 及旧配置仍保留，但已无 Agent 使用。\n5) /root/.argo 无 VERSION 文件。\n6) 组织树目前只读，无拖拽/编辑父子关系。\n7) IPD 各仓 `.qea` 未纳入版本管理。\n\n【nextSessionHandoff】先读 T2 `playbook-company-project-team-agent-vsoc`（组织重构 playbook + vsoc 现状）、`ipd-2026-10-20`（IPD 重构详情）、`paperclip-archgraph-profile-graph-context-2026-10-20`（解耦与框架升级）。优先把 Paperclip 仓改动 commit；若要可编辑组织树，再加 parent_project_id 编辑/拖拽。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-10-20：解耦最终方案与端到端验证）",
+      "name": "T1 会话总结（2026-10-21：解耦、全项目图谱、IPD 组织重构与组织树）",
       "type": "Requirement"
     },
     {
@@ -1447,6 +1447,18 @@
           "name": "commit",
           "value": "211f52067",
           "description": "chore(argo): record one-agent-one-project rule"
+        },
+        {
+          "name": "agentBindingAudit",
+          "value": "2026-10-21 全量审计：绑定规则=Agent lead 的 active project，或直属上级 PM lead 的 active project（resolveAgentBoundProject）。active agents 65/65 均有绑定：IPD 新机器人 43/43、argo 3/3、vsoc 19/19（vsoc 已完成重构，8 个项目）。仅 7 个已 paused 的旧 IPD Agent 无绑定（其 project 已归档）：pqa/developer/architect/test-engineer/systems-engineer/requirements-analyst/idpdv-demo PM。若要 paused Agent 也显示 project，需恢复/绑定 legacy project 或删除。"
+        },
+        {
+          "name": "legacyAgentsDeleted",
+          "value": "2026-10-21: 删除 7 个旧 IPD Agent（idpdv-demo PM + RE/SE/SA/DE/TSE/PQA）。删除前全量备份 /root/backups/ipd-legacy-agents-2026-10-21T01-39-24-038Z.json（7 agents/7 projects/36 issues/65 comments/583 activity/80 cost/19 assets/5 interactions/93 runs/994 wakeups）。清理：projects.lead_agent_id=null(7), assets.created_by=null(19), interactions created/resolved=null(6), cost_events 删除(80)。官方 API terminate+delete；PM 卡在 terminating 后手动置 terminated 再删除。旧 issues 保留(38)，旧 projects 已归档 lead=null。active agents 仍 65（IPD43/argo3/vsoc19），绑定不变。"
+        },
+        {
+          "name": "vsocStatus",
+          "value": "2026-10-21 观察：vsoc 已由另一会话完成重构，19 个 Agent / 8 个项目（vso-command/operations/dfir/remediation/intel/detection/exercise/red），全部有 project 绑定（lead 或 team）。旧 6 个 archgraph-agent-* 单 PM 项目已被取代。"
         }
       ]
     }
