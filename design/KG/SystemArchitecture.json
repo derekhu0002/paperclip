@@ -479,6 +479,14 @@
           "name": "commit",
           "value": "211f52067",
           "description": "chore(argo): record one-agent-one-project rule"
+        },
+        {
+          "name": "bindingRule",
+          "value": "2026-10-21 current principle: one Project can bind multiple Agents; one Agent belongs to exactly one Project. Project = one lead agent + direct team; sub-project lead is not counted in parent team; project_access_members is privacy only. Historical flat one-project-one-agent descriptions are superseded."
+        },
+        {
+          "name": "bindingRuleSupersedes",
+          "value": "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18 historical flat Project-Agent one-to-one; playbook-company-project-team-agent-vsoc canonical VSO V2 rule."
         }
       ],
       "description": "【T1 会话总结 2026-10-20】主题：Paperclip↔ArchGraph 解耦 + 框架 0.29.19 + 全项目图谱 + IPD 组织按架构责任重构 + 组织树 UI。\n\n【人类要求】所有 Paperclip 项目必须走 ArchGraph；组织按子系统/模块责任域拆；每个 Project 唯一 PM；要有一棵组织树。\n\n【Paperclip 映射】层级用 goals（company/team/agent + parentId + ownerAgentId），project 挂 goal；lead_agent_id 唯一索引保证一 PM 一 Project。\n\n【新组织 Robot System】9 Project / 43 Agent；9 仓库 argo-init OK。PM 链：子系统→robot-product PM，模块→子系统 PM，角色→本项目 PM。旧组织已备份、归档/暂停。\n\n【组织树 UI】新增 ui/src/pages/Organization.tsx + ui/src/lib/orgTree.ts，路由 /organization，两个 Sidebar 均加入口；goal 树节点显示 Project/PM/团队，可展开。测试 4 passed，UI typecheck + token gates 通过；已构建并替换 47 的 server/ui-dist（备份 /root/backups/ui-dist-pre-org-20261021-004532），/organization 返回 200。\n\n【关键坑】normalizeAgentUrlKey 丢弃中文→同项目 Agent 名碰撞；命名「中文角色 · <slug>-<role>」。Agent API 创建后 preparing/paused→已置 ready/idle。\n\n【验证】IPD-37/38 两个真实 Agent run 均 MCP passed、db 正确、组织链正确。\n\n【遗留】Organization 树目前只读；Paperclip 仓改动未 commit。\n\n【nextSessionHandoff】读 T2 ipd-2026-10-20。",
@@ -735,7 +743,7 @@
       "id": "paperclip-vsoc-archgraph-agent-onboarding-2026-10-18",
       "name": "Paperclip vsoc 组织：5 个 archgraph-agent-* 项目/Agent 接入（2026-10-18）",
       "type": "Requirement",
-      "description": "【目标】在 Paperclip 控制面（47）的 vsoc 组织（company id 29f175e7-7ec0-4d34-86e0-49f46dcedd72；注意组织实际名是 vsoc，不是 vsock）下，为 5 个 ArchGraph Agent 仓库各建立一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（ocpc，Tailscale 100.87.205.43:2222，root）执行，并具备 ArchGraph/ARGO 全局规则与两个 MCP（argo + graph-mcp）。\n\n【项目/Agent/环境（均已创建并验证）】\n1. archgraph-agent-blue：project 7d2ea81f-1018-4618-966c-8ba07c311074；agent a5bc9a2e-5476-4fc6-a5b7-6db455098cd7（项目经理 · archgraph-agent-blue）；env 2bde1d9d-d831-47f5-b977-65dcf4b760aa（WSL2 · archgraph-agent-blue）。\n2. archgraph-agent-green：project fdfef5a4-e2c7-418e-b4c4-9f702cc7faa2；agent 63422ff6-1829-453b-a46c-73886a07c402；env 249e7dfd-55ea-480b-8517-77295b11385d。\n3. archgraph-agent-intel：project 63788f88-1fa8-4f74-a15a-d292daea1f0a；agent 94cfe6f7-c0e6-41de-bd36-85d50532d362；env 40c63daa-6d0e-41a8-820a-25783d37e818。\n4. archgraph-agent-purple：project c16c9e91-6a43-46ce-a69f-0b1c09562b44；agent 79ba038c-86f4-4cb0-b63f-8626054d1958；env d3a2ebad-4534-42b4-8cb2-f46790035e6e。\n5. archgraph-agent-red：project a319ca0f-d31f-4e75-855d-edea9b5382e4；agent a6fca18d-768d-4384-9e98-bea6f3b321fb；env fa5c605c-1a0e-4fa5-b98e-272f8f590076。\n\n【统一配置】adapterType=opencode_local；model=paperclip/deepseek-flash；directRemoteWorkspace=true；adapterConfig.env 仅 ARGO_REPO_ROOT=/mnt/d/Projects/<repo>；heartbeat={enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}；共享 AI connection connectionId=78401b6d-120b-4da3-bf1b-d730062c7423，grantId=90a5bdd1-3006-424a-9953-2b4a2ae8c455（vsoc 公司级 DeepSeek Chat Completions，api_key/gateway https://api.deepseek.com）。所有 Agent 最终 status=idle、lifecycle_state=ready。\n\n【框架配置】执行主机 WSL 的 /etc/opencode/opencode.json 提供全局 AGENTS（/root/.config/opencode/AGENTS.md）、argo 本地 MCP、graph-mcp 远程 MCP（https://argo.derekworkspacev5.com/mcp）、experimental.mcp_timeout=180000、ripgrep 14.1.0。为让语义检索拿到 live embedding provider，argo MCP 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'（/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 均更新）；/root/.argo/.env 仍是唯一 ARGO 配置源。\n\n【验收证据】5/5 SSH env probe ok=true；5/5 Agent test-environment status=pass 且 opencode_hello_probe_passed；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done，getSystemArchitecture semanticRetrieval=invoked；对 5 个仓库逐一直接调用 argo MCP：queryNeo4jGraph schema passed、workspace schema bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validateSystemArchitecture exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键坑与修复】1) environment privateKey 若无结尾换行，ssh/libcrypto 报 'error in libcrypto'；创建环境时值末尾补 \\n。2) 真实 WSL 检查点里 .paperclip-runtime 未被 gitignore（曾达 12.8 万文件），opencode 启动时 git ls-files 快照扫描挂起，表现为 hello probe/标题 LLM 流一直不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复见上。4) graph-mcp 的工具名是 graph_list，不是 graph_graph_list。5) argo-init --help 会实际执行 init（无 help flag），验证任务禁止运行。6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才会转为 ready/idle。7) 并发创建 environment 可能遇到 directory-merge lock timeout，重试即可。8) authenticated 实例 board 鉴权：本次用临时 board API key（DB 种入，用完 revoke）；不要把它写进仓库/issue。\n\n【变更范围】Paperclip DB/API 数据 + WSL 主机 git/opencode 配置；未修改任何 ArchGraph 仓库源码，未切换分支，未写 47 Neo4j。无 repo commit；本元素登记配置路径与验证结果。",
+      "description": "【2026-10-21 规则更新：本元素下半部分的一项目一 Agent 是历史扁平模型，已废弃】当前约束：一个 Project 可以绑定多个 Agent，但一个 Agent 只能属于一个 Project。Project = 1 个 lead agent + 其直属 team；子 Project 的 lead 不重复计入父 Project 的 Team；project_access_members 只是私有访问，不是绑定。VSO V2 已按此规则落地。\n\n【历史原文（2026-10-18，作为接入记录保留）】在 Paperclip 控制面（47）的 vsoc 组织（company id 29f175e7-7ec0-4d34-86e0-49f46dcedd72；注意组织实际名是 vsoc，不是 vsock）下，为 5 个 ArchGraph Agent 仓库各建立一个 project + 一个 Agent，project.leadAgentId 一一绑定，Agent 在本地 WSL（ocpc，Tailscale 100.87.205.43:2222，root）执行，并具备 ArchGraph/ARGO 全局规则与两个 MCP（argo + graph-mcp）。\n\n【项目/Agent/环境（均已创建并验证）】\n1. archgraph-agent-blue：project 7d2ea81f-1018-4618-966c-8ba07c311074；agent a5bc9a2e-5476-4fc6-a5b7-6db455098cd7（项目经理 · archgraph-agent-blue）；env 2bde1d9d-d831-47f5-b977-65dcf4b760aa（WSL2 · archgraph-agent-blue）。\n2. archgraph-agent-green：project fdfef5a4-e2c7-418e-b4c4-9f702cc7faa2；agent 63422ff6-1829-453b-a46c-73886a07c402；env 249e7dfd-55ea-480b-8517-77295b11385d。\n3. archgraph-agent-intel：project 63788f88-1fa8-4f74-a15a-d292daea1f0a；agent 94cfe6f7-c0e6-41de-bd36-85d50532d362；env 40c63daa-6d0e-41a8-820a-25783d37e818。\n4. archgraph-agent-purple：project c16c9e91-6a43-46ce-a69f-0b1c09562b44；agent 79ba038c-86f4-4cb0-b63f-8626054d1958；env d3a2ebad-4534-42b4-8cb2-f46790035e6e。\n5. archgraph-agent-red：project a319ca0f-d31f-4e75-855d-edea9b5382e4；agent a6fca18d-768d-4384-9e98-bea6f3b321fb；env fa5c605c-1a0e-4fa5-b98e-272f8f590076。\n\n【统一配置】adapterType=opencode_local；model=paperclip/deepseek-flash；directRemoteWorkspace=true；adapterConfig.env 仅 ARGO_REPO_ROOT=/mnt/d/Projects/<repo>；heartbeat={enabled:true,intervalSec:300,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}；共享 AI connection connectionId=78401b6d-120b-4da3-bf1b-d730062c7423，grantId=90a5bdd1-3006-424a-9953-2b4a2ae8c455（vsoc 公司级 DeepSeek Chat Completions，api_key/gateway https://api.deepseek.com）。所有 Agent 最终 status=idle、lifecycle_state=ready。\n\n【框架配置】执行主机 WSL 的 /etc/opencode/opencode.json 提供全局 AGENTS（/root/.config/opencode/AGENTS.md）、argo 本地 MCP、graph-mcp 远程 MCP（https://argo.derekworkspacev5.com/mcp）、experimental.mcp_timeout=180000、ripgrep 14.1.0。为让语义检索拿到 live embedding provider，argo MCP 命令改为 bash -lc 'set -a; [ -f /root/.argo/.env ] && . /root/.argo/.env; set +a; exec node /root/.argo/scripts/argo-mcp-server.js'（/etc/opencode/opencode.json 与 /root/.config/opencode/opencode.json 均更新）；/root/.argo/.env 仍是唯一 ARGO 配置源。\n\n【验收证据】5/5 SSH env probe ok=true；5/5 Agent test-environment status=pass 且 opencode_hello_probe_passed；VSO-1（WSL cwd/branch/worktree + MCP）done；VSO-2（语义检索）done，getSystemArchitecture semanticRetrieval=invoked；对 5 个仓库逐一直接调用 argo MCP：queryNeo4jGraph schema passed、workspace schema bundle passed、getSystemArchitecture semanticRetrieval=invoked、memory_search 各 2 hits、validateSystemArchitecture exitCode=0；graph-mcp graph_list status=ok count=6。\n\n【关键坑与修复】1) environment privateKey 若无结尾换行，ssh/libcrypto 报 'error in libcrypto'；创建环境时值末尾补 \\n。2) 真实 WSL 检查点里 .paperclip-runtime 未被 gitignore（曾达 12.8 万文件），opencode 启动时 git ls-files 快照扫描挂起，表现为 hello probe/标题 LLM 流一直不返回；修复：git config --global core.excludesFile /root/.gitignore_global + '.paperclip-runtime/'，并清理旧 runtime 目录。3) argo MCP 未 source /root/.argo/.env 时 getSystemArchitecture 报 LIVE_PROVIDER_CONFIGURATION_REQUIRED；修复见上。4) graph-mcp 的工具名是 graph_list，不是 graph_graph_list。5) argo-init --help 会实际执行 init（无 help flag），验证任务禁止运行。6) Agent 创建后 lifecycle_state=verifying，必须调用 POST /api/companies/:companyId/adapters/opencode_local/test-environment 才会转为 ready/idle。7) 并发创建 environment 可能遇到 directory-merge lock timeout，重试即可。8) authenticated 实例 board 鉴权：本次用临时 board API key（DB 种入，用完 revoke）；不要把它写进仓库/issue。\n\n【变更范围】Paperclip DB/API 数据 + WSL 主机 git/opencode 配置；未修改任何 ArchGraph 仓库源码，未切换分支、未写 47 Neo4j。无 repo commit；本元素登记配置路径与验证结果。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -788,16 +796,20 @@
         },
         {
           "name": "supersededBy",
-          "value": "paperclip-argo-env-privatekey-newline-fix-2026-10-18"
+          "value": "playbook-company-project-team-agent-vsoc; VSO V2 2026-10-21"
+        },
+        {
+          "name": "bindingRule",
+          "value": "2026-10-21 current: one project may bind multiple agents; one agent belongs to exactly one project. Project = one lead + direct team; sub-project lead excluded from parent team; project_access_members is privacy only."
         }
       ],
       "testcases": [
         {
           "name": "Project-Agent 一一绑定",
-          "description": "GIVEN the vsoc organization contains the five archgraph-agent-* projects, WHEN listing projects and agents, THEN each project.leadAgentId is unique and points to the same-named Agent, and each Agent.defaultEnvironmentId points to the matching WSL2 · <repo> SSH environment.",
+          "description": "HISTORICAL (2026-10-18; superseded by VSO V2): this test described the old flat lead-only model. Current rule: one project may bind multiple agents, but one agent belongs to exactly one project; a project has one lead plus direct team members.",
           "type": "Acceptance Test",
           "Input": "GET /api/companies/29f175e7-7ec0-4d34-86e0-49f46dcedd72/projects and /agents",
-          "acceptanceCriteria": "5 projects, 5 unique lead agents, every project-bound agent has directRemoteWorkspace=true and ARGO_REPO_ROOT=/mnt/d/Projects/<repo>"
+          "acceptanceCriteria": "Historical only. Current acceptance is tracked in playbook-company-project-team-agent-vsoc.vsoBindingModel."
         },
         {
           "name": "WSL SSH 环境可探测",
@@ -833,6 +845,13 @@
           "type": "Acceptance Test",
           "Input": "graph_list (tool name graph_list, not graph_graph_list)",
           "acceptanceCriteria": "status=ok, count=6"
+        },
+        {
+          "name": "One project many agents, one agent one project",
+          "description": "GIVEN the vsoc organization, WHEN projects and agents are listed, THEN every agent is either the lead of one project or a direct team member of exactly one project, and no agent is counted in two project teams.",
+          "type": "Acceptance Test",
+          "Input": "GET /api/companies/29f175e7-7ec0-4d34-86e0-49f46dcedd72/projects and /agents",
+          "acceptanceCriteria": "Unbound agents = 0; no agent appears as lead of one project and team member of another; sub-project lead excluded from parent team."
         }
       ]
     },
