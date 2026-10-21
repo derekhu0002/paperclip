@@ -177,7 +177,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-21"
+          "value": "2026-10-21T21:30+08:00"
         },
         {
           "name": "memoryTier",
@@ -189,7 +189,7 @@
         },
         {
           "name": "handoff",
-          "value": "无未完成修复。可人工使用 47。可选：维护窗口补跑 pnpm test:run:general + test:run:serialized；如需彻底消除 2 个 runner 相关红测，再补 native runner binary staging。无临时凭证残留。"
+          "value": "无未完成修复。47 可人工使用。可选：维护窗口补跑 test:run:general + serialized；如需消除 runner/HEIC 环境红测，再补 binary staging。升级摩擦治理：先做插件化 spike（未实施）。"
         },
         {
           "name": "agentChatFinding",
@@ -496,6 +496,14 @@
           "name": "commit",
           "value": "ccc9d9a30",
           "description": "chore(argo): supersede one-project-one-agent binding rule"
+        },
+        {
+          "name": "sessionRecord20261021",
+          "value": "paperclip-session-2026-10-21-merge-deploy-lessons | 2026-10-21 会话决策/成功/教训与时间线"
+        },
+        {
+          "name": "upstreamDrift",
+          "value": "2026-10-21 21:30：本地已合并 c2daf906d；upstream 又前进 1 个提交（65f59e339），下次升级需重新评估。"
         }
       ],
       "description": "【T1 会话总结 · 2026-10-21（会话结束定稿）】\n\n【目标】评估并执行 Paperclip fork 合并 upstream，然后推送、构建、上线 47，完成验收。\n\n【结果】\n1) 合并：upstream c2daf906d（224 commits）已在 dev/local-install；merge commit 2d6d117f1；7 处冲突手工解决；迁移重编 0370/0371；已 push（fb4527c1a、23acf44af）。\n2) 验收：架构验收 20/20；workspace-runtime 181/181；execute.remote 9/9；浏览器 e2e onboarding 6/6、组合 24/26；全量单测部分完成 4789 passed / 5 环境类失败（HEIC 原生二进制、Codex native runner 可用性、git 远端夹具），最后主动停止以释放生产负载。\n3) 上线：47 运行 fb4527c1a 的构建，health ok，部署快照 c166e57 ↔ 源码 fb4527c1a。\n\n【本次修复的真问题】\n- fork 曾强制“建项目必须绑 leadAgentId”（路由 422 + 按钮/下拉 required）→ 打挂上游 10+ e2e 流程；改为创建可不绑、传入时校验唯一绑定。\n- CLI `worktree init --from-config {}` 严格校验空 source config → provisioning 失败；改为容忍并回退 defaults。\n- idle watchdog 派发后记账失败会被记成 skipped；依赖自动释放测试硬编码 statusVersion。\n- e2e 在 Windows 的 `--import=D:\\...` 非法（改 file://）与 webServer 120s 超时（改为环境变量）。\n\n【47 部署模型（关键，后续必读）】\n- systemd drop-in fork.conf 指向本 fork；health 的 commit 取自 checkout 的 git HEAD（不是 build stamp）；checkout 无 remote、GitHub 不可达，故用 deploy 分支快照提交，哈希与分支 commit 不同。\n- runtime 是 tsx 读 **src**（包 exports 指向 src）→ 部署必须同步源码，不能只拷 dist；构建在本地（tsc+vite，无 cargo），47 只做 pnpm install。\n- 47 的 Tailscale DNS 不解析公网，装依赖需临时切 223.5.5.5 再恢复。\n- 备份必须放在仓库外（否则被 git add -A 跟踪，污染 ls-files 并打挂测试）；本次已清理 6,331 个陈旧文件，备份在 /home/paperclip/backups/20261021-deploy/。\n\n【仍成立的产品/组织决策】\n1) Company=产品线；Project 树按子系统/模块；Project↔Team 1:1；一个 Project 唯一 PM；树节点必须是 Project。\n2) 一个 Project 可多 Agent，但一个 Agent 只属于一个 Project（lead + 直属 team；子项目 lead 不计入父 team）。\n3) Paperclip 不侵入 ArchGraph；适配只在本仓 helper；框架自管 ~/.argo 与系统级 opencode 配置。\n4) Agent 默认 opencode_local + direct remote workspace（远端真实 checkout）；不要切 native Paperclip Runner（本环境不可用）。\n5) Pipelines 已随上游移除（数据保留），替代方向是 Cases。\n\n【遗留】\n1) 全量单测未跑完（已停），建议维护窗口跑 test:run:general / test:run:serialized。\n2) 2 个 Codex/runner 测试与 2 个 HEIC 测试在 47 上因环境失败，若要绿需补 native runner binary staging 与原生转换依赖。\n3) health commit 是部署快照哈希而非分支 commit（可选：给 47 一条可靠 git 通道或改为读 build stamp）。\n4) .agents/skills 等 export-ignore 文件不在 47 树内（不影响运行）。",
@@ -1858,6 +1866,34 @@
         }
       ],
       "type": "Application Service"
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-21"
+        },
+        {
+          "name": "timezone",
+          "value": "Asia/Shanghai (+08:00)"
+        },
+        {
+          "name": "sessionWindow",
+          "value": "2026-10-21T09:30 → 21:30 (+08:00)"
+        },
+        {
+          "name": "outcome",
+          "value": "merged + deployed + verified; full unit suite stopped early (4789 passed / 5 env failures)"
+        }
+      ],
+      "description": "【会话记录 2026-10-21】Paperclip fork 合并上游、上线 47、升级摩擦评估（所有时间为 +08:00）。\n\n【A. 时间线】\n- 09:30–10:10 评估基线：merge-base 60e03c002，本地 73 ahead / 224 behind；HEAD 51abf03af。\n- ~10:20 在独立 worktree 试合并 upstream c2daf906d：仅 7 处文本冲突，但发现 4 个“不报错丢功能”风险（迁移撞号、idle watchdog 接线被覆盖、Pipelines 被删、onboarding 建 Agent 流程改写）。\n- 10:35 盘点架构验收覆盖：8 项自研能力 0 用例 → 决定“先补可执行验收再合并”。\n- 11:16 commit c6bef10db：新增 19 条可执行用例 + 修复两个既有红灯（idle watchdog 记账异常、依赖释放 statusVersion 硬编码）。\n- 11:42 合并完成 2d6d117f1；迁移 0347/0348 重编为 0370/0371；11:43–11:44 提交 21ef20afd、7a3e8276f。\n- 12:00 push origin dev/local-install（源 7a3e8276f）。\n- 12:15 本地构建产物（server dist 81.8MB、ui-dist 19.9MB、各包 dist）推上 47。\n- 12:16 首次启动失败：只换 dist 不够（runtime 是 tsx 读 src）；且 47 源码树里 projects.ts 被截断。\n- 12:19 git archive 同步源码；12:20 迁移失败（源码树残留旧 0347/0348 文件）；12:27 删除后恢复；12:29 healthy。\n- 12:37–12:44 真实 Agent E2E：IPD-39 → IPD-40 依赖链完成；12:53 revoke 临时 board token。\n- 13:20–15:06 修 CLI worktree 空配置容错、修“建项目强制 leadAgentId”回归、修 e2e Windows 兼容 → fb4527c1a（15:06）。\n- 15:10–17:00 全量单测（脏树）；17:03 发现 47 工作树 39,211 tracked（备份目录被 git add -A 跟踪）→ 移到 /home/paperclip/backups/20261021-deploy/ 并删 6,331 陈旧文件；17:06 重启。\n- 16:29 记忆提交 23acf44af；16:56–19:00 干净树全量单测；19:00 主动停止；20:10 T1 定稿 c1273e340。\n\n【B. 决策（含理由/否决方案）】\n1) 合并方式：整分支 merge commit（保留 73 提交历史），否决 cherry-pick。\n2) 迁移：我们的 0347/0348 改号 0370/0371，否决保留旧号（会与上游同号并被静默丢弃）。\n3) Pipelines：接受上游整体移除（数据保留），否决自己维护一套。\n4) Copilot onboarding：删除 fork 旧 paperclip_runner 拦截（上游已用它承载 Copilot），否决按 fork 旧口径拦截。\n5) 一项目一 Agent：创建项目时 leadAgentId 改为可选，传入时才校验唯一；否决“创建必须绑定”（会打挂上游流程）。\n6) CLI worktree init：容忍空/非法 seed source config（告警 + defaults）；否决直接失败。\n7) 47 部署形态：接受 tsx+src，同步源码而不是改 packages exports；否决“纯 dist 部署”（需改上游包 exports）。\n8) health 语义：建 deploy 快照分支，health 报部署快照哈希（c166e57 → 源码 fb4527c1a）；否决伪造分支 commit。\n9) 全量单测：干净树跑到 4789 passed/5 env 失败后主动停止（避免长期占生产资源），接受部分结果。\n10) 升级摩擦：评估后建议“核心只留 schema+策略，业务功能下沉 fork 插件”，先 1–2 天 spike，尚未实施。\n\n【C. 成功经验】\n- 合并前用独立 worktree 试合并，先量化冲突再决策。\n- 合并前补“可执行 GIVEN-WHEN-THEN 架构用例”，合并后 20/20 回归，能区分环境失败与回归。\n- 用真实 Agent 端到端验证（依赖链 + direct remote + timeline），而不是只看单测。\n- 部署前核对 journal vs sql 文件数与内容哈希；失败时先看进程 argv / drop-in 而不是猜。\n- 临时 board token 用完立即 revoke，key 文件删除。\n- 失败分类：先问“是环境还是代码”（sh 缺失、symlink EPERM、runner 二进制、Playwright 浏览器）。\n\n【D. 失败教训（带时间）】\n1) ~11:00 错判“47 跑上游发行版”：依赖 10-17 旧记忆 + 基础 systemd unit，未看 drop-in 与实际进程；被人类纠正。教训：部署事实必须查运行进程/ExecStart 覆盖。\n2) 12:16 只换 dist 导致启动失败；未先确认包 exports 指向 src。教训：先确认运行时解析路径。\n3) 12:20 源码同步用“叠加”而非“镜像”，旧迁移文件残留导致迁移失败。教训：同步源码必须清理不在目标 commit 的文件。\n4) 17:03 把 dist 备份留在仓库内，被 git add -A 跟踪（ls-files 39,211）→ cli-invocation-safety ENOBUFS，且跑了不存在的旧 Pipelines 测试。教训：备份永远放仓库外；部署提交前检查 ls-files 体积。\n5) 多次过早宣称“完成/已上线”，随后被验证推翻（health 语义、4 个 provisioning 测试、项目绑定回归）。教训：以外部证据（health、测试、进程）为完成标准。\n6) 误称 47 为 2 vCPU（实为 4C/7.1G）。教训：资源结论必须先 nproc/free 核对。\n7) e2e 首次把“缺 Playwright 浏览器”当成超时。教训：区分启动超时/浏览器缺失/断言失败。\n8) 未预先确认 47 的 Tailscale DNS 不能解析公网，pnpm install 才失败。教训：远程安装前先测 DNS/registry。\n9) 用长 sleep 的 ssh 轮询导致工具超时无输出。教训：长任务用短轮询 + 日志文件。\n\n【E. 仍待办】\n- 维护窗口补跑 pnpm test:run:general / test:run:serialized。\n- 5 个环境类红测：HEIC×2（原生二进制）、Codex/native runner×2（binary staging）、repository object cache×1（git 远端夹具）。\n- health commit 可追溯性（给 47 git 通道或改读 build stamp）。\n- 升级摩擦治理：spike（插件 jobs.schedule + issues.requestWakeup 复刻 watchdog；events.subscribe + issues.update 复刻依赖释放；page/taskDetailView 复用 UI）。\n- upstream 已再前进 1 个提交（65f59e339），下次升级需重新评估。\n\n【F. 衔接】细节见 T2 paperclip-upstream-merge-assessment-2026-10-21（冲突清单/部署/验收）；本条侧重决策、经验与教训。",
+      "id": "paperclip-session-2026-10-21-merge-deploy-lessons",
+      "name": "会话记录 2026-10-21：fork 合并上游、上线 47 与升级摩擦评估（决策/经验/教训）",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -1928,7 +1964,8 @@
         "paperclip-archgraph-decoupling-plan-2026-10-20",
         "paperclip-ipd-department-onboarding-drill-2026-10-20",
         "paperclip-archgraph-profile-graph-context-2026-10-20",
-        "paperclip-upstream-merge-assessment-2026-10-21"
+        "paperclip-upstream-merge-assessment-2026-10-21",
+        "paperclip-session-2026-10-21-merge-deploy-lessons"
       ],
       "included_relationships": []
     },
