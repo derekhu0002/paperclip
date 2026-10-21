@@ -468,7 +468,7 @@
         },
         {
           "name": "vsocBinding",
-          "value": "2026-10-21: All 19 VSO agents are bound to a project via leadAgentId or manager-led team (reports_to). Unbound query = 0. UI now shows Bound project with Lead/Team badge; ProjectProperties shows Lead agent + Team. project_access_members is privacy only, not binding. No DB rows added. True many-to-many still needs a new join table."
+          "value": "2026-10-21 rule: one project may bind multiple agents; one agent belongs to exactly one project. Model: leadAgentId + direct reports as team; sub-project leads excluded from parent team. All 19 bound; unbound 0. UI asset index-D9ZJTIqN.js. project_access_members not used. No true many-to-many and not needed."
         },
         {
           "name": "commit",
@@ -1398,11 +1398,11 @@
         },
         {
           "name": "vsoBindingModel",
-          "value": "2026-10-21: Current Paperclip schema still has one leadAgentId per project and team agents via agents.reports_to. project_access_members is privacy/read access, NOT project binding. We therefore model one-project-many-agents as: project = lead agent + direct reports of that lead. All 19 VSO agents are bound: unbound query (no project led by self and no project led by reports_to) returns 0. UI AgentConfigForm now shows Bound project with Lead/Team badge; ProjectProperties labels the select Lead agent and lists Team agents. If true many-to-many (agent in multiple projects independent of reporting) is required, a new project_agents join table + API/UI is still needed."
+          "value": "2026-10-21 human rule: one project can bind multiple agents, but one agent belongs to exactly one project. Implemented with current model: project = one leadAgentId + direct reports of that lead (agents.reports_to) as team; an agent that leads another project is excluded from the parent team. project_access_members is privacy access only, never used as binding. No project_agents join table exists. All 19 VSO agents bound; unbound query = 0. This exactly satisfies one-project-many-agents and one-agent-one-project. True arbitrary many-to-many is not supported and is intentionally not needed."
         },
         {
           "name": "vsoUiBinding",
-          "value": "2026-10-21: UI deployed asset index-DjicmJRE.js. Verified /VSO/agents/l1-vso-operations-l1/runtime: Bound project vso-operations, Team badge, no 'Not bound to a project'. Tests: agentProjectBinding 3 pass; NewProjectDialog 1 pass; UI typecheck; token gates. No DB binding rows were added."
+          "value": "2026-10-21 final: UI asset index-D9ZJTIqN.js. AgentConfigForm shows Bound project with Lead/Team (resolver: own project first, else manager-led project). ProjectProperties labels Lead agent, lists Team, excludes sub-project leads, and states each agent belongs to at most one project. Verified L1: vso-operations / Team; no Not bound. Tests: agentProjectBinding 4 pass, NewProjectDialog pass; UI typecheck/gates."
         },
         {
           "name": "commit",
