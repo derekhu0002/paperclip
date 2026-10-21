@@ -40,7 +40,7 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
     enabled: Boolean(companyId),
   });
   const create = useMutation({
-    mutationFn: () => projectsApi.create(companyId, { name: name.trim(), color, status: "planned", leadAgentId: agentId, repositoryIds: repos.map((repo) => repo.id) }),
+    mutationFn: () => projectsApi.create(companyId, { name: name.trim(), color, status: "planned", ...(agentId ? { leadAgentId: agentId } : {}), repositoryIds: repos.map((repo) => repo.id) }),
     onSuccess: (project) => {
       trackRecentProject(project.id, companyId);
       void client.invalidateQueries({ queryKey: queryKeys.projects.all(companyId) });
@@ -57,7 +57,7 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
           void client.invalidateQueries({ queryKey: repositoryOptionsKey(companyId) });
           setConnecting(false);
         }} />
-      </div> : <form className="flex min-h-0 flex-col overflow-hidden" onSubmit={(event) => { event.preventDefault(); if (name.trim() && agentId && !create.isPending) create.mutate(); }}>
+      </div> : <form className="flex min-h-0 flex-col overflow-hidden" onSubmit={(event) => { event.preventDefault(); if (name.trim() && !create.isPending) create.mutate(); }}>
         <div className="flex shrink-0 flex-col gap-4 px-5 pb-4 pt-5">
           <div className="flex items-center justify-between gap-3">
             <DialogTitle className="text-lg font-semibold">Create project</DialogTitle>
@@ -76,7 +76,6 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
               disabled={create.isPending}
               onChange={(event) => setAgentId(event.target.value)}
               className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
-              required
             >
               <option value="">Select an agent</option>
               {agents.map((agent) => {
@@ -99,7 +98,7 @@ export function NewProjectForm({ companyId, onClose }: { companyId: string; onCl
         {create.isError && <p role="alert" className="px-5 pt-3 text-sm text-destructive">{create.error.message}</p>}
         <div className="flex shrink-0 justify-end gap-2 px-5 py-5">
           <Button type="button" variant="ghost" disabled={create.isPending} onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={!name.trim() || !agentId || create.isPending}>{create.isPending ? "Creating…" : "Create project"}</Button>
+          <Button type="submit" disabled={!name.trim() || create.isPending}>{create.isPending ? "Creating…" : "Create project"}</Button>
         </div>
       </form>}
     </DialogContent>

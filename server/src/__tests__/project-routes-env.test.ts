@@ -180,15 +180,15 @@ describe("project env routes", () => {
     expect(mockProjectService.createWorkspace).not.toHaveBeenCalled();
   });
 
-  it("rejects a project without a bound agent", async () => {
+  it("allows creating a project before it has a lead agent", async () => {
+    mockProjectService.create.mockResolvedValue(buildProject());
     const app = await createApp();
     const res = await request(app)
       .post("/api/companies/company-1/projects")
       .send({ name: "Unbound project" });
 
-    expect(res.status).toBe(422);
-    expect(res.body.error).toContain("bound to exactly one agent");
-    expect(mockProjectService.create).not.toHaveBeenCalled();
+    expect([200, 201], JSON.stringify(res.body)).toContain(res.status);
+    expect(mockProjectService.create).toHaveBeenCalled();
   });
 
   it("normalizes env bindings on create and logs only env keys", async () => {

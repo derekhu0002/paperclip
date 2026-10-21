@@ -367,13 +367,8 @@ export function projectRoutes(db: Db) {
     };
 
     const { workspace, repositoryIds, repositoryUrls, idempotencyKey, ...projectData } = req.body as CreateProjectPayload & { idempotencyKey?: string; repositoryUrls?: string[] };
-    // One project <-> one agent. Every user-created project must name its
-    // bound agent up front; internal service callers (personal parking,
-    // plugin-managed projects) are unaffected because they bypass this route.
-    if (!projectData.leadAgentId) {
-      res.status(422).json({ error: "A project must be bound to exactly one agent (leadAgentId)" });
-      return;
-    }
+    // A project may start unbound and gain its lead agent later (the service
+    // still rejects an agent that already leads another project).
     projectData.privacyOwnerUserId = req.actor.type === "board" ? req.actor.userId ?? null : req.actor.type === "agent" ? req.actor.onBehalfOfUserId ?? null : null;
     const runContext = req.actor.type === "agent" && req.actor.source === "agent_jwt" && req.actor.runId
       ? await projectToolContext(db, req.actor, true) : null;

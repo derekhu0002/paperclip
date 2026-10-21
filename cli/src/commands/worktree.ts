@@ -2406,6 +2406,20 @@ export function resolveWorktreeSeedBackupEngine(seedPlan: WorktreeSeedPlan): "au
     : "javascript";
 }
 
+function readWorktreeSourceConfig(configPath: string): PaperclipConfig | null {
+  try {
+    return readConfig(configPath);
+  } catch (error) {
+    // The seed source only supplies defaults for the new worktree instance.
+    // A plain checkout may carry an empty or stale config (the provision script
+    // supports exactly that); refusing to initialize would strand every run.
+    console.error(
+      `Ignoring unusable worktree seed source config at ${configPath}; continuing with defaults. ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
+}
+
 async function runWorktreeInit(opts: WorktreeInitOptions): Promise<void> {
   const cwd = process.cwd();
   const worktreeName = resolveSuggestedWorktreeName(
@@ -2427,7 +2441,7 @@ async function runWorktreeInit(opts: WorktreeInitOptions): Promise<void> {
     color: opts.color ?? generateWorktreeColor(),
   };
   const sourceConfigPath = resolveSourceConfigPath(opts);
-  const sourceConfig = existsSync(sourceConfigPath) ? readConfig(sourceConfigPath) : null;
+  const sourceConfig = existsSync(sourceConfigPath) ? readWorktreeSourceConfig(sourceConfigPath) : null;
 
   if ((existsSync(paths.configPath) || existsSync(paths.instanceRoot)) && !opts.force) {
     throw new Error(
