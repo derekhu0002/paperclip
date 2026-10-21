@@ -454,7 +454,7 @@
         },
         {
           "name": "vsocOrgV2",
-          "value": "2026-10-21: VSO V2 org implemented in-place. 8 projects / 19 agents; root vso-command; lines vso-exercise (+vso-red), vso-operations (+vso-dfir); shared vso-detection/vso-intel/vso-remediation. UI /VSO/organization verified. Smoke VSO-28 done. Details in playbook-company-project-team-agent-vsoc attributes vsoProjects/vsoAgents/vsoReporting/vsoSmoke. Old projects preserved/repurposed, not archived. Backup /root/backups/vsoc-pre-org-20261020T230000Z.json."
+          "value": "2026-10-21: VSO V2 org implemented in-place: 8 projects / 19 agents. One project one repo now enforced; vso-operations -> /mnt/d/Projects/vso-operations and vso-dfir -> /mnt/d/Projects/vso-dfir, both new git repos initialized by argo-init (Neo4j dbs vso-operations/vso-dfir), with new SSH envs a8383751 and 819fc841. Old 6 projects reused/renamed, not archived (human approved). UI /VSO/organization verified. Smokes: VSO-28, VSO-29, VSO-30 all done/succeeded. Details in playbook-company-project-team-agent-vsoc attributes vsoRepos/vsoSmoke/vsoCaveat."
         },
         {
           "name": "commit",
@@ -1358,7 +1358,7 @@
         },
         {
           "name": "vsoSmoke",
-          "value": "VSO-28 d271c1cd-f940-49b6-a1f7-7b37aa145211 done; run bc81d43e-5652-4312-8f91-d9942945bea5 succeeded; pwd=/mnt/d/Projects/new-era-cybersecurity-strategy; branch=main; Paperclip skill available; ARGO MCP schema passed; no file changes."
+          "value": "VSO-28 d271c1cd-f940-49b6-a1f7-7b37aa145211 done (old new-era env). VSO-29 8c92c945-8606-4915-8d72-de4d5adc2af8 done, run 26a9b65f-78e4-4061-9164-113e68a85686 succeeded: pwd /mnt/d/Projects/vso-operations, branch master 6540a97, design/KG exists, ARGO schema passed, Neo4j db vso-operations, no file changes. VSO-30 a1176bf9-4d38-4291-b7c8-1763555036f1 done, run a09384fb-2b13-4d1a-8b14-91919524bddc succeeded: pwd /mnt/d/Projects/vso-dfir, branch master 79eb2fc, design/KG exists, ARGO schema passed, Neo4j db vso-dfir, no file changes."
         },
         {
           "name": "vsoUi",
@@ -1366,12 +1366,16 @@
         },
         {
           "name": "vsoCaveat",
-          "value": "New ops/DFIR agents reuse new-era environment/repo; future split may be needed. Existing projects were not archived. Paperclip still has single reportsTo; no true multi-manager."
+          "value": "One project one repo is now satisfied: all 8 projects have distinct repo paths and environments. The old 6 projects were repurposed, not archived (human approved reuse). Paperclip still supports only one reportsTo; the two lines are modeled by project tree + agents/teams, not true multi-manager. New ops/DFIR repos are initialized ArchGraph workspaces."
         },
         {
           "name": "commit",
           "value": "a12066638",
           "description": "chore(argo): record VSO V2 organization restructure — design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "vsoRepos",
+          "value": "One project one repo now enforced. vso-command -> /mnt/d/Projects/new-era-cybersecurity-strategy; vso-exercise -> /mnt/d/Projects/archgraph-agent-purple; vso-red -> /mnt/d/Projects/archgraph-agent-red; vso-detection -> /mnt/d/Projects/archgraph-agent-blue; vso-intel -> /mnt/d/Projects/archgraph-agent-intel; vso-remediation -> /mnt/d/Projects/archgraph-agent-green; vso-operations -> /mnt/d/Projects/vso-operations (new git repo + argo-init, Neo4j db vso-operations); vso-dfir -> /mnt/d/Projects/vso-dfir (new git repo + argo-init, Neo4j db vso-dfir). Envs: vso-operations a8383751-cec2-487b-ba6f-1d77e6f862ef; vso-dfir 819fc841-5845-4ede-b1af-2d492a09131c; both SSH root@100.87.205.43:2222 with privateKeySecretRef 69304744-fe70-4a36-8898-63fb29a4d853; probes true."
         }
       ]
     }
