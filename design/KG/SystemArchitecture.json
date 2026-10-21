@@ -469,6 +469,11 @@
         {
           "name": "vsocBinding",
           "value": "2026-10-21: All 19 VSO agents are bound to a project via leadAgentId or manager-led team (reports_to). Unbound query = 0. UI now shows Bound project with Lead/Team badge; ProjectProperties shows Lead agent + Team. project_access_members is privacy only, not binding. No DB rows added. True many-to-many still needs a new join table."
+        },
+        {
+          "name": "commit",
+          "value": "f8c0972e0",
+          "description": "chore(argo): record VSO project binding model"
         }
       ],
       "description": "【T1 会话总结 2026-10-20】主题：Paperclip↔ArchGraph 解耦 + 框架 0.29.19 + 全项目图谱 + IPD 组织按架构责任重构 + 组织树 UI。\n\n【人类要求】所有 Paperclip 项目必须走 ArchGraph；组织按子系统/模块责任域拆；每个 Project 唯一 PM；要有一棵组织树。\n\n【Paperclip 映射】层级用 goals（company/team/agent + parentId + ownerAgentId），project 挂 goal；lead_agent_id 唯一索引保证一 PM 一 Project。\n\n【新组织 Robot System】9 Project / 43 Agent；9 仓库 argo-init OK。PM 链：子系统→robot-product PM，模块→子系统 PM，角色→本项目 PM。旧组织已备份、归档/暂停。\n\n【组织树 UI】新增 ui/src/pages/Organization.tsx + ui/src/lib/orgTree.ts，路由 /organization，两个 Sidebar 均加入口；goal 树节点显示 Project/PM/团队，可展开。测试 4 passed，UI typecheck + token gates 通过；已构建并替换 47 的 server/ui-dist（备份 /root/backups/ui-dist-pre-org-20261021-004532），/organization 返回 200。\n\n【关键坑】normalizeAgentUrlKey 丢弃中文→同项目 Agent 名碰撞；命名「中文角色 · <slug>-<role>」。Agent API 创建后 preparing/paused→已置 ready/idle。\n\n【验证】IPD-37/38 两个真实 Agent run 均 MCP passed、db 正确、组织链正确。\n\n【遗留】Organization 树目前只读；Paperclip 仓改动未 commit。\n\n【nextSessionHandoff】读 T2 ipd-2026-10-20。",
@@ -1398,6 +1403,11 @@
         {
           "name": "vsoUiBinding",
           "value": "2026-10-21: UI deployed asset index-DjicmJRE.js. Verified /VSO/agents/l1-vso-operations-l1/runtime: Bound project vso-operations, Team badge, no 'Not bound to a project'. Tests: agentProjectBinding 3 pass; NewProjectDialog 1 pass; UI typecheck; token gates. No DB binding rows were added."
+        },
+        {
+          "name": "commit",
+          "value": "f8c0972e0",
+          "description": "chore(argo): record VSO project binding model"
         }
       ]
     }
