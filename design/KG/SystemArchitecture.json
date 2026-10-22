@@ -177,7 +177,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-21T21:30+08:00"
+          "value": "2026-10-21T22:05+08:00"
         },
         {
           "name": "memoryTier",
@@ -504,6 +504,10 @@
         {
           "name": "upstreamDrift",
           "value": "2026-10-21 21:30：本地已合并 c2daf906d；upstream 又前进 1 个提交（65f59e339），下次升级需重新评估。"
+        },
+        {
+          "name": "forkEvolutionPrinciple",
+          "value": "2026-10-21T22:00+08:00 生效：fork-non-invasive-development-principle-2026-10-21（P1 新增不侵入；P2 存量不一次性解耦；P3 触碰旧侵入点则顺手解耦）。所有新需求登记时必须标注 footprint=none|registration|inline|core。"
         }
       ],
       "description": "【T1 会话总结 · 2026-10-21（会话结束定稿）】\n\n【目标】评估并执行 Paperclip fork 合并 upstream，然后推送、构建、上线 47，完成验收。\n\n【结果】\n1) 合并：upstream c2daf906d（224 commits）已在 dev/local-install；merge commit 2d6d117f1；7 处冲突手工解决；迁移重编 0370/0371；已 push（fb4527c1a、23acf44af）。\n2) 验收：架构验收 20/20；workspace-runtime 181/181；execute.remote 9/9；浏览器 e2e onboarding 6/6、组合 24/26；全量单测部分完成 4789 passed / 5 环境类失败（HEIC 原生二进制、Codex native runner 可用性、git 远端夹具），最后主动停止以释放生产负载。\n3) 上线：47 运行 fb4527c1a 的构建，health ok，部署快照 c166e57 ↔ 源码 fb4527c1a。\n\n【本次修复的真问题】\n- fork 曾强制“建项目必须绑 leadAgentId”（路由 422 + 按钮/下拉 required）→ 打挂上游 10+ e2e 流程；改为创建可不绑、传入时校验唯一绑定。\n- CLI `worktree init --from-config {}` 严格校验空 source config → provisioning 失败；改为容忍并回退 defaults。\n- idle watchdog 派发后记账失败会被记成 skipped；依赖自动释放测试硬编码 statusVersion。\n- e2e 在 Windows 的 `--import=D:\\...` 非法（改 file://）与 webServer 120s 超时（改为环境变量）。\n\n【47 部署模型（关键，后续必读）】\n- systemd drop-in fork.conf 指向本 fork；health 的 commit 取自 checkout 的 git HEAD（不是 build stamp）；checkout 无 remote、GitHub 不可达，故用 deploy 分支快照提交，哈希与分支 commit 不同。\n- runtime 是 tsx 读 **src**（包 exports 指向 src）→ 部署必须同步源码，不能只拷 dist；构建在本地（tsc+vite，无 cargo），47 只做 pnpm install。\n- 47 的 Tailscale DNS 不解析公网，装依赖需临时切 223.5.5.5 再恢复。\n- 备份必须放在仓库外（否则被 git add -A 跟踪，污染 ls-files 并打挂测试）；本次已清理 6,331 个陈旧文件，备份在 /home/paperclip/backups/20261021-deploy/。\n\n【仍成立的产品/组织决策】\n1) Company=产品线；Project 树按子系统/模块；Project↔Team 1:1；一个 Project 唯一 PM；树节点必须是 Project。\n2) 一个 Project 可多 Agent，但一个 Agent 只属于一个 Project（lead + 直属 team；子项目 lead 不计入父 team）。\n3) Paperclip 不侵入 ArchGraph；适配只在本仓 helper；框架自管 ~/.argo 与系统级 opencode 配置。\n4) Agent 默认 opencode_local + direct remote workspace（远端真实 checkout）；不要切 native Paperclip Runner（本环境不可用）。\n5) Pipelines 已随上游移除（数据保留），替代方向是 Cases。\n\n【遗留】\n1) 全量单测未跑完（已停），建议维护窗口跑 test:run:general / test:run:serialized。\n2) 2 个 Codex/runner 测试与 2 个 HEIC 测试在 47 上因环境失败，若要绿需补 native runner binary staging 与原生转换依赖。\n3) health commit 是部署快照哈希而非分支 commit（可选：给 47 一条可靠 git 通道或改为读 build stamp）。\n4) .agents/skills 等 export-ignore 文件不在 47 树内（不影响运行）。",
@@ -1894,6 +1898,38 @@
       "id": "paperclip-session-2026-10-21-merge-deploy-lessons",
       "name": "会话记录 2026-10-21：fork 合并上游、上线 47 与升级摩擦评估（决策/经验/教训）",
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-21T22:00+08:00"
+        },
+        {
+          "name": "owner",
+          "value": "人类伙伴 + 项目经理"
+        },
+        {
+          "name": "scope",
+          "value": "所有对本 fork 的特性开发、功能新增、二次开发（含 UI/服务端/适配器/迁移/脚本）"
+        },
+        {
+          "name": "footprintTags",
+          "value": "none = 纯新增目录/文件；registration = 仅 1–5 行注册/导出；inline = 修改上游文件内逻辑；core = schema/约束/核心流程不可外置"
+        },
+        {
+          "name": "reviewGate",
+          "value": "每个新增能力必须在元素属性或提交信息标注 footprint；inline 必须写明“为何无法用插件/槽位/事件/任务扩展”，并列入未来可解耦候选。"
+        }
+      ],
+      "description": "【生效时间】2026-10-21 22:00 (+08:00)。后续所有 fork 开发均遵守，直至人类显式修改。\n\n【背景】本 fork 需要持续跟进 upstream（2026-10-21 刚完成一次 224 commits 合并）。为此确定：**不为解耦单独立项**，但通过日常开发习惯逐步降低侵入度。评估结论已确认上游具备插件页面/详情页、事件订阅、定时任务、issues.requestWakeup、workspaceProvider 等扩展面，足以承载大部分业务功能。\n\n【P1 新增开发不侵入】\n所有特性开发、功能新增、二次开发，默认必须做到不对上游文件做侵入式修改，以便后续直接升级上游的特性/功能/修 bug。\n- 允许：新增独立目录/包（插件、适配器包、tools/、scripts/、docs、skills、KG）；使用插件 UI 槽位（page/detailTab/taskDetailView/sidebar）、插件 API 路由、events.subscribe、jobs.schedule、issues.requestWakeup、workspaceProvider 等扩展点。\n- 限制：修改上游拥有的文件（server/src/**、ui/src/**、packages/** 内部文件、迁移目录、package.json exports）属于侵入；若扩展点无法覆盖，只允许最小注册点（1–5 行）或极小 passthrough，并在元素/提交中标注 footprint=registration 与原因。\n- 禁止：为图方便在上游热文件（scheduling/issues/projects/environment-selection/work-timeline/IssuesList 等）里添加大段业务逻辑；改动包 exports 或迁移编号顺序。\n\n【P2 存量修改不一次性解耦】\n已存在的侵入式修改（如 idle watchdog、依赖自动释放、一项目一 Agent、direct remote workspace、项目树 schema、执行时间线服务端扩展）保持现状，**不做一次性大规模重构/搬迁**，避免影响当前稳定性。\n\n【P3 逐步解耦】\n- 新增功能不得继续加剧侵入；\n- 如果新增功能需要触碰、修改或依赖旧的自定义侵入点，**就在这次工作中顺手把该点解耦**（抽取为独立模块/插件/配置，只留最小调用点），而不是叠加新的 inline 逻辑；\n- 每次解耦以“单个能力可回退”为边界，配验收用例，不做跨能力大迁移。\n\n【执行清单（每个新需求）】\n1) 先问：能否用插件/槽位/事件/任务/新包实现？能 → 必须走该路径（footprint=none）。\n2) 不能 → 能否只加 1–5 行注册？能 → registration，并注明扩展点缺口。\n3) 仍不能 → 才允许 inline，必须写明理由、影响文件、回退方式，并标记“future-decouple”。\n4) 若该需求触碰已有 fork 侵入点 → 默认附带解耦该点（P3），除非评估为高风险并得到人类确认。\n5) schema/约束/迁移（core）默认保留；新增字段优先考虑插件状态，确需核心表则单独评审。\n\n【已知可解耦候选（供 P3 触发）】\n依赖自动释放（server/src/services/issues.ts + routes/issues.ts）→ 插件事件 + issues.update + requestWakeup；idle watchdog（heartbeat/scheduling.ts + server/src/index.ts）→ 插件 jobs.schedule + requestWakeup；执行时间线服务端与列表入口 → 插件 taskDetailView + 插件 API；图谱证据渲染 → 插件 detailTab（保留 passthrough 或改插件状态）；Organization 项目树 → 插件 page + 插件状态（可去掉 parent_project_id 迁移）；direct remote workspace → 独立适配器包或 workspaceProvider；CLI worktree 容错与 e2e Windows 修复 → 上游 PR。\n\n【不可/难解耦（默认保留，改动需评审）】\nprojects.lead_agent_id 唯一索引与创建校验、projects.parent_project_id（若保留核心表）、environment-selection 的项目绑定执行目标断言、onboarding 默认 opencode_local、迁移 0370/0371。\n\n【验收方式】任何新增能力在登记架构元素时必须写 footprint；review 时检查 diff 是否出现未解释的 upstream 文件修改；升级 upstream 时按 footprint=inline 清单优先检查冲突。",
+      "id": "fork-non-invasive-development-principle-2026-10-21",
+      "name": "Fork 演进原则：新增不侵入、存量不一次性解耦、逐步解耦",
+      "type": "Principle"
     }
   ],
   "relationships": [
@@ -1906,6 +1942,16 @@
       "target_id": "1240",
       "source_name": "Implementation and Migration Viewpoint",
       "target_name": "Application Cooperation Viewpoint"
+    },
+    {
+      "id": "fork-principle-governs-capabilities",
+      "name": "governs",
+      "source_id": "fork-non-invasive-development-principle-2026-10-21",
+      "source_name": "Fork 演进原则：新增不侵入、存量不一次性解耦、逐步解耦",
+      "statement": "Fork 演进原则：新增不侵入、存量不一次性解耦、逐步解耦 --(Association)--> Paperclip Fork 自研能力与验收（2026-10-21）",
+      "target_id": "fork-capabilities-2026-10-21",
+      "target_name": "Paperclip Fork 自研能力与验收（2026-10-21）",
+      "type": "Association"
     }
   ],
   "views": [
@@ -2027,7 +2073,12 @@
         "fork-cap-execution-timeline",
         "fork-cap-decision-graph",
         "fork-cap-project-agent-poller",
-        "fork-cap-onboarding-binding"
+        "fork-cap-onboarding-binding",
+        "fork-non-invasive-development-principle-2026-10-21",
+        "fork-capabilities-2026-10-21"
+      ],
+      "included_relationships": [
+        "fork-principle-governs-capabilities"
       ]
     }
   ]
