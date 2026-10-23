@@ -47,6 +47,14 @@
         {
           "view_id": "project-manager-001-archive-001",
           "view_name": "项目经理档案"
+        },
+        {
+          "view_id": "agent",
+          "view_name": "项目经理 · Agent 创建治理记忆"
+        },
+        {
+          "view_id": "paperclip",
+          "view_name": "项目经理 · Paperclip 迁移与部署记忆"
         }
       ],
       "attributes": [
@@ -177,7 +185,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-21T22:05+08:00"
+          "value": "2026-10-23"
         },
         {
           "name": "memoryTier",
@@ -508,6 +516,10 @@
         {
           "name": "forkEvolutionPrinciple",
           "value": "2026-10-21T22:00+08:00 生效：fork-non-invasive-development-principle-2026-10-21（P1 新增不侵入；P2 存量不一次性解耦；P3 触碰旧侵入点则顺手解耦）。所有新需求登记时必须标注 footprint=none|registration|inline|core。"
+        },
+        {
+          "name": "grokPptAgent",
+          "value": "2026-10-23: PPT 助手 · grok-bot connected to vsoc. Agent 78d08b32-59a2-41e9-b29f-0788c5085dfc; manager VSO 指挥官 3904be0a; no project/workspace/environment; adapter paperclip_runner provider grok_bot; binding a5741857-ad4b-4cb3-84d1-01386391dc92; status ready/idle; routine verified true at 2026-10-23T06:27:32Z; wakeVerified true. Intended output: Google Slides link, no .pptx requirement. Agent ID is projectless and appears in Agents list, not Project Tree."
         }
       ],
       "description": "【T1 会话总结 · 2026-10-21（会话结束定稿）】\n\n【目标】评估并执行 Paperclip fork 合并 upstream，然后推送、构建、上线 47，完成验收。\n\n【结果】\n1) 合并：upstream c2daf906d（224 commits）已在 dev/local-install；merge commit 2d6d117f1；7 处冲突手工解决；迁移重编 0370/0371；已 push（fb4527c1a、23acf44af）。\n2) 验收：架构验收 20/20；workspace-runtime 181/181；execute.remote 9/9；浏览器 e2e onboarding 6/6、组合 24/26；全量单测部分完成 4789 passed / 5 环境类失败（HEIC 原生二进制、Codex native runner 可用性、git 远端夹具），最后主动停止以释放生产负载。\n3) 上线：47 运行 fb4527c1a 的构建，health ok，部署快照 c166e57 ↔ 源码 fb4527c1a。\n\n【本次修复的真问题】\n- fork 曾强制“建项目必须绑 leadAgentId”（路由 422 + 按钮/下拉 required）→ 打挂上游 10+ e2e 流程；改为创建可不绑、传入时校验唯一绑定。\n- CLI `worktree init --from-config {}` 严格校验空 source config → provisioning 失败；改为容忍并回退 defaults。\n- idle watchdog 派发后记账失败会被记成 skipped；依赖自动释放测试硬编码 statusVersion。\n- e2e 在 Windows 的 `--import=D:\\...` 非法（改 file://）与 webServer 120s 超时（改为环境变量）。\n\n【47 部署模型（关键，后续必读）】\n- systemd drop-in fork.conf 指向本 fork；health 的 commit 取自 checkout 的 git HEAD（不是 build stamp）；checkout 无 remote、GitHub 不可达，故用 deploy 分支快照提交，哈希与分支 commit 不同。\n- runtime 是 tsx 读 **src**（包 exports 指向 src）→ 部署必须同步源码，不能只拷 dist；构建在本地（tsc+vite，无 cargo），47 只做 pnpm install。\n- 47 的 Tailscale DNS 不解析公网，装依赖需临时切 223.5.5.5 再恢复。\n- 备份必须放在仓库外（否则被 git add -A 跟踪，污染 ls-files 并打挂测试）；本次已清理 6,331 个陈旧文件，备份在 /home/paperclip/backups/20261021-deploy/。\n\n【仍成立的产品/组织决策】\n1) Company=产品线；Project 树按子系统/模块；Project↔Team 1:1；一个 Project 唯一 PM；树节点必须是 Project。\n2) 一个 Project 可多 Agent，但一个 Agent 只属于一个 Project（lead + 直属 team；子项目 lead 不计入父 team）。\n3) Paperclip 不侵入 ArchGraph；适配只在本仓 helper；框架自管 ~/.argo 与系统级 opencode 配置。\n4) Agent 默认 opencode_local + direct remote workspace（远端真实 checkout）；不要切 native Paperclip Runner（本环境不可用）。\n5) Pipelines 已随上游移除（数据保留），替代方向是 Cases。\n\n【遗留】\n1) 全量单测未跑完（已停），建议维护窗口跑 test:run:general / test:run:serialized。\n2) 2 个 Codex/runner 测试与 2 个 HEIC 测试在 47 上因环境失败，若要绿需补 native runner binary staging 与原生转换依赖。\n3) health commit 是部署快照哈希而非分支 commit（可选：给 47 一条可靠 git 通道或改为读 build stamp）。\n4) .agents/skills 等 export-ignore 文件不在 47 树内（不影响运行）。",
@@ -1930,6 +1942,68 @@
       "id": "fork-non-invasive-development-principle-2026-10-21",
       "name": "Fork 演进原则：新增不侵入、存量不一次性解耦、逐步解耦",
       "type": "Principle"
+    },
+    {
+      "id": "paperclip-agent-creation-approval-gate-2026-10-22",
+      "type": "Requirement",
+      "name": "Paperclip Agent 创建审批门与合规检查清单（2026-10-22）",
+      "description": "【目标】保证 IPD 开发部内业务 Agent（含 CEO/PM/SA 向下 hire 的子 Agent）创建出来的 Agent 符合环境/项目/ArchGraph 原则，且不侵入原生代码。\n\n【已实施】company 833b4f12-5dbf-4b42-aa91-083a773e0361 的 requireBoardApprovalForNewAgents=true（原生 company 设置，无代码改动）。效果：\n- POST /api/companies/:cid/agent-hires 创建的新 Agent 为 pending_approval，未审批不运行；\n- 直接 POST /api/companies/:cid/agents 在未带 setupId 时返回 409，必须走 agent-hires 审批流；\n- 审批 payload 含 adapterConfig/runtimeConfig/desiredSkills/reportsTo；可通过 pending agent 的 defaultEnvironmentId 等字段复核。\n\n【审批前必过清单】\n1) 项目关联：成员 Agent 的 reportsTo=项目 PM，instructions 写明 projectId+repo；新项目 lead 则 project.leadAgentId=该 Agent，project workspace remote_path=repo。子 Agent 不改既有 project lead。\n2) 环境：defaultEnvironmentId 存在且 driver=ssh；remoteWorkspacePath=目标 repo；业务 Agent 不得自建 SSH 环境/私钥，缺环境由运维开通。\n3) Adapter：adapterType=opencode_local；directRemoteWorkspace=true；helloProbeTimeoutSec>=300（建议 420）；adapterConfig.env.ARGO_REPO_ROOT=repo。\n4) AI：runtimeConfig.aiConnection 指向公司共享 connection/grant。\n5) Instructions：写明角色、projectId、repo、reportsTo；遵守 /etc/opencode/AGENTS.md；KG-first；跨仓禁止；commit/register 要求。\n6) 验证：POST /api/companies/:cid/adapters/opencode_local/test-environment 必须 pass（允许 5-7 分钟）；超时不要重复创建，先复用/修配置再重试。\n7) 只读 smoke：pwd / git rev-parse --show-toplevel = repo；argo_queryNeo4jGraph {schema:true} 返回正确 database。\n\n【现状】2026-10-22 全量审计 44 个 Agent：anomalies=0（env/ARGO_REPO_ROOT/directRemoteWorkspace/helloProbeTimeoutSec/AI connection 全合规）；43 idle/ready，1 running；project lead workspace 无 mismatch。机械结构工程师 94bd4075（robot-product-mech）已修复并 ready；重复且无环境的 4081a6be 已 terminate+delete。\n\n【边界】该门只约束业务 Agent 的常规创建路径；board/instance admin 的 setupId 或直接 DB 操作仍可绕过，需运维自律。没有引入服务端 preflight；skill/审计脚本可作为后续降低退回率的增强，不是硬门本身。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-22"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-22"
+        },
+        {
+          "name": "scope",
+          "value": "Paperclip agent creation approval gate; requireBoardApprovalForNewAgents; ArchGraph/SSH/directRemoteWorkspace checklist; IPD company"
+        }
+      ]
+    },
+    {
+      "id": "paperclip-intranet-migration-plan-2026-10-22",
+      "type": "Deliverable",
+      "name": "Paperclip 内网迁移方案（2026-10-22）",
+      "description": "【目标】把 4 期 Paperclip 实例（47）迁移到公司内网，保留 IPD 开发部 + 微两家公司的 Agent/项目/issue/密钥/附件，并在新环境完成配置与验收。\n\n【代码】本地 Git 仓 D:\\Projects\\paperclip，分支 dev/local-install，HEAD be6e30f4f；包含二次开发 9c70302c3（一项目一 Agent、directRemoteWorkspace）和 remote workspace reuse 修复（workspace-runtime.ts readRemoteWorkspaceRealization）。不要直接复制 47 的 /home/paperclip/paperclip-fork（不是 git worktree），以 Git 仓重新 build；迁移前核对 4 期 fork 是否有未进 Git 的改动。\n\n【不在 Git、必须单独迁移】4 期实例目录 /home/paperclip/.paperclip/instances/default：\n- db/（embedded Postgres 18.1.0-beta.16，paperclip 库；停服务后 pg_dump 或整目录复制）\n- config.json、.env（PAPERCLIP_AGENT_JWT_SECRET）\n- secrets/master.key（丢失则 AI key/SSH 私钥等加密 secret 无法解密）\n- companies/（Agent instructions）、skills/（公司技能库）\n- data/storage/（附件/上传文件）\n- workspaces/、isolated-workspaces/ 可不带，迁移后清旧 execution workspace 绑定让首次运行重建\n\n【项目仓】IPD 开发部 + robot-system 各项目仓及其 .argo/design/KG 单独复制；内网路径变化后更新 environments.remoteWorkspacePath、project_workspaces.cwd、agents.adapterConfig.env.ARGO_REPO_ROOT、instructions 内路径；Neo4j/ARGO MCP 若内网不保留，逐仓重新 argo-init。\n\n【迁移步骤】\n1) 4 期：停 paperclip.service；导出 DB（pg_dump 或复制 db 目录）；打包 config.json/.env/master.key/companies/skills/data.storage。\n2) 内网：安装 Node/pnpm/构建依赖（离线则用离线包/预构建 dist）；用 Git 仓 build；按新 host/port/public URL/allowedHostnames/database/storage/secrets 更新 config.json；恢复 DB；放入 master.key/.env/companies/skills/storage；启动。\n3) 更新环境相关：新域名/反代、SSH 环境 host/port/user/path/key、AI provider endpoint/key（DeepSeek 不可达则换连接/代理）、项目 workspace/ARGO_REPO_ROOT/instructions 路径。\n4) 验收：/api/health；公司/Agent/项目/issue 数量与 4 期一致；登录；AI connection 解密；environment probe + test-environment；只读 smoke（Agent cwd=repo、ARGO database=repo basename）；issue/审批历史可读。\n5) ArchGraph：内网 Neo4j/ARGO MCP 可用性确认；不可用则逐仓 argo-init 或部署本地 MCP。\n\n【风险/前提】\n- master.key 必须安全拷贝，不能进 Git；否则 secret 全丢。\n- embedded Postgres 整目录复制要求同版本；否则改用 pg_dump。\n- 迁移后绝对路径（workspaces/environments/ARGO_REPO_ROOT/instructions）必须更新。\n- 内网可能无法访问 DeepSeek/Neo4j/ARGO MCP，需要替代 endpoint/key 或代理。\n- 4 期 fork 非 Git 工作区，必须核对是否有未进 Git 的改动。\n- 自定义 directRemoteWorkspace/project_agent_direct_workspace_required 策略保留；若内网不用 SSH/ArchGraph，需按既有原则解耦/关闭。\n- 用户/会话：DB 迁移保留用户；host/domain 变化可能使旧 session 失效，重新登录即可。\n\n【需用户提供】目标主机 OS/架构/联网/Node/pnpm/端口/TLS/反代；DB 模式（embedded/外部）；4 期导出权限（停服务/root SSH）；两家公司名称/ID；项目仓内网位置；AI provider/Neo4j/ARGO 内网可用性；确认本地 dev/local-install 分支即迁移版本，及 4 期 fork 是否有未提交改动。\n\n【结论】部署与两家公司 Agent/项目配置可完成；仅 Git 仓不够，必须同时迁移 DB、密钥、实例文件、附件与项目仓。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-22"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-22"
+        },
+        {
+          "name": "scope",
+          "value": "Paperclip intranet migration; code+DB+secrets+instance files+project repos; IPD 开发部 + 微 companies; verification checklist"
+        }
+      ]
+    },
+    {
+      "id": "paperclip-opencode-runaway-recovery-2026-10-23",
+      "type": "Deliverable",
+      "name": "Paperclip opencode 卡死 run 恢复与 30 分钟硬超时（2026-10-23）",
+      "description": "【事件】2026-10-23 00:15 发现 IPD 机械/SA 两个 run 从 17:26 起运行 6h48：opencode PID 2167198/2168333，CPU 100%，RSS 2.52/2.61GB，最后输出 23:32/23:37；把各自 maxConcurrentRuns=1 占满，IPD-67/68 与 IPD-69..73 全部无法推进。\n\n【根因】run 没有硬超时；任务粒度过大/上下文膨胀，模型流长时间无输出；服务端未自动终止仍存活的进程。\n\n【处置】取消 run 55628667（SA timer）与 d4629f19（IPD-66），kill 实际 PID；取消 SA/mech 的 heartbeat_timer 空跑；给 SA/mech adapterConfig.timeoutSec=1800；在 IPD-58/66/65 评论要求 30 分钟增量、先交付可验证部分、必要时拆子任务。\n\n【证据】新 run IPD-58 4c2c817f、IPD-67 9c7609c0 已恢复；临时 board key 已吊销。\n\n【经验】opencode 进程活着不等于在干活；lastOutputAt + CPU/RSS + step 数比 status=running 更可靠；长任务必须设 timeoutSec 并拆分子任务。\n\n【根因证据（2026-10-23 追查）】a34dc2b2 于 15:21:56 执行 `grep -rn \"IPD-63|3.3.7|self.collision|自碰撞\" --include='*.md' --include='*.py' --include='*.json' .`，扫到 .paperclip-runtime/.../models.json（约 6MB 单行 JSON，约 20 份），tool-output 115MB；该 run cachedInputTokens=2,596,096，下一次模型调用 45+ 分钟无输出。d4629f19 的 joint_hardware.py 是纯 Python/无外部依赖，运行很快；其 44 分钟是模型流/上下文膨胀（cachedInputTokens=845,056）；两次 run 的 effectiveTimeoutSec=0。当前 IPD-67 cachedInputTokens=9,098,624，仍在大上下文；新 run 已设 timeoutSec=1800。\n\n【修复（2026-10-23）】IPD 技能（3 个版本）增加工具/上下文纪律：用 rg、排除 .paperclip-runtime/node_modules/data、禁止 grep/cat 大 JSON、输出限幅、timeout、>30 分钟拆子任务；SA/mech timeoutSec=1800；清理 115MB tool-output 与旧 runtime；取消 timer 空跑；IPD-58 新 session 成功；SA 指令已加纪律（mech 指令待其当前 run 结束后补，skill 已覆盖）。"
     }
   ],
   "relationships": [
@@ -2079,6 +2153,25 @@
       ],
       "included_relationships": [
         "fork-principle-governs-capabilities"
+      ]
+    },
+    {
+      "view_name": "项目经理 · Agent 创建治理记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "T2 记忆子视图：Agent 创建审批门、合规检查清单与运维审计证据（2026-10-22）。",
+      "view_id": "agent",
+      "included_elements": [
+        "paperclip-agent-creation-approval-gate-2026-10-22"
+      ]
+    },
+    {
+      "view_name": "项目经理 · Paperclip 迁移与部署记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "T2 记忆子视图：Paperclip 内网迁移、部署、数据/密钥/项目仓迁移方案与验收清单（2026-10-22）。",
+      "view_id": "paperclip",
+      "included_elements": [
+        "paperclip-intranet-migration-plan-2026-10-22",
+        "paperclip-opencode-runaway-recovery-2026-10-23"
       ]
     }
   ]
