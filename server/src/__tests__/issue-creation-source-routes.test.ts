@@ -99,6 +99,15 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
     });
   });
 
+  it("defaults an agent-created issue with no assignee to the creating agent", async () => {
+    const created = await request(app(agentActor(qaAgentId, runOnSource)))
+      .post(`/api/companies/${companyId}/issues`)
+      .send({ title: "Unowned follow-up", assigneeUserId: "board-user" });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    expect(created.body.assigneeAgentId).toBe(qaAgentId);
+    expect(created.body.assigneeUserId).toBeNull();
+  });
+
   it("keeps an explicit parentId: null standalone but still exposes the source task", async () => {
     const created = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)

@@ -784,6 +784,21 @@ async function sanitizeIssueCreateAttribution<T extends object>(
     delete sanitized.createdByUserId;
   }
 
+  const sanitizedRecord = sanitized as unknown as Record<string, unknown>;
+  const requestedAssigneeAgentId = readNonEmptyString(sanitizedRecord.assigneeAgentId);
+  if (!requestedAssigneeAgentId || requestedAssigneeAgentId.toLowerCase() === "null") {
+    // An agent-created issue must always have an agent owner. Defaulting to the
+    // creating agent prevents unassigned/human-owned blockers that can deadlock
+    // a parent task with no Agent wake and no approval card. Human confirmation
+    // belongs in an approval or question interaction, not an unassigned task.
+    if (!req.actor.agentId) {
+      res.status(422).json({ error: "Agent-created issues require an agent assignee" });
+      return null;
+    }
+    sanitizedRecord.assigneeAgentId = req.actor.agentId;
+    delete sanitizedRecord.assigneeUserId;
+  }
+
   delete sanitized.responsibleUserId;
   return sanitized;
 }
