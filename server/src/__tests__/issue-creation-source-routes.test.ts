@@ -108,6 +108,14 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
     expect(created.body.assigneeUserId).toBeNull();
   });
 
+  it("rejects an agent update that clears the agent assignee", async () => {
+    const updated = await request(app(agentActor(qaAgentId, runOnSource)))
+      .patch(`/api/issues/${sourceId}`)
+      .send({ assigneeAgentId: null });
+    expect(updated.status).toBe(422);
+    expect(updated.body.error).toContain("retain an agent assignee");
+  });
+
   it("keeps an explicit parentId: null standalone but still exposes the source task", async () => {
     const created = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)

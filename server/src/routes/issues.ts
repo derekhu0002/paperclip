@@ -13719,6 +13719,21 @@ export function issueRoutes(
           req.body.assigneeAgentId as string | null | undefined,
           { actorType: req.actor.type },
         );
+      if (
+        req.actor.type === "agent" &&
+        (hasOwn(req.body, "assigneeAgentId") || hasOwn(req.body, "assigneeUserId"))
+      ) {
+        const nextAssigneeAgentId =
+          normalizedAssigneeAgentId !== undefined
+            ? normalizedAssigneeAgentId
+            : existing.assigneeAgentId;
+        if (!nextAssigneeAgentId) {
+          res.status(422).json({
+            error: "Agent-updated issues must retain an agent assignee",
+          });
+          return;
+        }
+      }
       const titleOrDescriptionChanged =
         req.body.title !== undefined || req.body.description !== undefined;
       const existingRelations = Array.isArray(req.body.blockedByIssueIds)
