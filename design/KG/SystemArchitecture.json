@@ -537,7 +537,7 @@
         },
         {
           "name": "agentAssigneeGuard",
-          "value": "2026-10-23: Server guard implemented/deployed. Agent-created issues without assigneeAgentId default to the creating agent and drop assigneeUserId; agent PATCH cannot clear the agent assignee (422). Board-created issues may remain unassigned/human-owned. Tests 10 pass, server tsc pass, 47 health 200. Local e38d0e068; 47 9d32a5f6."
+          "value": "2026-10-23 final: agent-created issues without assigneeAgentId now return 422; no auto-binding. Human assignment must use approval/question interaction. Agent PATCH cannot clear agent assignee (422). Board tasks unaffected. Deployed to 47; health 200. Local d01f0e708; 47 5049ac5d."
         },
         {
           "name": "commit",
@@ -1572,7 +1572,7 @@
         },
         {
           "name": "agentAssigneeGuard",
-          "value": "2026-10-23 implemented and deployed: agent-created issues without a valid assigneeAgentId now default the assignee to the creating agent and strip assigneeUserId in sanitizeIssueCreateAttribution. Agent PATCH updates that explicitly clear the agent assignee are rejected with 422 'Agent-updated issues must retain an agent assignee'. Board-created issues remain allowed to be unassigned/human-owned. Local commit e38d0e068 (builds on c4a07bcd1); 47 source 9d32a5f6; 47 restarted, health 200. Tests issue-creation-source-routes 10 pass; server tsc pass."
+          "value": "2026-10-23 final rule implemented/deployed: agent-created issues MUST set assigneeAgentId. Missing/'null' assignee now returns 422 with 'Agent-created issues must set assigneeAgentId. Use an approval or question interaction when human action is required.' No auto-binding and no silent human assignment. Agent PATCH that explicitly clears the agent assignee also returns 422. Board-created issues can still be unassigned/human-assigned. Local d01f0e708; 47 source 5049ac5d; tests 10 pass; server tsc pass; 47 restart health 200."
         },
         {
           "name": "commit",
