@@ -82,7 +82,7 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
   it("parents an ordinary delegated follow-up under the run's task when parentId is omitted", async () => {
     const created = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)
-      .send({ title: "Fix regression found during verification" });
+      .send({ title: "Fix regression found during verification", assigneeAgentId: qaAgentId });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body.parentId).toBe(sourceId);
     expect(created.body.originRunId).toBe(runOnSource);
@@ -99,13 +99,12 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
     });
   });
 
-  it("defaults an agent-created issue with no assignee to the creating agent", async () => {
+  it("rejects an agent-created issue with no agent assignee", async () => {
     const created = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)
       .send({ title: "Unowned follow-up", assigneeUserId: "board-user" });
-    expect(created.status, JSON.stringify(created.body)).toBe(201);
-    expect(created.body.assigneeAgentId).toBe(qaAgentId);
-    expect(created.body.assigneeUserId).toBeNull();
+    expect(created.status).toBe(422);
+    expect(created.body.error).toContain("must set assigneeAgentId");
   });
 
   it("rejects an agent update that clears the agent assignee", async () => {
@@ -119,7 +118,7 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
   it("keeps an explicit parentId: null standalone but still exposes the source task", async () => {
     const created = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)
-      .send({ title: "Intentional top-level follow-up", parentId: null });
+      .send({ title: "Intentional top-level follow-up", parentId: null, assigneeAgentId: qaAgentId });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body.parentId).toBeNull();
     const activity = await createdActivity(created.body.id);
@@ -137,7 +136,7 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
   it("never parents conversation handoffs or board-created tasks", async () => {
     const handoff = await request(app(agentActor(qaAgentId, runOnConversation)))
       .post(`/api/companies/${companyId}/issues`)
-      .send({ title: "Execution task from chat" });
+      .send({ title: "Execution task from chat", assigneeAgentId: qaAgentId });
     expect(handoff.status, JSON.stringify(handoff.body)).toBe(201);
     expect(handoff.body.parentId).toBeNull();
 
@@ -166,7 +165,7 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
     // assignment policy denies child creation without an explicit grant.
     const created = await request(app(agentActor(qaAgentId, runOnProtected)))
       .post(`/api/companies/${companyId}/issues`)
-      .send({ title: "Follow-up from a protected task" });
+      .send({ title: "Follow-up from a protected task", assigneeAgentId: qaAgentId });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body.parentId).toBeNull();
     const activity = await createdActivity(created.body.id);
@@ -176,7 +175,7 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
 
     const explicit = await request(app(agentActor(qaAgentId, runOnProtected)))
       .post(`/api/companies/${companyId}/issues`)
-      .send({ title: "Explicit child of a protected task", parentId: protectedSourceId });
+      .send({ title: "Explicit child of a protected task", parentId: protectedSourceId, assigneeAgentId: qaAgentId });
     expect(explicit.status, JSON.stringify(explicit.body)).toBe(403);
   });
 
@@ -184,7 +183,7 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
     const [other] = await db.insert(issues).values({ companyId, title: "Another parent", status: "todo" }).returning();
     const created = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)
-      .send({ title: "Explicit child", parentId: other!.id });
+      .send({ title: "Explicit child", parentId: other!.id, assigneeAgentId: qaAgentId });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect(created.body.parentId).toBe(other!.id);
     const activity = await createdActivity(created.body.id);
