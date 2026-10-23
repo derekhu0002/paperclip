@@ -2075,6 +2075,61 @@
       "type": "Deliverable",
       "name": "Paperclip opencode 卡死 run 恢复与 30 分钟硬超时（2026-10-23）",
       "description": "【事件】2026-10-23 00:15 发现 IPD 机械/SA 两个 run 从 17:26 起运行 6h48：opencode PID 2167198/2168333，CPU 100%，RSS 2.52/2.61GB，最后输出 23:32/23:37；把各自 maxConcurrentRuns=1 占满，IPD-67/68 与 IPD-69..73 全部无法推进。\n\n【根因】run 没有硬超时；任务粒度过大/上下文膨胀，模型流长时间无输出；服务端未自动终止仍存活的进程。\n\n【处置】取消 run 55628667（SA timer）与 d4629f19（IPD-66），kill 实际 PID；取消 SA/mech 的 heartbeat_timer 空跑；给 SA/mech adapterConfig.timeoutSec=1800；在 IPD-58/66/65 评论要求 30 分钟增量、先交付可验证部分、必要时拆子任务。\n\n【证据】新 run IPD-58 4c2c817f、IPD-67 9c7609c0 已恢复；临时 board key 已吊销。\n\n【经验】opencode 进程活着不等于在干活；lastOutputAt + CPU/RSS + step 数比 status=running 更可靠；长任务必须设 timeoutSec 并拆分子任务。\n\n【根因证据（2026-10-23 追查）】a34dc2b2 于 15:21:56 执行 `grep -rn \"IPD-63|3.3.7|self.collision|自碰撞\" --include='*.md' --include='*.py' --include='*.json' .`，扫到 .paperclip-runtime/.../models.json（约 6MB 单行 JSON，约 20 份），tool-output 115MB；该 run cachedInputTokens=2,596,096，下一次模型调用 45+ 分钟无输出。d4629f19 的 joint_hardware.py 是纯 Python/无外部依赖，运行很快；其 44 分钟是模型流/上下文膨胀（cachedInputTokens=845,056）；两次 run 的 effectiveTimeoutSec=0。当前 IPD-67 cachedInputTokens=9,098,624，仍在大上下文；新 run 已设 timeoutSec=1800。\n\n【修复（2026-10-23）】IPD 技能（3 个版本）增加工具/上下文纪律：用 rg、排除 .paperclip-runtime/node_modules/data、禁止 grep/cat 大 JSON、输出限幅、timeout、>30 分钟拆子任务；SA/mech timeoutSec=1800；清理 115MB tool-output 与旧 runtime；取消 timer 空跑；IPD-58 新 session 成功；SA 指令已加纪律（mech 指令待其当前 run 结束后补，skill 已覆盖）。"
+    },
+    {
+      "id": "paperclip-exec-env-ssh-flap-backlog-2026-10-23",
+      "name": "运维待办：执行机 SSH 路径抖动导致 setup_failed（AIC-15 事件）",
+      "type": "Requirement",
+      "description": "【运维自行跟踪，不派给业务部门】2026-10-23 10:19 UTC，AIC 派 AIC-15 后 run 立即失败：Failed to acquire lease for environment \"WSL2 · aic-command\" (ssh): ssh: connect to host 100.87.205.43 port 2222: Connection timed out；error_code=setup_failed，issue 被置 blocked 且无重试。\n\n【根因】\n1) 执行机路径瞬时不可达：同一秒 tailscaled 记录 open-conn-track: timeout opening (TCP 100.104.78.115 => 100.87.205.43:2222); online=yes, lastRecv=1h44m47s，随后 magicsock: new contact peer=... via=direct。即空闲 1h44m 后 NAT 映射过期，恰好与 SSH 建连同时重建；SSH ConnectTimeout=10s 太短。\n2) setup_failed 被当终态：重试分类器只认 spawn-like（ENOENT/spawn）与 sandbox worker unavailable，SSH connect timeout 不匹配，未进入 bounded transient retry。\n3) 续跑请求 isolated_workspace + git_worktree，但基座是上一次 isolated-workspace-attempt 临时目录而非 git checkout，报 workspace_validation_failed。\n\n【已实施处置】\n- WSL 执行机安装 ts-keepalive.service：每 30s tailscale ping 100.104.78.115，防止空闲导致 NAT 映射过期（active）。\n- 取消占用同一环境租约的无 issue timer run（04e14185），重试后 AIC-15 成功产出计划 v1 + 10 页 PPT。\n- AIC 五个项目统一 executionWorkspacePolicy = shared_workspace + serialize + 禁止 issue 覆盖，杜绝 attempt/worktree 与同项目并发写。\n\n【建议的产品修复（未实施）】\n1) packages/adapter-utils/src/ssh.ts：ConnectTimeout 10s→30s，并对 connect timed out / refused / no route 做一次快速重试。\n2) server/src/services/heartbeat/retries.ts：把 SSH 连接类 setup_failed 纳入 bounded transient retry。\n3) 无 issue 的 timer run 在存在待执行 assignment 时应让出环境租约。\n4) 续跑不得把 isolated-workspace-attempt 当 git 基座；无法解析仓库时回落 shared_workspace 或明确报配置错误。\n\n【部署约束】47 实例运行 c166e573；本仓 a190e06b，非同一构建。修复须先对齐发行基线，禁止直接覆盖 47 的 server/dist。\n\n【证据 run】b8ef5d75-8c5a-4442-ae88-eb58c0a08936（setup_failed）；3dd90087-61b0-43d7-9db0-92b53b5b4550（workspace_validation_failed）；04e14185-32d8-4875-af62-91fcae92c580（占租约 timer run）；f345142e-1a71-490a-8bf8-de425c8aa269（成功）。",
+      "attributes": [
+        {
+          "name": "status",
+          "value": "backlog"
+        },
+        {
+          "name": "owner",
+          "value": "项目运营（project-manager-001）"
+        },
+        {
+          "name": "severity",
+          "value": "high"
+        },
+        {
+          "name": "scope",
+          "value": "Paperclip 平台执行环境"
+        },
+        {
+          "name": "nextAction",
+          "value": "对齐 47 发行基线后实施 4 项产品修复；先用 30s 超时+重试消除单点抖动"
+        },
+        {
+          "name": "evidenceRuns",
+          "value": "b8ef5d75-8c5a-4442-ae88-eb58c0a08936;3dd90087-61b0-43d7-9db0-92b53b5b4550;04e14185-32d8-4875-af62-91fcae92c580;f345142e-1a71-490a-8bf8-de425c8aa269"
+        }
+      ],
+      "testcases": [
+        {
+          "name": "SSH 瞬时抖动可重试",
+          "type": "Acceptance Test",
+          "description": "GIVEN 执行机 SSH 在 10–30s 内瞬时不可达 WHEN 派发任务 THEN run 进入 bounded transient retry，且不把 issue 永久置 blocked。",
+          "Input": "模拟 connect timeout",
+          "acceptanceCriteria": "run 自动重试且 issue 不进入终态 blocked"
+        },
+        {
+          "name": "timer run 让出租约",
+          "type": "Acceptance Test",
+          "description": "GIVEN 同项目已有待执行 assignment WHEN 无 issue 的 timer run 到点 THEN 它不长期占用环境租约，assignment 在合理时间内开始。",
+          "Input": "同项目并发派发",
+          "acceptanceCriteria": "assignment 排队后自动开始，无长时间 queued"
+        },
+        {
+          "name": "续跑不误判 worktree",
+          "type": "Acceptance Test",
+          "description": "GIVEN 续跑需要 workspace 且基座不是 git checkout WHEN 解析 THEN 回落 shared_workspace 或报配置类错误，不出现 workspace_validation_failed。",
+          "Input": "非 git 基座续跑",
+          "acceptanceCriteria": "无 workspace_validation_failed 终态"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -2242,7 +2297,8 @@
       "view_id": "paperclip",
       "included_elements": [
         "paperclip-intranet-migration-plan-2026-10-22",
-        "paperclip-opencode-runaway-recovery-2026-10-23"
+        "paperclip-opencode-runaway-recovery-2026-10-23",
+        "paperclip-exec-env-ssh-flap-backlog-2026-10-23"
       ]
     }
   ]
