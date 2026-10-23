@@ -355,6 +355,39 @@ describe.skipIf(!support.supported)("heartbeat run completion boundary", () => {
     } });
   });
 
+  it("schedules a bounded transient retry when the SSH connect phase fails", async () => {
+    const f = await fixture();
+    await f.completion.failRunSetup(f.setup(new Error(
+      'Failed to acquire lease for environment "WSL2 · aic-command" (ssh): ' +
+      "ssh: connect to host 100.87.205.43 port 2222: Connection timed out",
+    )));
+    expect(await read(f.run.id)).toMatchObject({
+      status: "failed",
+      errorCode: "setup_failed",
+      resultJson: {
+        sshConnectionFailure: {
+          schemaVersion: 1,
+          provider: "ssh",
+          operation: "connect",
+          reason: "connection_timeout",
+        },
+      },
+    });
+    expect(f.deps.scheduleBoundedRetryForRun).toHaveBeenCalledWith(
+      expect.objectContaining({ id: f.run.id }),
+      expect.objectContaining({ id: f.agent.id }),
+    );
+    expect(f.deps.releaseIssueExecutionAndPromote).toHaveBeenCalledOnce();
+  });
+
+  it("does not classify an unrelated setup failure as a transient SSH retry", async () => {
+    const f = await fixture();
+    await f.completion.failRunSetup(f.setup(new Error("bootstrap state is corrupt")));
+    expect(await read(f.run.id)).toMatchObject({ status: "failed", errorCode: "setup_failed" });
+    expect(f.deps.scheduleBoundedRetryForRun).not.toHaveBeenCalled();
+    expect(f.deps.scheduleInteractionContinuationInfrastructureRetryIfEligible).toHaveBeenCalledOnce();
+  });
+
   it("records a lease lost before dispatch as a retryable host stop, not an opaque setup failure", async () => {
     const f = await fixture();
     f.controller.abort(new LegacyControllerLeaseLostError("renewal_rejected"));

@@ -13,6 +13,7 @@ import {
   readSanitizedOriginRemoteUrl,
 } from "./git-workspace-sync.js";
 import type { RunProcessResult } from "./server-utils.js";
+import { readSshConnectionFailure } from "./ssh-connection-failure.js";
 import type { DirectorySnapshot } from "./workspace-restore-merge.js";
 import { mergeDirectoryWithBaseline } from "./workspace-restore-merge.js";
 import {
@@ -378,7 +379,11 @@ async function createSshAuthArgs(
     "-o",
     "BatchMode=yes",
     "-o",
-    "ConnectTimeout=10",
+    // A Tailscale/WireGuard path can briefly disappear while its NAT mapping
+    // is rebuilt (for example after an idle period). Ten seconds was shorter
+    // than that recovery window and turned a transient path flap into a
+    // terminal setup failure.
+    "ConnectTimeout=30",
     "-o",
     `StrictHostKeyChecking=${config.strictHostKeyChecking ? "yes" : "no"}`,
   ];
@@ -1273,6 +1278,12 @@ export function buildKnownHostsEntry(input: {
   return `[${input.host}]:${input.port} ${input.publicKey.trim()}`;
 }
 
+const SSH_CONNECT_ATTEMPTS = 2;
+const SSH_CONNECT_RETRY_DELAY_MS = 1_000;
+// Must exceed ConnectTimeout (30s) so the ssh client can report its own
+// diagnostic instead of being killed by the local exec timeout first.
+const SSH_WORKSPACE_PROBE_TIMEOUT_MS = 45_000;
+
 export async function runSshCommand(
   config: SshConnectionConfig,
   remoteCommand: string,
@@ -1325,16 +1336,36 @@ export async function runSshCommand(
       `sh -c ${shellQuote(remoteScript)}`,
     );
 
-    return options.stdin != null
-      ? await spawnText("ssh", sshArgs, {
-          stdin: options.stdin,
-          timeout: options.timeoutMs ?? 15_000,
-          maxBuffer: options.maxBuffer ?? 1024 * 128,
-        })
-      : await execFileText("ssh", sshArgs, {
-          timeout: options.timeoutMs ?? 15_000,
-          maxBuffer: options.maxBuffer ?? 1024 * 128,
-        });
+    const execute = () =>
+      options.stdin != null
+        ? spawnText("ssh", sshArgs, {
+            stdin: options.stdin,
+            timeout: options.timeoutMs ?? 15_000,
+            maxBuffer: options.maxBuffer ?? 1024 * 128,
+          })
+        : execFileText("ssh", sshArgs, {
+            timeout: options.timeoutMs ?? 15_000,
+            maxBuffer: options.maxBuffer ?? 1024 * 128,
+          });
+
+    // A failed connect phase means the remote command never started, so one
+    // immediate retry cannot duplicate work. Only the ssh client's own connect
+    // diagnostics qualify; an established command that times out does not.
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await execute();
+      } catch (error) {
+        if (
+          attempt >= SSH_CONNECT_ATTEMPTS ||
+          readSshConnectionFailure(error) === null
+        ) {
+          throw error;
+        }
+        await new Promise((resolve) =>
+          setTimeout(resolve, SSH_CONNECT_RETRY_DELAY_MS),
+        );
+      }
+    }
   } finally {
     await cleanup();
   }
@@ -1845,6 +1876,7 @@ export async function ensureSshWorkspaceReady(
   const result = await runSshCommand(
     config,
     `mkdir -p ${shellQuote(config.remoteWorkspacePath)} && cd ${shellQuote(config.remoteWorkspacePath)} && pwd`,
+    { timeoutMs: SSH_WORKSPACE_PROBE_TIMEOUT_MS },
   );
   return {
     remoteCwd: result.stdout.trim(),

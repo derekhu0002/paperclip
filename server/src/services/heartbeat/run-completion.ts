@@ -5,6 +5,7 @@ import { ChatControlRecoveryUnresolvedError } from "./queue.js";
 import { readTransientRecoveryContractFromRun, readHeartbeatRunErrorFamily, isTransientWorkspaceGitScanCode } from "./retries.js";
 import { type RunSessionOutcome, resolveNextSessionState, normalizeUsageTotals, resolveCacheAdjustedCostUsd, resolveLedgerBiller, resolveLedgerCostStatus, normalizeLedgerBillingType } from "./run-state.js";
 import { readGitConnectionFailure } from "../git-connection-failure.js";
+import { readSshConnectionFailure } from "@paperclipai/adapter-utils/ssh-connection-failure";
 import { CONFIGURATION_INCOMPLETE_FAILURE_CODE, ConfigurationIncompleteFailure } from "./run-preparation.js";
 import { isWorkspaceValidationFailedRun, isWorkspaceValidationFailure, attachPaperclipSessionMetadataToSessionParams } from "./workspaces.js";
 import { preserveWorkspaceRestoreRecoveryMetadataSql } from "../legacy-workspace-restore-recovery.js";
@@ -1371,9 +1372,16 @@ export function createHeartbeatRunCompletion(db: Db, dependencies: HeartbeatRunC
           )
         : null);
     const connectionFailure = readGitConnectionFailure(outerErr);
+    // The SSH connect phase failed before any remote command started. Record
+    // the reason so the retry policy and the operator notice can tell a path
+    // flap apart from a permanent authentication or configuration failure.
+    const sshConnectionFailure = readSshConnectionFailure(outerErr);
     const setupFailureResultJson = {
       ...setupFailureDetails,
       ...(connectionFailure ? { connectionFailure } : {}),
+      ...(sshConnectionFailure
+        ? { sshConnectionFailure: { schemaVersion: 1, provider: "ssh", operation: "connect", reason: sshConnectionFailure } }
+        : {}),
       // A lease lost during setup surfaces as the thrown abort reason, or as
       // the signal's reason when a setup step threw a different error after it.
       ...controllerLeaseLossEvidence(outerErr),
@@ -1467,7 +1475,15 @@ export function createHeartbeatRunCompletion(db: Db, dependencies: HeartbeatRunC
         // No provider work began. Retry temporary host scan failures with
         // the existing durable failure budget, before releasing execution.
         // Generic recovery must not grant a second budget on exhaustion.
-        await (isTransientWorkspaceGitScanCode(livenessRun.errorCode)
+        // A transient SSH connect failure (path flap, NAT rebuild) is the same
+        // class of pre-dispatch infrastructure failure as a temporary git scan
+        // timeout: no provider work started, so the bounded transient retry
+        // can safely re-dispatch instead of parking the issue as blocked.
+        const retryTransientSetupFailure =
+          isTransientWorkspaceGitScanCode(livenessRun.errorCode) ||
+          (livenessRun.errorCode === "setup_failed" &&
+            readSshConnectionFailure(livenessRun.error) !== null);
+        await (retryTransientSetupFailure
           ? scheduleBoundedRetryForRun(livenessRun, failedAgent)
           : scheduleInteractionContinuationInfrastructureRetryIfEligible(livenessRun, failedAgent)
         ).catch((retryError) => {
