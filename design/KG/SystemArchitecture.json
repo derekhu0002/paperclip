@@ -552,6 +552,10 @@
         {
           "name": "weisukeRebuildBlueprint",
           "value": "2026-10-23: Intranet Weisuke org rebuild blueprint recorded at doc/plans/2026-10-23-weisuke-org-rebuild-blueprint.md. Fresh org, no historical issues/approvals/decisions/migration bundle, no Grok Bot. 8 Projects / 18 Agents: vso-command -> vso-operations -> vso-dfir; vso-command -> vso-exercise -> vso-red; vso-command -> vso-detection / vso-intel / vso-remediation. Repos: new-era-cybersecurity-strategy, vso-operations, vso-dfir, archgraph-agent-purple, archgraph-agent-red, archgraph-agent-blue, archgraph-agent-intel, archgraph-agent-green. Use standard heartbeat, opencode_local, directRemoteWorkspace, one repo/env per project. All code repos pushed to GitHub derekhu0002; vso-operations and vso-dfir private repos created."
+        },
+        {
+          "name": "graphCommitRule",
+          "value": "2026-10-23: Every Weisuke project repo must commit BOTH design/KG/SystemArchitecture.json and its .qea projection before handoff. All 8 repos verified clean/synced: new-era, blue, green, intel, purple, red, vso-operations, vso-dfir. red graph commit 68166a8; vso-operations .qea commit 239cf29; vso-dfir .qea commit e764797."
         }
       ],
       "description": "【T1 会话总结 · 2026-10-21（会话结束定稿）】\n\n【目标】评估并执行 Paperclip fork 合并 upstream，然后推送、构建、上线 47，完成验收。\n\n【结果】\n1) 合并：upstream c2daf906d（224 commits）已在 dev/local-install；merge commit 2d6d117f1；7 处冲突手工解决；迁移重编 0370/0371；已 push（fb4527c1a、23acf44af）。\n2) 验收：架构验收 20/20；workspace-runtime 181/181；execute.remote 9/9；浏览器 e2e onboarding 6/6、组合 24/26；全量单测部分完成 4789 passed / 5 环境类失败（HEIC 原生二进制、Codex native runner 可用性、git 远端夹具），最后主动停止以释放生产负载。\n3) 上线：47 运行 fb4527c1a 的构建，health ok，部署快照 c166e57 ↔ 源码 fb4527c1a。\n\n【本次修复的真问题】\n- fork 曾强制“建项目必须绑 leadAgentId”（路由 422 + 按钮/下拉 required）→ 打挂上游 10+ e2e 流程；改为创建可不绑、传入时校验唯一绑定。\n- CLI `worktree init --from-config {}` 严格校验空 source config → provisioning 失败；改为容忍并回退 defaults。\n- idle watchdog 派发后记账失败会被记成 skipped；依赖自动释放测试硬编码 statusVersion。\n- e2e 在 Windows 的 `--import=D:\\...` 非法（改 file://）与 webServer 120s 超时（改为环境变量）。\n\n【47 部署模型（关键，后续必读）】\n- systemd drop-in fork.conf 指向本 fork；health 的 commit 取自 checkout 的 git HEAD（不是 build stamp）；checkout 无 remote、GitHub 不可达，故用 deploy 分支快照提交，哈希与分支 commit 不同。\n- runtime 是 tsx 读 **src**（包 exports 指向 src）→ 部署必须同步源码，不能只拷 dist；构建在本地（tsc+vite，无 cargo），47 只做 pnpm install。\n- 47 的 Tailscale DNS 不解析公网，装依赖需临时切 223.5.5.5 再恢复。\n- 备份必须放在仓库外（否则被 git add -A 跟踪，污染 ls-files 并打挂测试）；本次已清理 6,331 个陈旧文件，备份在 /home/paperclip/backups/20261021-deploy/。\n\n【仍成立的产品/组织决策】\n1) Company=产品线；Project 树按子系统/模块；Project↔Team 1:1；一个 Project 唯一 PM；树节点必须是 Project。\n2) 一个 Project 可多 Agent，但一个 Agent 只属于一个 Project（lead + 直属 team；子项目 lead 不计入父 team）。\n3) Paperclip 不侵入 ArchGraph；适配只在本仓 helper；框架自管 ~/.argo 与系统级 opencode 配置。\n4) Agent 默认 opencode_local + direct remote workspace（远端真实 checkout）；不要切 native Paperclip Runner（本环境不可用）。\n5) Pipelines 已随上游移除（数据保留），替代方向是 Cases。\n\n【遗留】\n1) 全量单测未跑完（已停），建议维护窗口跑 test:run:general / test:run:serialized。\n2) 2 个 Codex/runner 测试与 2 个 HEIC 测试在 47 上因环境失败，若要绿需补 native runner binary staging 与原生转换依赖。\n3) health commit 是部署快照哈希而非分支 commit（可选：给 47 一条可靠 git 通道或改为读 build stamp）。\n4) .agents/skills 等 export-ignore 文件不在 47 树内（不影响运行）。",
@@ -1596,6 +1600,10 @@
         {
           "name": "weisukeIntranetRebuild",
           "value": "2026-10-23: Fresh Weisuke org rebuild plan at doc/plans/2026-10-23-weisuke-org-rebuild-blueprint.md. 8 projects / 18 agents, no history, no migration bundle, no Grok. Repos pushed to GitHub derekhu0002. Project tree: command -> operations -> dfir; command -> exercise -> red; command -> detection/intel/remediation."
+        },
+        {
+          "name": "graphCommitRule",
+          "value": "Every project repo must have design/KG/SystemArchitecture.json and its .qea projection committed, clean, and pushed. Verified 8/8 on 2026-10-23."
         }
       ]
     },

@@ -36,7 +36,7 @@ vso-command
 | vso-intel | vso-command | 情报负责人 | `git@github.com:derekhu0002/archgraph-agent-intel.git` |
 | vso-remediation | vso-command | 加固负责人 | `git@github.com:derekhu0002/archgraph-agent-green.git` |
 
-Each repository is an ArchGraph workspace with `design/KG/SystemArchitecture.json`. Create one SSH environment per project/repository on the intranet execution host. Do not reuse the old host/path values blindly.
+Each repository is an ArchGraph workspace with `design/KG/SystemArchitecture.json` and its `.qea` projection committed. Create one SSH environment per project/repository on the intranet execution host. Do not reuse the old host/path values blindly.
 
 ## Agents and reporting
 
