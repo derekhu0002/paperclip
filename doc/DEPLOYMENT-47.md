@@ -34,8 +34,8 @@ stamp. A mismatch between the health commit and the deployed build is a defect.
    runbook does not require it; an interrupted install can leave a partially
    linked `node_modules`.
 6. **Back up before replacing anything.**
-   - `ui-dist` → `/root/backups/ui-dist-pre-<slug>-<utc-timestamp>`
-   - checkout → git branch `backup-47-pre-<slug>-<utc-timestamp>`
+   - `ui-dist` 鈫?`/root/backups/ui-dist-pre-<slug>-<utc-timestamp>`
+   - checkout 鈫?git branch `backup-47-pre-<slug>-<utc-timestamp>`
 
 ## 3. Branch model on 47
 
@@ -158,3 +158,42 @@ Also confirm `git status --porcelain -uno` is empty and
   returning 404 for the duration of the swap.
 - The old shell had two sidebar files (`Sidebar.tsx`, `Sidebar.production.tsx`);
   removing a nav entry means touching both.
+## 9. Container deployment (current production mode, 2026-10-24)
+
+The instance now runs from an image; the source-checkout service is disabled but
+kept as a rollback path. Container facts:
+
+- Image: `paperclip-fork:26999306b6f0` (built locally, transferred with
+  `docker save | ssh docker load`; ACR push pending).
+- Command: `docker run -d --name paperclip -p 172.18.2.191:3100:3100
+  --env-file /home/paperclip/.paperclip/instances/default/.env
+  -e HOST=0.0.0.0 -e PAPERCLIP_BIND_HOST=0.0.0.0 -e PORT=3100 -e SERVE_UI=true
+  -e PAPERCLIP_HOME=/home/paperclip/.paperclip
+  -e PAPERCLIP_INSTANCE_ID=default
+  -e PAPERCLIP_CONFIG=/home/paperclip/.paperclip/instances/default/config.json
+  -e PAPERCLIP_DEPLOYMENT_MODE=authenticated
+  -e PAPERCLIP_DEPLOYMENT_EXPOSURE=private
+  -e PAPERCLIP_PUBLIC_URL=https://paperclip.derekworkspacev5.com
+  -e PAPERCLIP_BUILD_COMMIT=<FULL_40_CHAR_SHA>
+  -v /home/paperclip/.paperclip:/home/paperclip/.paperclip
+  --restart unless-stopped --stop-timeout 90 paperclip-fork:<tag>`
+- **Mount at the same absolute path**, not `/paperclip`: `config.json` stores
+  host-absolute paths (instance dir, embedded Postgres data dir), so a different
+  container path makes the embedded cluster try to initialize elsewhere.
+- `PAPERCLIP_BIND_HOST=0.0.0.0` is required because the existing config has
+  `server.bind=custom`; without it the server exits with
+  `server.customBindHost is required when server.bind=custom`.
+- `PAPERCLIP_BUILD_COMMIT` must be the **full 40-char** SHA; a short SHA is
+  rejected and health falls back to the stale stamp baked into the image.
+- The plugin row is deleted before the first container boot so the image's
+  self-hosted auto-install recreates it at
+  `/app/packages/plugins/plugin-project-tree`. This is the fresh-device path.
+- Health is hostname-guarded: use `-H 'Host: paperclip.derekworkspacev5.com'`
+  when curling `172.18.2.191:3100` directly.
+- Rollback: `docker rm -f paperclip && systemctl start paperclip` (the systemd
+  unit is disabled, not removed).
+
+Known image gaps: the provider pack is skipped (agents use the legacy
+`opencode_local` remote adapter, so runs are unaffected), and the image is
+9.96GB because upstream's runtime includes five agent CLIs and the full
+workspace. A slim build is planned.
