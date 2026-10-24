@@ -22,11 +22,7 @@ export function psQuote(value: string): string {
 }
 
 function windowsPowerShell(script: string): string {
-  // EncodedCommand is UTF-16LE base64: it survives cmd, bash and PowerShell
-  // shells without any nested quoting, and works whether OpenSSH lands in
-  // Windows PowerShell, cmd, or a WSL shell with Windows interop.
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
-  return `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
+  return `powershell -NoProfile -NonInteractive -Command "${script}"`;
 }
 
 /**

@@ -28,12 +28,6 @@ describe("psQuote", () => {
   });
 });
 
-function decode(command: string): string {
-  const match = /-EncodedCommand ([A-Za-z0-9+/=]+)$/.exec(command);
-  if (!match) throw new Error(`no encoded command: ${command}`);
-  return Buffer.from(match[1]!, "base64").toString("utf16le");
-}
-
 describe("buildWindowsRemoteCommand", () => {
   it("changes directory, prepends PATH and invokes the command", () => {
     const command = buildWindowsRemoteCommand({
@@ -42,22 +36,20 @@ describe("buildWindowsRemoteCommand", () => {
       args: ["run", "--dir", "D:/Projects/graph-wiki"],
       env: { ARGO_REPO_ROOT: "D:/Projects/graph-wiki", PATH: "C:\\Users\\me\\AppData\\Roaming\\npm" },
     });
-    expect(command.startsWith("powershell.exe -NoProfile -NonInteractive -EncodedCommand ")).toBe(true);
-    const script = decode(command);
-    expect(script).toContain("Set-Location -LiteralPath 'D:/Projects/graph-wiki'");
-    expect(script).toContain("& 'opencode' 'run' '--dir' 'D:/Projects/graph-wiki'");
-    expect(script).toContain("$env:ARGO_REPO_ROOT = 'D:/Projects/graph-wiki'");
-    expect(script).toContain("$env:PATH = 'C:\\Users\\me\\AppData\\Roaming\\npm' + ';' + $env:PATH");
-    expect(script).toContain("if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }");
+    expect(command.startsWith("powershell -NoProfile -NonInteractive -Command \"")).toBe(true);
+    expect(command).toContain("Set-Location -LiteralPath 'D:/Projects/graph-wiki'");
+    expect(command).toContain("& 'opencode' 'run' '--dir' 'D:/Projects/graph-wiki'");
+    expect(command).toContain("$env:ARGO_REPO_ROOT = 'D:/Projects/graph-wiki'");
+    expect(command).toContain("$env:PATH = 'C:\\Users\\me\\AppData\\Roaming\\npm' + ';' + $env:PATH");
+    expect(command).toContain("if ($null -ne $LASTEXITCODE) { exit $LASTEXITCODE }");
   });
 });
 
 describe("buildWindowsWorkspaceProbeCommand", () => {
   it("creates the directory when missing and prints the resolved path", () => {
     const command = buildWindowsWorkspaceProbeCommand("D:/Projects/graph-wiki");
-    const script = decode(command);
-    expect(script).toContain("Test-Path -LiteralPath 'D:/Projects/graph-wiki'");
-    expect(script).toContain("New-Item -ItemType Directory");
-    expect(script).toContain("(Get-Location).Path");
+    expect(command).toContain("Test-Path -LiteralPath 'D:/Projects/graph-wiki'");
+    expect(command).toContain("New-Item -ItemType Directory");
+    expect(command).toContain("(Get-Location).Path");
   });
 });
