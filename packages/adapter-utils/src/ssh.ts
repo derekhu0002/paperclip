@@ -14,7 +14,6 @@ import {
 } from "./git-workspace-sync.js";
 import type { RunProcessResult } from "./server-utils.js";
 import { readSshConnectionFailure } from "./ssh-connection-failure.js";
-import { buildWindowsRemoteCommand, buildWindowsWorkspaceProbeCommand } from "./fork/windows-ssh.js";
 import type { DirectorySnapshot } from "./workspace-restore-merge.js";
 import { mergeDirectoryWithBaseline } from "./workspace-restore-merge.js";
 import {
@@ -32,8 +31,6 @@ export interface SshConnectionConfig {
   privateKey: string | null;
   knownHosts: string | null;
   strictHostKeyChecking: boolean;
-  /** Fork extension: target shell family. Defaults to POSIX. */
-  remoteOs?: "posix" | "windows";
 }
 
 export interface SshCommandResult {
@@ -73,9 +70,7 @@ export function createSshCommandManagedRuntimeRunner(input: {
         ? `env ${envEntries.map(([key, value]) => shellQuote(`${key}=${value}`)).join(" ")} `
         : "";
       const commandScript = `exec ${envPrefix}${[shellQuote(command), ...args.map((arg) => shellQuote(arg))].join(" ")}`;
-      const remoteCommand = input.spec.remoteOs === "windows"
-        ? buildWindowsRemoteCommand({ cwd, command, args, env: Object.fromEntries(envEntries) })
-        : `cd ${shellQuote(cwd)} && ${commandScript}`;
+      const remoteCommand = `cd ${shellQuote(cwd)} && ${commandScript}`;
 
       try {
         const result = await runSshCommand(input.spec, remoteCommand, {
@@ -1878,12 +1873,9 @@ async function restoreWorkspaceRootFromSsh(input: {
 export async function ensureSshWorkspaceReady(
   config: SshConnectionConfig,
 ): Promise<{ remoteCwd: string }> {
-  const command = config.remoteOs === "windows"
-    ? buildWindowsWorkspaceProbeCommand(config.remoteWorkspacePath)
-    : `mkdir -p ${shellQuote(config.remoteWorkspacePath)} && cd ${shellQuote(config.remoteWorkspacePath)} && pwd`;
   const result = await runSshCommand(
     config,
-    command,
+    `mkdir -p ${shellQuote(config.remoteWorkspacePath)} && cd ${shellQuote(config.remoteWorkspacePath)} && pwd`,
     { timeoutMs: SSH_WORKSPACE_PROBE_TIMEOUT_MS },
   );
   return {

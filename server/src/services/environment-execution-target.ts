@@ -699,7 +699,6 @@ export async function resolveEnvironmentExecutionTarget(input: {
       privateKey: parsed.config.privateKey,
       knownHosts: parsed.config.knownHosts,
       strictHostKeyChecking: parsed.config.strictHostKeyChecking,
-      remoteOs: parsed.config.remoteOs,
       remoteCwd,
     },
   };

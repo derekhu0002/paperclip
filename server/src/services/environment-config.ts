@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { isAbsoluteRemoteWorkspacePath } from "@paperclipai/adapter-utils/fork/windows-ssh";
 import type { Db } from "@paperclipai/db";
 import type {
   Environment,
@@ -46,7 +45,7 @@ const sshEnvironmentConfigSchema = z.object({
     .string({ error: "SSH environments require a remote workspace path." })
     .trim()
     .min(1, "SSH environments require a remote workspace path.")
-    .refine((value) => isAbsoluteRemoteWorkspacePath(value), "SSH remote workspace path must be absolute."),
+    .refine((value) => value.startsWith("/"), "SSH remote workspace path must be absolute."),
   privateKey: z.null().optional().default(null),
   privateKeySecretRef: secretRefSchema.optional().nullable().default(null),
   knownHosts: z
@@ -56,8 +55,6 @@ const sshEnvironmentConfigSchema = z.object({
     .nullable()
     .transform((value) => (value && value.length > 0 ? value : null)),
   strictHostKeyChecking: z.boolean().optional().default(true),
-  /** Fork extension: target shell family. Defaults to posix. */
-  remoteOs: z.enum(["posix", "windows"]).optional().default("posix"),
 }).strict();
 
 const sshEnvironmentConfigProbeSchema = sshEnvironmentConfigSchema.extend({
