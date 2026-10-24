@@ -166,19 +166,25 @@ describe("resolveBundledPluginInstalls", () => {
     expect(resolved).toHaveLength(1);
   });
 
-  it("keeps the self-hosted default list to exactly the kubernetes bundle", () => {
-    expect(SELF_HOSTED_AUTO_INSTALL_KEYS).toEqual(["kubernetes"]);
-    const [entry] = resolveBundledPluginInstalls(SELF_HOSTED_AUTO_INSTALL_KEYS, {
+  it("keeps the self-hosted default list to the kubernetes and project-tree bundles", () => {
+    expect(SELF_HOSTED_AUTO_INSTALL_KEYS).toEqual(["kubernetes", "project-tree"]);
+    const entries = resolveBundledPluginInstalls(SELF_HOSTED_AUTO_INSTALL_KEYS, {
       catalogRoot: resolveBundledCatalogRoot({}),
       env: {},
       enforceCatalogRoot: false,
     });
-    // Exactly the pre-refactor default path.
-    expect(entry).toEqual({
-      key: "kubernetes",
-      pluginKey: "paperclip.kubernetes-sandbox-provider",
-      localPath: "/app/packages/plugins/sandbox-providers/kubernetes",
-    });
+    expect(entries).toEqual([
+      {
+        key: "kubernetes",
+        pluginKey: "paperclip.kubernetes-sandbox-provider",
+        localPath: "/app/packages/plugins/sandbox-providers/kubernetes",
+      },
+      {
+        key: "project-tree",
+        pluginKey: "paperclip-project-tree",
+        localPath: "/app/packages/plugins/plugin-project-tree",
+      },
+    ]);
   });
 
   it("covers every catalog entry with a path inside the default root", () => {

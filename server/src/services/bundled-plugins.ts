@@ -104,14 +104,21 @@ export const BUNDLED_PLUGIN_CATALOG: readonly BundledPluginCatalogEntry[] = [
     pluginKey: "paperclip.novita-sandbox-provider",
     relativePath: "sandbox-providers/novita",
   },
+  {
+    // Fork plugin shipped in the image: Organization project tree.
+    key: "project-tree",
+    pluginKey: "paperclip-project-tree",
+    relativePath: "plugin-project-tree",
+  },
 ];
 
 /**
  * Keys ensured on a self-hosted instance (no managed config present).
- * Exactly the pre-refactor behavior: the kubernetes sandbox provider is
- * auto-installed when its bundle is present, nothing else.
+ * The kubernetes sandbox provider is auto-installed when its bundle is
+ * present; the fork's project-tree plugin is part of this image's product
+ * surface, so it is ensured the same way.
  */
-export const SELF_HOSTED_AUTO_INSTALL_KEYS: readonly string[] = ["kubernetes"];
+export const SELF_HOSTED_AUTO_INSTALL_KEYS: readonly string[] = ["kubernetes", "project-tree"];
 
 export function resolveBundledCatalogRoot(
   env: Record<string, string | undefined>,
