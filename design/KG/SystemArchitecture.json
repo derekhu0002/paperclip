@@ -1692,23 +1692,39 @@
       "attributes": [
         {
           "name": "files",
-          "value": "packages/db/src/schema/projects.ts, packages/db/src/migrations/0348_chubby_norman_osborn.sql, packages/shared/src/types/project.ts, ui/src/lib/projectTree.ts, ui/src/pages/Organization.tsx, ui/src/App.tsx, ui/src/components/Sidebar.tsx"
+          "value": "packages/plugins/plugin-project-tree/**, ui/src/App.tsx (1 line: unprefixed /organization redirect), ui/src/components/Sidebar.tsx (removal), ui/src/components/Sidebar.production.tsx (removal), ui/src/components/Sidebar.test.tsx (expectation), packages/db/src/schema/projects.ts, packages/db/src/migrations/0371_chubby_norman_osborn.sql"
         },
         {
           "name": "deliveryStatus",
           "value": "delivered"
+        },
+        {
+          "name": "footprint",
+          "value": "none (plugin page/nav) + registration (1 line: unprefixed /organization redirect for bookmarks)"
+        },
+        {
+          "name": "decoupledAt",
+          "value": "2026-10-24"
+        },
+        {
+          "name": "decoupledFrom",
+          "value": "ui/src/pages/Organization.tsx + ui/src/lib/projectTree.ts + ui/src/pages/Organization.test.tsx + ui/src/lib/projectTree.test.ts (deleted); App.tsx board route and Sidebar/Sidebar.production nav lines removed"
+        },
+        {
+          "name": "enablement",
+          "value": "paperclipai plugin install packages/plugins/plugin-project-tree (or bundled catalog + plugins.autoInstall). Without the plugin the /organization route resolves to NotFound."
         }
       ],
-      "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。",
+      "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。\n\n【2026-10-24 解耦（Tier 3，插件化）】页面、导航与路由实现迁入独立插件包 `packages/plugins/plugin-project-tree`（`ui.slots: page(routePath=organization) + sidebar`），对上游文件的侵入从 5 处降为 1 行注册：\n- 删除：`ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts`、`ui/src/pages/Organization.test.tsx`、`ui/src/lib/projectTree.test.ts`、`ui/src/App.tsx` 的 lazy import 与 board route、`ui/src/components/Sidebar.tsx` 与 `Sidebar.production.tsx` 的 Project Tree 导航行。\n- 保留（footprint=registration）：`ui/src/App.tsx` 的 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />` 一行，仅用于无前缀书签 `/organization` 兼容跳转；`/workbench` 之外的真实页面由插件在 `/:companyPrefix/organization` 提供。\n- 未改：`projects.parent_project_id`（core schema）与其写入路径；项目创建/编辑契约不变。\n- 验收迁移：树构建语义（父子嵌套、孤儿为根、归档排除、环保护、子项目 lead 不计入父队）与插件装配（page+sidebar、只读能力）均有可执行用例，命令 `pnpm --filter @paperclipai/plugin-project-tree test`。\n- 启用前提：实例需安装该插件（`paperclipai plugin install packages/plugins/plugin-project-tree`，或在 bundled 目录写 catalog 并加入 `plugins.autoInstall`）；未安装时 `/organization` 不再渲染项目树，这是解耦后的预期行为。",
       "id": "fork-cap-project-tree",
       "name": "项目树（父子 Project + Organization 视图）",
       "testcases": [
         {
-          "Input": "pnpm vitest run ui/src/lib/projectTree.test.ts",
-          "acceptanceCriteria": "ui/src/lib/projectTree.test.ts",
-          "description": "GIVEN projects with and without parent_project_id, WHEN the tree is built, THEN children appear under their parent and orphans remain top-level without duplication.",
           "name": "Projects nest under their parent and orphan nodes stay visible",
-          "type": "Acceptance Test"
+          "type": "Acceptance Test",
+          "Input": "pnpm --filter @paperclipai/plugin-project-tree test",
+          "acceptanceCriteria": "packages/plugins/plugin-project-tree/tests/tree.spec.ts",
+          "description": "GIVEN projects with and without parent_project_id, WHEN the plugin tree builder runs, THEN children appear under their parent, orphans stay top-level, archived projects are excluded, cycles terminate, and a sub-project lead is not counted in the parent team."
         },
         {
           "Input": "pnpm vitest run ui/src/pages/Organization.test.tsx",
@@ -1716,6 +1732,13 @@
           "description": "GIVEN a company with parent and child projects, WHEN the Organization page loads, THEN it shows the hierarchy and each node's lead agent binding.",
           "name": "Organization page renders the project tree from live data",
           "type": "Acceptance Test"
+        },
+        {
+          "name": "Project tree plugin wires the /organization page and sidebar entry",
+          "type": "Acceptance Test",
+          "Input": "pnpm --filter @paperclipai/plugin-project-tree test",
+          "acceptanceCriteria": "packages/plugins/plugin-project-tree/tests/manifest.spec.ts",
+          "description": "GIVEN the decoupled project-tree plugin package, WHEN its manifest is loaded, THEN it declares a page slot at routePath organization plus a sidebar slot, and requests only read capabilities."
         }
       ],
       "type": "Application Service"

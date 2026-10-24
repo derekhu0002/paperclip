@@ -71,7 +71,6 @@ const Timeline = lazy(() => import("./pages/Timeline").then((module) => ({ defau
 const Companies = lazy(() => import("./pages/Companies").then((module) => ({ default: module.Companies })));
 const AgentDetail = lazy(() => import("./pages/AgentDetail").then((module) => ({ default: module.AgentDetail })));
 const Projects = lazy(() => import("./pages/Projects").then((module) => ({ default: module.Projects })));
-const Organization = lazy(() => import("./pages/Organization").then((module) => ({ default: module.Organization })));
 const ProjectDetail = lazy(() => import("./pages/ProjectDetail").then((module) => ({ default: module.ProjectDetail })));
 const ProjectWorkspaceDetail = lazy(() => import("./pages/ProjectWorkspaceDetail").then((module) => ({ default: module.ProjectWorkspaceDetail })));
 const Workspaces = lazy(() => import("./pages/Workspaces").then((module) => ({ default: module.Workspaces })));
@@ -289,7 +288,6 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
       <Route path="agents/:agentId/:tab" element={<AgentDetail />} />
       <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
       <Route path="projects" element={<Projects />} />
-      <Route path="organization" element={<Organization />} />
       <Route path="projects/:projectId" element={<ProjectDetail />} />
       <Route path="projects/:projectId/overview" element={<ProjectDetail />} />
       <Route path="projects/:projectId/issues" element={<ProjectDetail />} />
