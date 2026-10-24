@@ -20,6 +20,8 @@ export interface SshEnvironmentConfig {
   privateKeySecretRef: EnvSecretRefBinding | null;
   knownHosts: string | null;
   strictHostKeyChecking: boolean;
+  /** Fork extension: target shell family. Defaults to posix. */
+  remoteOs?: "posix" | "windows";
 }
 
 export type SandboxEnvironmentProvider = "fake" | (string & {});
