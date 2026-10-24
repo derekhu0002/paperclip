@@ -32,9 +32,10 @@ const STYLES = `
 .pt-children { margin-left: 16px; border-left: 1px solid var(--border); padding-left: 8px; }
 .pt-muted { color: var(--muted-foreground); font-size: var(--text-compact, 13px); }
 .pt-error { color: var(--destructive, var(--foreground)); font-size: var(--text-compact, 13px); }
-.pt-sidebar-link { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-radius: var(--radius-md, 6px); color: var(--foreground); text-decoration: none; font-size: inherit; font-weight: inherit; }
-.pt-sidebar-link:hover { background: var(--accent); }
-.pt-sidebar-link[aria-current="page"] { background: var(--accent); }
+.pt-sidebar-link { display: flex; align-items: center; gap: 10px; margin: 0 8px; padding: 6px 8px; border-radius: 8px; color: color-mix(in srgb, var(--foreground) 80%, transparent); text-decoration: none; font-size: inherit; font-weight: inherit; transition: background-color 120ms ease, color 120ms ease; }
+.pt-sidebar-link:hover { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); }
+.pt-sidebar-link[aria-current="page"] { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); }
+@media (pointer: coarse) { .pt-sidebar-link { padding-top: 4px; padding-bottom: 4px; } }
 `;
 
 function Styles(): ReactNode {
@@ -174,15 +175,18 @@ export function ProjectTreeSidebarLink(_props: PluginSidebarProps) {
   const isActive = pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <a
-      {...hostNavigation.linkProps(`/${PAGE_ROUTE}`)}
-      className="pt-sidebar-link"
-      aria-current={isActive ? "page" : undefined}
-    >
-      <span style={{ display: "inline-flex", flexShrink: 0 }}>{treeIcon()}</span>
-      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        Project Tree
-      </span>
-    </a>
+    <>
+      <Styles />
+      <a
+        {...hostNavigation.linkProps(`/${PAGE_ROUTE}`)}
+        className="pt-sidebar-link"
+        aria-current={isActive ? "page" : undefined}
+      >
+        <span style={{ display: "inline-flex", flexShrink: 0 }}>{treeIcon()}</span>
+        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          Project Tree
+        </span>
+      </a>
+    </>
   );
 }
