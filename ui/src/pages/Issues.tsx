@@ -19,7 +19,7 @@ import { EmptyState } from "../components/EmptyState";
 import { IssuesList } from "../components/IssuesList";
 import { TaskViewsMenu } from "../components/TaskViewsMenu";
 import { Button } from "@/components/ui/button";
-import { CircleDot, Plus } from "lucide-react";
+import { CircleDot, GanttChartSquare, List, Plus, SquareKanban } from "lucide-react";
 import type { Issue } from "@paperclipai/shared";
 import { useStreamlinedUiEnabled } from "../hooks/useStreamlinedUiEnabled";
 import { useCombinedInboxTasksEnabled } from "../hooks/useCombinedInboxTasksEnabled";
@@ -28,13 +28,16 @@ import { useInboxBadge } from "../hooks/useInboxBadge";
 import { Inbox } from "./Inbox";
 import {
   ORGANIZATION_SCOPED_PARAMS,
+  TASK_VIEW_MODE_PARAM,
   TASK_VIEW_PARAM,
   loadLastTaskView,
   normalizeTaskViewKey,
+  normalizeTaskViewMode,
   resolveInitialTaskView,
   saveLastTaskView,
   taskView,
   type TaskViewKey,
+  type TaskViewMode,
 } from "../lib/task-views";
 
 const WORKSPACE_FILTER_ISSUE_LIMIT = 1000;
@@ -101,6 +104,12 @@ export function Issues() {
   return designSandbox ? <DesignSandboxTasks /> : streamlinedUiEnabled && combinedInboxTasksEnabled ? <StreamlinedTasks /> : <OrganizationIssues />;
 }
 
+const TASK_VIEW_MODE_ITEMS: { mode: TaskViewMode; label: string; Icon: typeof List }[] = [
+  { mode: "list", label: "List view", Icon: List },
+  { mode: "board", label: "Board view", Icon: SquareKanban },
+  { mode: "execution", label: "Execution view", Icon: GanttChartSquare },
+];
+
 function StreamlinedTasks() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -109,6 +118,7 @@ function StreamlinedTasks() {
   const inboxBadge = useInboxBadge(selectedCompanyId);
 
   const requestedView = searchParams.get(TASK_VIEW_PARAM);
+  const requestedMode = normalizeTaskViewMode(searchParams.get(TASK_VIEW_MODE_PARAM));
   const hasOrganizationScopedParam = ORGANIZATION_SCOPED_PARAMS.some(
     (param) => (searchParams.get(param) ?? "").length > 0,
   );
@@ -141,6 +151,30 @@ function StreamlinedTasks() {
     <TaskViewsMenu value={view} onChange={selectView} badgeCount={inboxBadge.inbox} />
   );
 
+  // The inbox surface is a list; keep the organization presentation modes one
+  // click away instead of hiding them behind the Views menu.
+  const selectMode = (mode: TaskViewMode) => {
+    saveLastTaskView("all");
+    navigate(`/issues?${TASK_VIEW_PARAM}=all&${TASK_VIEW_MODE_PARAM}=${mode}`);
+  };
+  const modeSwitch = (
+    <div className="flex items-center border border-border rounded-md overflow-hidden mr-1" role="group" aria-label="View mode">
+      {TASK_VIEW_MODE_ITEMS.map(({ mode, label, Icon }) => (
+        <button
+          key={mode}
+          type="button"
+          className="flex h-8 w-8 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+          onClick={() => selectMode(mode)}
+          title={label}
+          aria-label={label}
+          aria-pressed={false}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </button>
+      ))}
+    </div>
+  );
+
   if (definition.surface === "inbox") {
     return (
       <Inbox
@@ -148,6 +182,7 @@ function StreamlinedTasks() {
         surfaceLabel="Tasks"
         toolbarContext={(
           <div className="flex min-w-0 items-center gap-2">
+            {modeSwitch}
             {viewsMenu}
             <Button size="sm" variant="outline" aria-label="New Task" onClick={() => openNewIssue()}>
               <Plus className="h-4 w-4 sm:mr-1" />
@@ -159,13 +194,20 @@ function StreamlinedTasks() {
     );
   }
 
-  return <OrganizationIssues toolbarContext={viewsMenu} initialStatuses={definition.statuses} />;
+  return (
+    <OrganizationIssues
+      toolbarContext={viewsMenu}
+      initialStatuses={definition.statuses}
+      initialViewMode={requestedMode}
+    />
+  );
 }
 
 function OrganizationIssues({
   toolbarContext,
   initialStatuses,
-}: { toolbarContext?: ReactNode; initialStatuses?: string[] } = {}) {
+  initialViewMode,
+}: { toolbarContext?: ReactNode; initialStatuses?: string[]; initialViewMode?: TaskViewMode } = {}) {
   const { enabled: streamlinedUiEnabled } = useStreamlinedUiEnabled();
   const issuesPresentation = resolveIssuesPresentation(streamlinedUiEnabled);
   const { selectedCompanyId } = useCompany();
@@ -327,6 +369,7 @@ function OrganizationIssues({
       initialAssignees={searchParams.get("assignee") ? [searchParams.get("assignee")!] : undefined}
       initialWorkspaces={initialWorkspaces.length > 0 ? initialWorkspaces : undefined}
       initialStatuses={initialStatuses}
+      initialViewMode={initialViewMode}
       toolbarContext={toolbarContext}
       initialSearch={syncedSearch}
       onSearchChange={handleSearchChange}

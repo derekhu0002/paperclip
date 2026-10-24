@@ -5,6 +5,7 @@ import {
   TASK_VIEW_KEYS,
   isTaskViewKey,
   normalizeTaskViewKey,
+  normalizeTaskViewMode,
   resolveInitialTaskView,
   taskView,
   taskViewForInboxTab,
@@ -93,5 +94,13 @@ describe("resolveInitialTaskView", () => {
     // My-work view would drop the filter they carry.
     expect(resolveInitialTaskView(null, true, "mine")).toBe("all");
     expect(resolveInitialTaskView(null, true, "blocked")).toBe("all");
+  });
+
+  it("accepts only list, board and execution as presentation modes", () => {
+    expect(normalizeTaskViewMode("list")).toBe("list");
+    expect(normalizeTaskViewMode("board")).toBe("board");
+    expect(normalizeTaskViewMode("execution")).toBe("execution");
+    expect(normalizeTaskViewMode("kanban")).toBeUndefined();
+    expect(normalizeTaskViewMode(null)).toBeUndefined();
   });
 });

@@ -266,6 +266,7 @@ function getInitialWorkspaceViewState(
   initialWorkspaces?: string[],
   defaultSortField?: IssueSortField,
   initialStatuses?: string[],
+  initialViewMode?: IssueViewState["viewMode"],
 ): IssueViewState {
   const initial = getInitialViewState(stored, initialAssignees, defaultSortField);
   const scoped = initialWorkspaces
@@ -274,7 +275,10 @@ function getInitialWorkspaceViewState(
   // A status preset (Active / Backlog / Done, and All as the empty set) is the
   // view's definition, so it wins over whatever the last session persisted.
   // `undefined` means "no preset" and leaves the stored statuses alone.
-  return initialStatuses ? { ...scoped, statuses: initialStatuses } : scoped;
+  const withStatuses = initialStatuses ? { ...scoped, statuses: initialStatuses } : scoped;
+  // A URL-driven mode (Tasks -> Board/Execution from the inbox surface) is a
+  // one-shot entry override; the user's later toggle persists as usual.
+  return initialViewMode ? { ...withStatuses, viewMode: initialViewMode } : withStatuses;
 }
 
 function getIssueColumnsStorageKey(key: string): string {
@@ -494,6 +498,8 @@ interface IssuesListProps {
    * Used by the Tasks view presets (PAP-670).
    */
   initialStatuses?: string[];
+  /** One-shot entry override for the view mode (list | board | execution). */
+  initialViewMode?: IssueViewState["viewMode"];
   initialSearch?: string;
   searchFilters?: Omit<IssueListRequestFilters, "q" | "projectId" | "limit" | "includeRoutineExecutions">;
   searchWithinLoadedIssues?: boolean;
@@ -739,6 +745,7 @@ function StreamlinedIssuesList({
   initialAssignees,
   initialWorkspaces,
   initialStatuses,
+  initialViewMode,
   initialSearch,
   searchFilters,
   searchWithinLoadedIssues = false,
@@ -819,6 +826,7 @@ function StreamlinedIssuesList({
   const initialAssigneesKey = initialAssignees?.join("|") ?? "";
   const initialWorkspacesKey = initialWorkspaces?.join("|") ?? "";
   const initialStatusesKey = initialStatuses ? `set:${initialStatuses.join("|")}` : "";
+  const initialViewModeKey = initialViewMode ?? "";
   const initialPreferencesRef = useRef<ReturnType<typeof loadIssueCollectionPreferences> | null>(null);
   if (initialPreferencesRef.current === null) {
     initialPreferencesRef.current = loadIssueCollectionPreferences(preferenceLocation);
@@ -832,6 +840,7 @@ function StreamlinedIssuesList({
       initialWorkspaces,
       defaultSortField,
       initialStatuses,
+      initialViewMode,
     ),
   );
   const showAgentCreatedTasks = useShowAgentCreatedTasks(selectedCompanyId, viewStateKey);
@@ -857,10 +866,10 @@ function StreamlinedIssuesList({
 
   // Reload view state whenever the persisted context changes.
   const prevViewStateContextKey = useRef(
-    `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}`,
+    `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}::${initialViewModeKey}`,
   );
   useEffect(() => {
-    const nextContextKey = `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}`;
+    const nextContextKey = `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}::${initialViewModeKey}`;
     if (prevViewStateContextKey.current !== nextContextKey) {
       prevViewStateContextKey.current = nextContextKey;
       const preferences = loadIssueCollectionPreferences(preferenceLocation);
@@ -870,6 +879,7 @@ function StreamlinedIssuesList({
         initialWorkspaces,
         defaultSortField,
         initialStatuses,
+        initialViewMode,
       ));
       setVisibleIssueColumns(preferences.columns);
     }
@@ -881,6 +891,8 @@ function StreamlinedIssuesList({
     initialWorkspacesKey,
     initialStatuses,
     initialStatusesKey,
+    initialViewMode,
+    initialViewModeKey,
     defaultSortField,
     preferenceLocation.companyId,
     preferenceLocation.collectionKey,

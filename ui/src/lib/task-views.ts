@@ -77,6 +77,26 @@ export const DEFAULT_TASK_VIEW: TaskViewKey = "mine";
 export const TASK_VIEW_PARAM = "view";
 export const TASK_LAST_VIEW_KEY = "paperclip:tasks:last-view";
 
+/**
+ * Presentation mode for an organization view. `list` renders rows, `board`
+ * renders status columns, `execution` renders the run/gantt timeline.
+ */
+export const TASK_VIEW_MODES = ["list", "board", "execution"] as const;
+export type TaskViewMode = (typeof TASK_VIEW_MODES)[number];
+
+/**
+ * URL parameter used to enter an organization view in a specific mode. This is
+ * how the always-visible mode switch on the inbox surface hands off to the
+ * board or execution view without duplicating those renderers.
+ */
+export const TASK_VIEW_MODE_PARAM = "mode";
+
+export function normalizeTaskViewMode(value: string | null | undefined): TaskViewMode | undefined {
+  return (TASK_VIEW_MODES as readonly string[]).includes(value ?? "")
+    ? (value as TaskViewMode)
+    : undefined;
+}
+
 export function isTaskViewKey(value: unknown): value is TaskViewKey {
   return typeof value === "string" && VIEWS_BY_KEY.has(value as TaskViewKey);
 }
