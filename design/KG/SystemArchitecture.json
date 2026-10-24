@@ -1729,6 +1729,18 @@
         {
           "name": "deployed47Verified",
           "value": "health ok (commit 5049ac5d86 server unchanged); GET /paperclip/organization 200; /api/plugins/ui-contributions -> page:organization + sidebar; /_plugins/<id>/ui/index.js 200 contains ProjectTreePage; bridge data project-tree -> stats.projects=3 stats.agents=3; 47 ui/src no longer has Organization.tsx / projectTree.ts and App.tsx/Sidebar no longer reference /organization"
+        },
+        {
+          "name": "buildGuard",
+          "value": "tsconfig 排除 src/ui（tsc 不再向 dist/ui 输出）；scripts/build-ui.mjs 在 esbuild 前删除 dist/ui。原因：2026-10-24 在 47 上跑插件 build 时 tsc 失败但已 emit，覆盖了 esbuild 的 bundle，留下 import \"../constants.js\" 的 tsс 产物，浏览器加载失败，侧边栏退化成占位符。禁止在服务器上构建插件。"
+        },
+        {
+          "name": "commit",
+          "value": "1c8dae004 | fix(plugin): keep tsc from emitting over the bundled UI"
+        },
+        {
+          "name": "deployed47Fix",
+          "value": "2026-10-24T06:31Z 重传 dist（Cache-Control: max-age=0, must-revalidate）并验证：侧边栏为真实 <a>，点击进入 /ARG/organization，页面显示 Projects: 3 / Agents: 3 与项目树。"
         }
       ],
       "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。\n\n【2026-10-24 解耦（Tier 3，插件化）】页面、导航与路由实现迁入独立插件包 `packages/plugins/plugin-project-tree`（`ui.slots: page(routePath=organization) + sidebar`），对上游文件的侵入从 5 处降为 1 行注册：\n- 删除：`ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts`、`ui/src/pages/Organization.test.tsx`、`ui/src/lib/projectTree.test.ts`、`ui/src/App.tsx` 的 lazy import 与 board route、`ui/src/components/Sidebar.tsx` 与 `Sidebar.production.tsx` 的 Project Tree 导航行。\n- 保留（footprint=registration）：`ui/src/App.tsx` 的 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />` 一行，仅用于无前缀书签 `/organization` 兼容跳转；`/workbench` 之外的真实页面由插件在 `/:companyPrefix/organization` 提供。\n- 未改：`projects.parent_project_id`（core schema）与其写入路径；项目创建/编辑契约不变。\n- 验收迁移：树构建语义（父子嵌套、孤儿为根、归档排除、环保护、子项目 lead 不计入父队）与插件装配（page+sidebar、只读能力）均有可执行用例，命令 `pnpm --filter @paperclipai/plugin-project-tree test`。\n- 启用前提：实例需安装该插件（`paperclipai plugin install packages/plugins/plugin-project-tree`，或在 bundled 目录写 catalog 并加入 `plugins.autoInstall`）；未安装时 `/organization` 不再渲染项目树，这是解耦后的预期行为。",
@@ -1863,14 +1875,22 @@
       "attributes": [
         {
           "name": "files",
-          "value": "server/src/services/work-timeline.ts, packages/shared/src/types/work-timeline.ts, ui/src/api/workTimeline.ts, ui/src/components/IssueExecutionTimeline.tsx, ui/src/components/IssueExecutionPanel.tsx, ui/src/components/IssuesList.tsx"
+          "value": "server/src/services/work-timeline.ts, packages/shared/src/types/work-timeline.ts, ui/src/api/workTimeline.ts, ui/src/components/IssueExecutionTimeline.tsx, ui/src/components/IssueExecutionPanel.tsx, ui/src/components/IssuesList.tsx, ui/src/pages/Issues.tsx, ui/src/lib/task-views.ts"
         },
         {
           "name": "deliveryStatus",
           "value": "delivered"
+        },
+        {
+          "name": "entryPoints",
+          "value": "Organization 视图（All/Active/Backlog/Done）的工具栏 List/Board/Execution 开关；Inbox 表面（默认 Mine）也有同一组开关，点击后跳转 /issues?view=all&mode=<list|board|execution>，由 IssuesList 的 initialViewMode 一次性应用。"
+        },
+        {
+          "name": "commit",
+          "value": "bff9f0573cde308a12e3197edf1fa73acd57d64e | fix(tasks): expose list/board/execution from the inbox surface"
         }
       ],
-      "description": "任务集合可切换为按 Agent 分组的执行时间线：每个任务从创建到完成是一条矩形，按 backlog/blocked、queue、execution、paused 分段着色，支持 24h/7d/30d 窗口与 1x-8x 缩放，并在图下列出 delegation/assignment 交接。",
+      "description": "任务集合可切换为按 Agent 分组的执行时间线：每个任务从创建到完成是一条矩形，按 backlog/blocked、queue、execution、paused 分段着色，支持 24h/7d/30d 窗口与 1x-8x 缩放，并在图下列出 delegation/assignment 交接。\n\n【2026-10-24 入口修复】默认 /issues 解析为 ?view=mine（Inbox 表面），该表面此前没有 List/Board/Execution 开关，用户看到“只剩 list”。现在 Inbox 工具栏也渲染同一组开关，点击 Board/Execution 会跳转 ?view=all&mode=...，IssuesList 新增 initialViewMode 一次性覆盖存储态；组织视图原有开关不变。已在 47 用真实浏览器验证：默认页三个按钮可见，Execution 跳到 view=all&mode=execution 并渲染 Backlog/blocked、Queue、Execution、Paused/waiting 四条泳道。",
       "id": "fork-cap-execution-timeline",
       "name": "任务执行时间线（分段/缩放/交接）",
       "testcases": [
