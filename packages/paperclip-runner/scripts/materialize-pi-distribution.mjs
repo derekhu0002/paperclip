@@ -159,7 +159,7 @@ export async function materializePiDistribution({ outputRoot, nodeExecutable, np
     if (nodeExecutable) node = await realpath(nodeExecutable);
     else {
       const archiveName = `node-v${PI_NODE_VERSION}-${target}.tar.gz`;
-      const response = await fetch(`https://nodejs.org/dist/v${PI_NODE_VERSION}/${archiveName}`, { redirect: "error", signal: AbortSignal.timeout(60_000) });
+      const response = await fetch(`https://nodejs.org/dist/v${PI_NODE_VERSION}/${archiveName}`, { redirect: "error", signal: AbortSignal.timeout(180_000) });
       if (!response.ok || !response.body) throw new Error("Pinned Pi Node download failed");
       const chunks = []; let length = 0;
       for await (const chunk of response.body) {
