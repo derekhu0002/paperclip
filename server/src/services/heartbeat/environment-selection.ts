@@ -1,6 +1,7 @@
 import { heartbeatExternalProvider, nativeExecutionUsesTaskWorkspace } from "./external-provider.js";
 import { heartbeatRuns, issues, projects, type Db, type agents } from "@paperclipai/db";
 import { and, eq } from "drizzle-orm";
+import { readGitCacheExpiration } from "../git-workspace-restoration.js";
 import type { ExecutionWorkspace, IssueExecutionWorkspaceSettings, ProjectExecutionWorkspacePolicy } from "@paperclipai/shared";
 import { parseObject } from "../../adapters/utils.js";
 import { logger } from "../../middleware/logger.js";
@@ -66,7 +67,8 @@ export interface HeartbeatEnvironmentSelectionInput {
     issueAssigneeOverrides: { adapterConfig: Record<string, unknown> | null } | null;
   };
   services: {
-    executionWorkspacesSvc: Pick<ReturnType<typeof executionWorkspaceService>, "getStoredById" | "validateStoredSelectionForRun">;
+    executionWorkspacesSvc: Pick<ReturnType<typeof executionWorkspaceService>, "getStoredById" | "validateStoredSelectionForRun"
+      | "reopenClosedIsolatedExecutionWorkspaceForIssue" | "clearReopenPendingConsumptionForUnconsumedReopen">;
     environmentsSvc: Pick<ReturnType<typeof environmentService>,
       "ensureLocalEnvironment" | "findManagedSandboxEnvironment" | "findKubernetesEnvironment" | "ensureKubernetesEnvironment" | "getById">;
     instanceSettings: Pick<ReturnType<typeof instanceSettingsService>, "get" | "getExperimental">;
@@ -173,9 +175,32 @@ export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnviron
   const requestedExecutionWorkspaceId = isDotRun ? null :
     persistedNativeExecutionWorkspaceId ??
     readNonEmptyString(issueRef?.executionWorkspaceId);
-  const existingExecutionWorkspace = requestedExecutionWorkspaceId
+  let existingExecutionWorkspace = requestedExecutionWorkspaceId
     ? await executionWorkspacesSvc.getStoredById(agent.companyId, requestedExecutionWorkspaceId)
     : null;
+  if (existingExecutionWorkspace && issueId && !isDotRun && !fresh
+    && existingExecutionWorkspace.id === readNonEmptyString(issueRef?.executionWorkspaceId)
+    && (existingExecutionWorkspace.status === "archived" || existingExecutionWorkspace.status === "cleanup_failed")
+    && readGitCacheExpiration(existingExecutionWorkspace as Parameters<typeof readGitCacheExpiration>[0])?.workspaceRemoved) {
+    const [boundIssue] = await db.select({ id: issues.id, companyId: issues.companyId, projectId: issues.projectId })
+      .from(issues).where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)));
+    if (!boundIssue) throw new Error("Execution workspace issue is unavailable");
+    const actor = { agentId: agent.id, actorType: "agent" };
+    const reopened = await executionWorkspacesSvc.reopenClosedIsolatedExecutionWorkspaceForIssue({
+      workspaceId: existingExecutionWorkspace.id,
+      issue: boundIssue,
+      actor,
+      authorizationActor: { type: "agent", agentId: agent.id, companyId: agent.companyId, source: "agent_jwt", runId: run.id,
+        onBehalfOfUserId: responsibleUserId === "local-board" ? null : responsibleUserId },
+    });
+    if (!reopened.ok) throw new Error(reopened.message);
+    if (reopened.reopened) {
+      await executionWorkspacesSvc.clearReopenPendingConsumptionForUnconsumedReopen({
+        workspaceId: existingExecutionWorkspace.id, issue: boundIssue, actor, expectedGeneration: reopened.generation,
+      });
+    }
+    existingExecutionWorkspace = await executionWorkspacesSvc.getStoredById(agent.companyId, existingExecutionWorkspace.id);
+  }
   const nativeRecoveryExecutionWorkspaceId =
     resolveNativeRecoveryExecutionWorkspaceBinding({
       bindingId: persistedNativeExecutionWorkspaceId,
@@ -215,7 +240,7 @@ export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnviron
   // Managed-sandbox-only policy: a run that would land on the local
   // environment is redirected onto the platform-managed sandbox row, and
   // with no active managed row the resolution fails closed
-  // (ManagedSandboxUnavailableError) — never local. Mirrors the forced
+  // (ManagedSandboxUnavailableError) 鈥?never local. Mirrors the forced
   // kubernetes execution mode below, which takes precedence when both
   // regimes are active.
   const managedSandboxOnly =
@@ -239,7 +264,7 @@ export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnviron
   > = requestedExecutionWorkspaceMode;
   const executionPolicy = {
     executionMode: resolvedInstanceSettings.general.executionMode,
-    // Backstop behind the resolver's local→managed redirect: the run-time
+    // Backstop behind the resolver's local鈫抦anaged redirect: the run-time
     // allowlist below fails any run that still resolved to a `local`
     // environment under managed-sandbox-only, so no selection path or
     // tenant-set env var can land untrusted execution on the tenant

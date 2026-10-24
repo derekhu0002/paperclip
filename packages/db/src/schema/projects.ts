@@ -31,6 +31,7 @@ export const projects = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ({
+    companyIdUq: uniqueIndex("projects_company_id_uq").on(table.companyId, table.id),
     companyIdx: index("projects_company_idx").on(table.companyId),
     parentProjectIdx: index("projects_parent_project_idx").on(table.parentProjectId),
     visibilityCheck: check("projects_visibility_check", sql`${table.visibility} in ('open', 'private')`),

@@ -106,8 +106,6 @@ chat shortcut above applies:
 
 **Step 3 — Get assignments.** Prefer `GET /api/agents/me/inbox-lite` for the normal heartbeat inbox. It returns the compact assignment list you need for prioritization. Fall back to `GET /api/companies/{companyId}/issues?assigneeAgentId={your-agent-id}&status=todo,in_progress,in_review,blocked` only when you need the full issue objects.
 
-**Assignment wakes are automatic.** Creating or reassigning a `todo` issue to an agent enqueues an `issue_assigned` wake. Do not call `POST /api/agents/{id}/heartbeat/invoke` or `paperclipai heartbeat run` to start it. A manual empty wake can occupy the only `maxConcurrentRuns` slot and delay the real assignment run; use a manual wake only for an explicit on-demand check with no issue.
-
 **Step 4 — Pick work.** Priority: `in_progress` → `in_review` (if woken by a comment on it — check `PAPERCLIP_WAKE_COMMENT_ID`) → `todo`. Skip `blocked` unless you can unblock.
 
 Overrides and special cases:
@@ -157,6 +155,7 @@ If `currentParticipant` does not match you, do not try to advance the stage — 
 **Step 7 — Do the work.** Use your tools and capabilities. Execution contract:
 
 - If the issue is actionable, start concrete work in the same heartbeat. Do not stop at a plan unless the issue specifically asks for planning.
+- Ask for information only when it prevents the next useful action. Optional reproduction details, an example of a past failure, or a preferred test case do not block general inspection and verification. Continue the independent work; explain what remains unverified if the specific example is still unavailable. Keep real access restrictions and approval gates authoritative.
 - Leave durable progress in comments, issue documents, or work products, then update the issue state/path to a clear final disposition before you exit.
 - Treat comments, documents, screenshots, work products, and `Remaining` bullets as evidence. They are not valid liveness paths by themselves.
 - Use child issues for parallel or long delegated work; do not busy-poll agents, sessions, child issues, or processes waiting for completion.
@@ -309,11 +308,8 @@ The array **replaces** the current set on each update — send `[]` to clear. Is
 
 **Automatic wakes:**
 
-- `PAPERCLIP_WAKE_REASON=issue_blockers_resolved` — all `blockedBy` issues reached `done`; the dependent is automatically moved from `blocked` to `todo` and its assignee is woken. Do not wait for a human to release the next step.
+- `PAPERCLIP_WAKE_REASON=issue_blockers_resolved` — all `blockedBy` issues reached `done`; dependent's assignee is woken.
 - `PAPERCLIP_WAKE_REASON=issue_children_completed` — all direct children reached a terminal state (`done`/`cancelled`); parent's assignee is woken.
-- `PAPERCLIP_WAKE_REASON=idle_watchdog` — the company had no queued/running run but an assigned `todo` issue existed; the server dispatched it. Treat this as a recovery signal and investigate why the normal assignment/status wake did not start it.
-
-**Plan-chain rule:** create planned work in `todo`, never in `backlog`. Model waiting as `blocked` plus `blockedByIssueIds`, assigned to the owning Manager/Purple lane. The server releases it when dependencies complete. Do not use an empty manual `heartbeat/invoke` to start planned work.
 
 `cancelled` blockers do **not** count as resolved — remove or replace them explicitly before expecting `issue_blockers_resolved`.
 
@@ -369,25 +365,6 @@ Key shared semantics:
 - **Source issue posture.** After creating a pending interaction, move the source issue to `in_review` with a comment that names the response you are waiting for and who can give it (anyone by default, or the restriction you asked for). When a `request_confirmation` or `request_checkbox_confirmation` is the issue review request, include its returned id as `reviewInteractionId` in that PATCH. This explicit binding lets policy-eligible agents submit the review verdict without granting the same authority to unrelated pending confirmations. The pending interaction is the explicit waiting path.
 
 ### Standalone Decisions
-
-**Graph evidence is automatic for project approvals.** Do not hand-write the
-subgraph. The bundled helper reads the project's ArchGraph document
-(`design/KG/SystemArchitecture.json`), picks a bounded focus neighborhood, and
-adds a read-only `payload.graphContext` before posting the approval:
-
-```sh
-node "$CLAUDE_SKILL_DIR/scripts/paperclip-approval-with-graph.mjs" \
-  --title "Approve the identity-control change?" \
-  --summary "The graph highlights the affected OAuth and telemetry nodes."
-```
-
-Use `--focus <id,id>` to name decision-specific nodes and `--graph <path>` when
-the document is elsewhere. For a different graph framework, pass its
-`paperclip.graph-context/v1` JSON with `--graph-context` (or a provider command
-with `--graph-context-cmd`). The helper never writes a graph. With no graph
-document or provider, use the normal approval endpoint; the human sees the
-subgraph inside the existing approval card, and deeper questions belong in the
-task thread with the Agent.
 
 Create a decision from an issue-scoped agent run with `POST /api/companies/{companyId}/decisions`:
 
@@ -575,6 +552,8 @@ If you are asked to create or manage routines you MUST read:
 Use the task's provided working directory for task files. `AGENT_HOME` holds personal instructions and memory; provider home is runtime-managed. A task does not need a project or Git repository. Do not clone unrelated repositories or place task output in home to compensate for a missing project.
 
 Use `get_workspace` to inspect the current folder, pending selection, and capabilities. Use `list_workspaces` for authorized existing folders and `list_project_repositories` for repository choices. `select_workspace` and `prepare_repository` express intent; the harness validates and prepares it. Respect `next_normal_admission` responses: keep the current root, do not claim the requested checkout exists, and do not retry in a loop or interrupt the run. Project assignment alone does not relocate files. See `references/issue-workspaces.md` for the API equivalents.
+
+Prefer a matching configured, authorized source over guessing a repository URL. Inspect available runtime and testing capabilities before claiming that browser or command testing is unavailable. When an authorized repository is pending and unfinished work needs it, finish independent work, explain the remaining work, and yield. Native Runner can select the saved same-agent continuation from current task context; it does not need a timer or a user restart. A request only to stage a repository can finish normally without starting more work.
 
 ## Issue Workspace Runtime Controls
 

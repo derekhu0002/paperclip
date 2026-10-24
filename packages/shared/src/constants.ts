@@ -1323,6 +1323,7 @@ export const PLUGIN_CAPABILITIES = [
   // Data Read
   "companies.read",
   "projects.read",
+  "projects.instance-secrets",
   "project.workspaces.read",
   "execution.workspaces.read",
   "workspaces.manage",

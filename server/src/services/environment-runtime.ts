@@ -4,6 +4,8 @@ import { allowLegacyShutdownWorkspaceCleanup, legacyShutdownWorkspaceResourcePro
 import { nativeWorkspaceExportPendingForLease } from "./native-runtime/native-workspace-finalization-state.js";
 import { beginIdleTrackedWork } from "./task-admission.js";
 import { historicalProviderCredentials } from "./historical-provider-credentials.js";
+import { ownedWorkspaceRecoveryLease, type WorkspaceRecoverySourceIdentity } from "./workspace-recovery-source.js";
+import type { NativeWorkspaceFinalizationOwnership } from "./native-runtime/native-workspace-finalization-ownership.js";
 import { hasStopOnlyCleanup, prepareSandboxStopAndRetain, readStopOnlyCleanup, settleStopOnlyCleanup, stopOnlyCleanupKey } from "./sandbox-stop-and-retain.js";
 import { JsonRpcCallError, readEnvironmentAcquisitionDiagnostic, readEnvironmentCreationCleanupError } from "@paperclipai/plugin-sdk";
 import { preserveEnvironmentSyncOutErrorDiagnostic } from "./environment-sync-out-error.js";
@@ -455,6 +457,7 @@ export interface EnvironmentDriverAcquireInput {
   executionWorkspaceId: string | null;
   executionWorkspaceMode: ExecutionWorkspace["mode"] | null;
   executionWorkspaceSettings: IssueExecutionWorkspaceSettings | null;
+  runnerTaskProjectIds?: readonly string[];
   /**
    * The harness/adapter type for this run (the agent's adapter). Drivers that
    * materialize a per-run sandbox use it to select the runtime image so a single
@@ -1386,34 +1389,13 @@ function createSandboxEnvironmentDriver(
     return true;
   };
 
-  // Load the durable spool into the in-process buffer exactly once. The first
-  // flush after a restart runs this load, so the records a previous process
-  // could not land re-enter the flush path. A later flush sees the resolved
-  // promise and never reloads, so a record this process already buffered never
-  // doubles. The load runs before the flush splices the buffer, so a
-  // restart-recovered record flushes on the same tick.
-  let spoolLoadPromise: Promise<void> | null = null;
-  const ensureSpoolLoaded = (): Promise<void> => {
-    if (!spoolLoadPromise) {
-      spoolLoadPromise = (async () => {
-        const persisted = await orphanCleanupSpool.load();
-        for (const record of persisted) {
-          enqueueDeferredOrphanCleanup(record);
-        }
-      })();
-    }
-    return spoolLoadPromise;
-  };
-
-  const flushDeferredOrphanCleanups = async (): Promise<{ recovered: number; pending: number }> => {
-    // Load the durable spool into the buffer first, so a restart-recovered record
-    // flushes on this tick. The load runs once, then a resolved promise returns.
-    await ensureSpoolLoaded();
+  const flushDeferredOrphanCleanupsOnce = async (): Promise<{ recovered: number; pending: number }> => {
+    // Other task paths can append after startup; each pass must ingest their records.
+    for (const record of await orphanCleanupSpool.load()) enqueueDeferredOrphanCleanup(record);
     if (deferredOrphanCleanups.length === 0) {
       return { recovered: 0, pending: 0 };
     }
-    // Take the whole batch synchronously before the first await, so a second
-    // concurrent flush sees an empty buffer and never re-inserts the same record.
+    // New acquisitions can enqueue while this batch is being persisted.
     const batch = deferredOrphanCleanups.splice(0, deferredOrphanCleanups.length);
     let recovered = 0;
     for (const record of batch) {
@@ -1460,6 +1442,11 @@ function createSandboxEnvironmentDriver(
       }
     }
     return { recovered, pending: deferredOrphanCleanups.length };
+  };
+  let orphanFlush: Promise<{ recovered: number; pending: number }> | null = null;
+  const flushDeferredOrphanCleanups = (): Promise<{ recovered: number; pending: number }> => {
+    orphanFlush ??= flushDeferredOrphanCleanupsOnce().finally(() => { orphanFlush = null; });
+    return orphanFlush;
   };
 
   // Build the safe diagnostic fields for an orphan record. The provider
@@ -3668,7 +3655,38 @@ function createPluginEnvironmentDriver(
         driver.defaultAcquireTimeoutMs,
       );
       const timeoutOverride: [number?] = rpcTimeoutMs === undefined ? [] : [rpcTimeoutMs];
-      const providerLease = await workerManager.call(plugin.id, "environmentAcquireLease", {
+      const warm = input.adapterType === "paperclip_runner" && parsed.config.runnerLifecycleMode === "warm" &&
+        driver.warmTaskVersion === 1 && !!input.issueId && !!input.agentId && !!input.heartbeatRunId &&
+        workerManager.getWorker(plugin.id)?.supportedMethods.includes("environmentResumeLease");
+      const lifecyclePolicy = warm ? { mode: "warm", idleTimeoutMs: parsed.config.runnerIdleTimeoutMs ?? 300_000 } : { mode: "per_turn", idleTimeoutMs: null };
+      const fingerprint = createHash("sha256").update(JSON.stringify([parsed.config, input.agentId, input.runnerTaskProjectIds ?? []])).digest("hex");
+      const candidates = warm ? await db.select().from(environmentLeases).where(and(
+        eq(environmentLeases.companyId, input.companyId), eq(environmentLeases.environmentId, input.environment.id),
+        eq(environmentLeases.status, "retained"), eq(environmentLeases.issueId, input.issueId!),
+        sql`${environmentLeases.executionWorkspaceId} IS NOT DISTINCT FROM ${input.executionWorkspaceId ?? null}::uuid`,
+        sql`${environmentLeases.metadata}->>'agentId' = ${input.agentId!}`,
+        sql`${environmentLeases.metadata}->>'pluginId' = ${plugin.id}`,
+        sql`${environmentLeases.metadata}->>'driverKey' = ${parsed.config.driverKey}`,
+      )) : [];
+      if (candidates.length > 1) throw new Error("Ambiguous retained plugin task ownership");
+      const previous = candidates[0];
+      let resumed: PluginEnvironmentLease | undefined;
+      if (previous?.providerLeaseId && previous.metadata?.runnerTaskFingerprint !== fingerprint) {
+        // A changed mount scope must retire the old process before checkpoint recovery.
+        await this.releaseRunLease({environment:input.environment,lease:toEnvironmentLeaseSnapshot(previous),status:"released"});
+      } else if (previous?.providerLeaseId) {
+        // Resume only inspects the exact computer; an unavailable reply must not create a replacement.
+        resumed = await workerManager.call(plugin.id, "environmentResumeLease", {
+          driverKey: parsed.config.driverKey, companyId: input.companyId, environmentId: input.environment.id,
+          issueId: input.issueId, config: parsed.config.driverConfig, runId: input.heartbeatRunId!,
+          providerLeaseId: previous.providerLeaseId, leaseMetadata: previous.metadata ?? undefined,
+        });
+        if (!resumed?.providerLeaseId) {
+          await this.releaseRunLease({ environment: input.environment, lease: toEnvironmentLeaseSnapshot(previous), status: "released" });
+          resumed = undefined;
+        }
+      }
+      const providerLease = resumed ?? await workerManager.call(plugin.id, "environmentAcquireLease", {
         driverKey: parsed.config.driverKey,
         companyId: input.companyId,
         environmentId: input.environment.id,
@@ -3693,11 +3711,16 @@ function createPluginEnvironmentDriver(
         executionWorkspaceId: input.executionWorkspaceId,
         issueId: input.issueId,
         heartbeatRunId: input.heartbeatRunId,
-        leasePolicy: "ephemeral",
+        leasePolicy: warm ? "reuse_by_environment" : "ephemeral",
+        ...(resumed && previous ? { replacesReusableLeaseId: previous.id } : {}),
         provider: `plugin:${parsed.config.pluginKey}:${parsed.config.driverKey}`,
         providerLeaseId: providerLease.providerLeaseId,
         expiresAt: providerAttestedLeaseExpiry(input.requestedExpiresAt, parseExpiresAt(providerLease.expiresAt)),
         metadata: {
+          ...(resumed && previous ? { ...previous.metadata, runnerTaskReused: true, runnerTaskPreviousLeaseId: previous.id } : {}),
+          runnerTaskLifecyclePolicy: lifecyclePolicy, runnerTaskFingerprint: fingerprint,
+          runnerTaskRequestedExpiresAt:requestedExpiresAtParam(input.requestedExpiresAt) ?? null,
+          ...(warm ? {runnerTaskProjectIds:[...input.runnerTaskProjectIds ?? []]} : {}),remoteCwd:".",
           ...(input.agentId ? { agentId: input.agentId } : {}),
           providerMetadata: providerLease.metadata ?? {},
           environmentId: input.environment.id,
@@ -4103,6 +4126,7 @@ export function environmentRuntimeService(
       heartbeatRunId: string | null;
       persistedExecutionWorkspace: Pick<ExecutionWorkspace, "id" | "mode"> | null;
       executionWorkspaceSettings?: IssueExecutionWorkspaceSettings | null;
+      runnerTaskProjectIds?: readonly string[];
       /** The agent's adapter type for this run (mixed-harness environments). */
       adapterType?: string | null;
       resolveSnapshotIdentity?: boolean;
@@ -4143,6 +4167,7 @@ export function environmentRuntimeService(
         executionWorkspaceId: leaseContext.executionWorkspaceId,
         executionWorkspaceMode: leaseContext.executionWorkspaceMode,
         executionWorkspaceSettings: input.executionWorkspaceSettings ?? null,
+        runnerTaskProjectIds: input.runnerTaskProjectIds,
         adapterType: input.adapterType ?? null,
         resolveSnapshotIdentity: input.resolveSnapshotIdentity,
         applyCustomImageTemplate: input.applyCustomImageTemplate ?? false,
@@ -4567,6 +4592,19 @@ export function environmentRuntimeService(
         throw new Error(`Environment driver "${driver.driver}" does not support lease resume.`);
       }
       return await driver.resumeRunLease(input);
+    },
+
+    async resumeWorkspaceRecoveryLease(input: {
+      source: WorkspaceRecoverySourceIdentity; leaseId: string; environmentId: string;
+      ownership: NativeWorkspaceFinalizationOwnership;
+    }): Promise<PluginEnvironmentLease | EnvironmentLease | null> {
+      const { lease, environment } = await ownedWorkspaceRecoveryLease(db, { ...input.source,
+        leaseId: input.leaseId, environmentId: input.environmentId, ownership: input.ownership });
+      const driver = requireDriverKey(getLeaseDriverKey(lease, environment as Environment));
+      if (!driver.resumeRunLease) throw new Error(`Environment driver "${driver.driver}" does not support lease resume.`);
+      // Maintenance reopens the protected source only to preserve its files.
+      // Ordinary resume and destructive cleanup keep their existing fences.
+      return await driver.resumeRunLease({ environment: environment as Environment, lease: lease as EnvironmentLease });
     },
 
     async destroyRunLease(input: EnvironmentDriverLeaseInput): Promise<EnvironmentLease | null> {

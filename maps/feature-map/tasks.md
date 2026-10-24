@@ -18,9 +18,15 @@ Agent access: [companion](../agent-access-map/tasks.md).
 - `organize`: `tasks/organize` — filter, sort, group, and navigate tasks without losing the selected context.
 - `execution-view`: switch the task collection to a single agent-grouped execution timeline with a selectable 24h/7d/30d window and 1x/2x/4x/8x zoom; each task is one rectangle from creation to completion, segmented into backlog/blocked (neutral), queue (yellow), execution (green), and paused/waiting (neutral), and each agent group can contain multiple task lanes; delegation/assignment handoffs are listed as text below the chart. Open the per-task Execution tab (classic) or More > View execution (chat shell) for the run chain and expandable run events.
 - `properties`: `tasks/properties` — change status, priority, assignee, project, and relationships where authorized.
+
 - `discussion`: `tasks/discussion` — persist comments, references, and files on the task.
 - `completion`: `tasks/completion` — distinguish backlog, active work, review, blocked, done, and cancelled outcomes.
 - `privacy`: `tasks/privacy` — create private tasks, share or revoke access, and inspect parent/project inheritance before changing visibility.
+
+The [Product task-properties journey](../../tests/runner-e2e/PRODUCT-JOURNEYS.md)
+checks only assignment to the signed-in user and persistence after reload. Its
+source is reusable across self-hosted and Cloud; Cloud live qualification is
+separate. It does not cover other property operations or agent authorization.
 
 ## How to get to it (user POV)
 

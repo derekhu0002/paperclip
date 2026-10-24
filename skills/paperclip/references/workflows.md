@@ -118,7 +118,11 @@ npx paperclipai issue create \
   --assignee-agent-id "$PAPERCLIP_AGENT_ID"
 ```
 
-2. Do **not** start a heartbeat manually. Creating the issue with `status: todo` and `assigneeAgentId` already enqueues an `issue_assigned` wake for that agent. Wait for the run it creates; `heartbeat run` / `heartbeat/invoke` is only for an explicit on-demand wake when there is no issue. An empty manual wake takes the agent's concurrency slot and delays the real assignment run.
+2. Trigger and watch a heartbeat for that assignee:
+
+```bash
+npx paperclipai heartbeat run --agent-id "$PAPERCLIP_AGENT_ID"
+```
 
 3. Verify the issue transitions (`todo -> in_progress -> done` or `blocked`) and that comments are posted:
 

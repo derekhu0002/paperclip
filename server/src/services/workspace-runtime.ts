@@ -1,5 +1,9 @@
+import { insertIssueComment } from "./issue-comment-writes.js";
 import { restoreGitWorkspaceContents } from "./git-workspace-contents.js";
 import { savedGitWorkspaceRestoration, ensureSavedGitCommit, GitCacheRestorationFailure } from "./git-workspace-restoration.js";
+import { applyGitRestorePointToWorktree, ensureGitRestorePointCommit } from "./git-restore-point-storage.js";
+import { getStorageService } from "../storage/index.js";
+import type { StorageService } from "../storage/types.js";
 import { sanitizeRuntimeServiceBaseEnv } from "./runtime-service-env.js";
 import { verifiedRecordedIsolatedRemoteSource } from "./isolated-remote-workspace-source.js";
 export { sanitizeRuntimeServiceBaseEnv } from "./runtime-service-env.js";
@@ -111,6 +115,7 @@ import {
   type PersistedExposureRowSnapshot,
 } from "./runtime-exposure/port-reservation.js";
 import { resolveTailscaleDnsName } from "./runtime-exposure/tailscale-hostname.js";
+import { collectNestedRepositoryWorktrees, releaseNestedRepositoryWorktrees } from "./nested-repository-worktrees.js";
 
 export function resolveShell(): string {
   const fallback = process.platform === "win32" ? "sh" : "/bin/sh";
@@ -146,7 +151,7 @@ export interface ExecutionWorkspaceInput {
 
 /**
  * A prepared credential-bearing git invocation for one remote URL, or null to keep ambient
- * behavior. Structurally compatible with the provider built by `git-credentials.ts` — this
+ * behavior. Structurally compatible with the provider built by `git-credentials.ts` 鈥?this
  * module deliberately takes prepared invocations rather than tokens, so it never imports the
  * secrets layer and test fakes stay trivial.
  */
@@ -277,7 +282,7 @@ const quarantinedRuntimeExposurePorts = new Set<number>();
 const exposurePortPairClaims = new ExposurePortPairClaims();
 /**
  * Execution-workspace statuses that still hold an exclusive lease. `archived`
- * is the only terminal state; everything else — including `idle` — is a lane an
+ * is the only terminal state; everything else 鈥?including `idle` 鈥?is a lane an
  * operator or agent can still return to, so its port pair stays reserved.
  */
 const OPEN_EXECUTION_WORKSPACE_LEASE_STATUSES = ["active", "idle", "in_review"] as const;
@@ -426,8 +431,8 @@ function isManagedHttpsDefaultCandidate(input: {
 export type ResolvedRuntimeServiceExposure = {
   config: RuntimeExposureConfigInput;
   /**
-   * `declared` — the project template or UI caller asked for HTTPS.
-   * `default` — the server applied the automatic default (PAP-17158).
+   * `declared` 鈥?the project template or UI caller asked for HTTPS.
+   * `default` 鈥?the server applied the automatic default (PAP-17158).
    *
    * The distinction matters for port handling: a declared opt-in on a pinned
    * port is an operator misconfiguration and fails loudly, while the automatic
@@ -440,8 +445,8 @@ export type ResolvedRuntimeServiceExposure = {
 /**
  * Resolve the exposure config for one runtime service start.
  *
- * Precedence: deliberate opt-out → explicit opt-in → automatic default for
- * eligible managed runtimes → none.
+ * Precedence: deliberate opt-out 鈫?explicit opt-in 鈫?automatic default for
+ * eligible managed runtimes 鈫?none.
  */
 async function resolveRuntimeServiceExposure(input: {
   service: Record<string, unknown>;
@@ -509,7 +514,7 @@ type ProcessOutputAccumulator = {
  * the point is that a live backend survives and has to be adopted.
  *
  * Suites that spawn real backends and do *not* need that must pass
- * `terminateProcesses` — otherwise every test leaks a listener that keeps
+ * `terminateProcesses` 鈥?otherwise every test leaks a listener that keeps
  * squatting a port in the dedicated exposure range for the life of the host.
  * Termination runs before the exposure deps are restored so the suite's own
  * broker fake handles the removal rather than the real host broker.
@@ -1632,18 +1637,15 @@ async function writeDirtyQuarantineAuditComments(input: {
   let claimantAuditCommentId: string | null = null;
   const now = new Date();
   if (input.evidence.sourceIssueId) {
-    const [sourceComment] = await input.db
-      .insert(issueComments)
-      .values({
-        companyId: input.companyId,
-        issueId: input.evidence.sourceIssueId,
-        authorAgentId: null,
-        authorUserId: null,
-        authorType: "system",
-        createdByRunId: input.heartbeatRunId,
-        body,
-      })
-      .returning({ id: issueComments.id });
+    const [sourceComment] = await insertIssueComment(input.db, {
+      companyId: input.companyId,
+      issueId: input.evidence.sourceIssueId,
+      authorAgentId: null,
+      authorUserId: null,
+      authorType: "system",
+      createdByRunId: input.heartbeatRunId,
+      body,
+    });
     sourceAuditCommentId = sourceComment?.id ?? null;
     await input.db
       .update(issues)
@@ -1653,18 +1655,15 @@ async function writeDirtyQuarantineAuditComments(input: {
 
   const claimantIssueId = input.evidence.contention?.claimedByIssueId ?? null;
   if (claimantIssueId && claimantIssueId !== input.evidence.sourceIssueId) {
-    const [claimantComment] = await input.db
-      .insert(issueComments)
-      .values({
-        companyId: input.companyId,
-        issueId: claimantIssueId,
-        authorAgentId: null,
-        authorUserId: null,
-        authorType: "system",
-        createdByRunId: input.heartbeatRunId,
-        body,
-      })
-      .returning({ id: issueComments.id });
+    const [claimantComment] = await insertIssueComment(input.db, {
+      companyId: input.companyId,
+      issueId: claimantIssueId,
+      authorAgentId: null,
+      authorUserId: null,
+      authorType: "system",
+      createdByRunId: input.heartbeatRunId,
+      body,
+    });
     claimantAuditCommentId = claimantComment?.id ?? null;
     await input.db
       .update(issues)
@@ -2788,7 +2787,7 @@ async function detectDefaultBranch(
       if (await resolveBaseRefSha(repoRoot, remoteHead)) return remoteHead;
     }
   } catch {
-    // Not set — fall through to heuristic
+    // Not set 鈥?fall through to heuristic
   }
 
   // Fallback: check for common default branch names on the remote
@@ -2798,7 +2797,7 @@ async function detectDefaultBranch(
       await runGit(["rev-parse", "--verify", `${candidate}^{commit}`], repoRoot);
       return candidate;
     } catch {
-      // Not found — try next
+      // Not found 鈥?try next
     }
   }
 
@@ -3780,9 +3779,22 @@ function readRemoteWorkspaceRealization(
   return host && remotePath ? { host, path: remotePath } : null;
 }
 
+function isPersistedTaskDirectory(workspace: {
+  strategyType: string | null | undefined;
+  projectId: string | null | undefined;
+  projectWorkspaceId: string | null | undefined;
+  repoUrl: string | null | undefined;
+  metadata?: Record<string, unknown> | null;
+}): boolean {
+  return workspace.strategyType === "project_primary" && workspace.metadata?.source === "task_session"
+    && workspace.projectId === null && workspace.projectWorkspaceId === null && workspace.repoUrl === null;
+}
+
 export async function ensurePersistedExecutionWorkspaceAvailable(input: {
   prepareRestoredLocalSource?: (sourceCwd: string) => Promise<() => Promise<void>>;
   persistContentsRestoredAt?: (at: string | null) => Promise<void>;
+  persistRestorePointAppliedAt?: (at: string) => Promise<void>;
+  restorePointStorage?: StorageService;
   db?: Db | null;
   base: ExecutionWorkspaceInput;
   workspace: {
@@ -3817,13 +3829,14 @@ export async function ensurePersistedExecutionWorkspaceAvailable(input: {
   if (!cwd) return null;
 
   const strategy = input.workspace.strategyType === "git_worktree" ? "git_worktree" : "project_primary";
+  const taskDirectory = isPersistedTaskDirectory(input.workspace);
   const realized: RealizedExecutionWorkspace = {
     baseCwd: input.base.baseCwd,
-    source: input.workspace.mode === "shared_workspace" ? "project_primary" : "task_session",
+    source: input.workspace.mode === "shared_workspace" && !taskDirectory ? "project_primary" : "task_session",
     projectId: input.workspace.projectId === undefined ? input.base.projectId : input.workspace.projectId,
     workspaceId: input.workspace.projectWorkspaceId === undefined ? input.base.workspaceId : input.workspace.projectWorkspaceId,
-    repoUrl: input.workspace.repoUrl ?? input.base.repoUrl,
-    repoRef: input.workspace.baseRef ?? input.base.repoRef,
+    repoUrl: taskDirectory ? null : input.workspace.repoUrl ?? input.base.repoUrl,
+    repoRef: taskDirectory ? null : input.workspace.baseRef ?? input.base.repoRef,
     additionalWorkspaces: input.base.additionalWorkspaces ?? [],
     strategy,
     cwd,
@@ -3888,10 +3901,31 @@ export async function ensurePersistedExecutionWorkspaceAvailable(input: {
     currentRecipe = { ...currentRecipe as Record<string, unknown>, contentsRestoredAt: at };
     input.workspace.metadata!.gitCacheRestoration = currentRecipe;
   };
+  const applyRestorePoint = async (repositoryCwd: string, worktreePath: string) => {
+    const ref = restoration?.restorePoint;
+    if (!ref || ref.appliedAt || !input.workspace.id) return;
+    await applyGitRestorePointToWorktree({ storage: input.restorePointStorage ?? getStorageService(),
+      workspace: { companyId: input.agent.companyId, id: input.workspace.id }, ref, repositoryCwd, worktreePath })
+      .catch(() => { throw new GitCacheRestorationFailure(); });
+    const at = new Date().toISOString();
+    if (input.persistRestorePointAppliedAt) await input.persistRestorePointAppliedAt(at);
+    else {
+      if (!input.db) throw new GitCacheRestorationFailure();
+      const updated = await input.db.update(executionWorkspaces).set({
+        metadata: sql`jsonb_set(${executionWorkspaces.metadata}, '{gitCacheRestoration,restorePoint,appliedAt}', ${JSON.stringify(at)}::jsonb)`,
+      }).where(and(eq(executionWorkspaces.id, input.workspace.id), eq(executionWorkspaces.companyId, input.agent.companyId),
+        sql`${executionWorkspaces.metadata}->'gitCacheRestoration'->'restorePoint'->>'id' = ${ref.id}`))
+        .returning({ id: executionWorkspaces.id });
+      if (updated.length !== 1) throw new GitCacheRestorationFailure();
+    }
+    ref.appliedAt = at;
+    currentRecipe = { ...currentRecipe as Record<string, unknown>, restorePoint: { ...ref } };
+    input.workspace.metadata!.gitCacheRestoration = currentRecipe;
+  };
   const restoreContents = async () => {
     if (!restoration?.contents || !input.workspace.id) return;
     await restoreGitWorkspaceContents({ cwd, companyId: input.agent.companyId, workspaceId: input.workspace.id,
-      contents: restoration.contents, resolveGitAuth: async url => {
+      projectId: input.workspace.projectId, contents: restoration.contents, resolveGitAuth: async url => {
         const auth = await input.resolveGitAuth?.(url);
         if (!auth) return null;
         const source = auth.source;
@@ -3988,6 +4022,7 @@ export async function ensurePersistedExecutionWorkspaceAvailable(input: {
     realized.warnings = [...repairWarnings, ...baseRefreshWarnings, ...baseDrift.warnings];
     realized.baseRefSha = refresh.baseRefSha ?? recordedBaseRefSha ?? baseDrift.branchBaseRefSha ?? baseDrift.currentBaseRefSha;
     await input.afterSourceCopy?.(repoRoot, realized.worktreePath ?? cwd);
+    await applyRestorePoint(repoRoot, realized.worktreePath ?? cwd);
     if (restoration && !restoration.contentsRestored) await restoreContents();
     await provisionExecutionWorktree({
       skipHostProvision: input.skipHostProvision,
@@ -4017,6 +4052,11 @@ export async function ensurePersistedExecutionWorkspaceAvailable(input: {
   await fs.mkdir(path.dirname(worktreePath), { recursive: true });
   await runGit(["worktree", "prune"], repoRoot).catch(() => {});
   if (savedCommit) {
+    if (restoration?.restorePoint && input.workspace.id) {
+      await ensureGitRestorePointCommit({ storage: input.restorePointStorage ?? getStorageService(),
+        workspace: { companyId: input.agent.companyId, id: input.workspace.id }, ref: restoration.restorePoint, repositoryCwd: repoRoot })
+        .catch(() => { throw new GitCacheRestorationFailure(); });
+    }
     await ensureSavedGitCommit(repoRoot, input.workspace.repoUrl ?? input.base.repoUrl!, savedCommit, input.resolveGitAuth ?? (async () => null));
     const existingTip = await resolveBaseRefSha(repoRoot, `refs/heads/${branchName}`);
     // Once restored, subsequent task commits own this branch. The saved commit
@@ -4091,6 +4131,7 @@ export async function ensurePersistedExecutionWorkspaceAvailable(input: {
   });
 
   await input.afterSourceCopy?.(repoRoot, worktreePath);
+  await applyRestorePoint(repoRoot, worktreePath);
   await restoreContents();
   await provisionExecutionWorktree({
     skipHostProvision: input.skipHostProvision,
@@ -4267,6 +4308,10 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
   // Callers can require the workspace to match an assessed snapshot before
   // cleanup begins. Destructive paths recheck immediately before removal.
   await input.assertSafeToCleanup?.();
+  const nestedWorktrees = workspacePath ? await collectNestedRepositoryWorktrees(workspacePath).catch((err) => {
+    warnings.push(`Could not inspect nested repository worktrees: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }) : [];
   let worktreeInstancePointer: WorktreeInstancePointer | null = null;
   let expectedWorktreeInstanceId: string | null = null;
   if (input.workspace.providerType === "git_worktree" && workspacePath) {
@@ -4442,6 +4487,7 @@ export async function cleanupExecutionWorkspaceArtifacts(input: {
   const cleaned =
     !workspacePath ||
     !(await directoryExists(workspacePath));
+  if (cleaned) warnings.push(...await releaseNestedRepositoryWorktrees(nestedWorktrees));
 
   return {
     cleanedPath: workspacePath,
@@ -4474,8 +4520,8 @@ function reservePortIfFree(port: number, now = Date.now()): boolean {
 
 /**
  * Claim the loopback port a start is about to bind. A configured port that reads free right now
- * can still be taken by a sibling workspace that is mid-start — neither has bound yet and
- * neither has a persisted row — so the claim is what makes the loser fail terminally here
+ * can still be taken by a sibling workspace that is mid-start 鈥?neither has bound yet and
+ * neither has a persisted row 鈥?so the claim is what makes the loser fail terminally here
  * instead of racing to bind and then hanging on a readiness probe it can never satisfy.
  * A start already holding the port from its own allocation must not be refused by itself.
  */
@@ -4513,8 +4559,8 @@ async function probeEphemeralPort(): Promise<number> {
 /**
  * Execution workspaces whose exclusive lease is still open.
  *
- * "Open" is deliberately generous — every non-archived, non-closed status
- * counts — because the reservation must outlive the *process*, not track it.
+ * "Open" is deliberately generous 鈥?every non-archived, non-closed status
+ * counts 鈥?because the reservation must outlive the *process*, not track it.
  * A lane that is stopped, torn down, and reported `removed` still owns its
  * pair until the workspace itself is released (PAP-17419).
  */
@@ -4599,8 +4645,8 @@ async function buildCompanyExposureReservationLedger(input: {
  *
  * The point is visibility. A false `stopped`/`removed` row used to be
  * indistinguishable from a genuinely released one, so the pair silently
- * returned to the free list and the next managed start collided with — or
- * adopted — an unrelated workspace's service. Surfacing it does not stop or
+ * returned to the free list and the next managed start collided with 鈥?or
+ * adopted 鈥?an unrelated workspace's service. Surfacing it does not stop or
  * mutate the occupying service; that stays the owning issue's call.
  */
 async function detectPersistedExposureReservationDrift(input: {
@@ -4742,7 +4788,7 @@ async function allocateAndReserveExposure(input: {
 
       // Complete mediation before the broker is asked for anything: persisted
       // reservations were already folded into `reserved`, so what remains is the
-      // live host — the listener actually bound, and the Serve mapping actually
+      // live host 鈥?the listener actually bound, and the Serve mapping actually
       // published. Either one belonging to a different execution workspace is
       // terminal, never an adoption.
       const conflict = findExposurePairConflict({
@@ -4774,8 +4820,8 @@ async function allocateAndReserveExposure(input: {
       preferredAppPort = null;
     }
   } finally {
-    // Every pair this call took but did not hand back — rejected candidates and
-    // the in-flight pair on a thrown failure — goes back immediately. Leaving
+    // Every pair this call took but did not hand back 鈥?rejected candidates and
+    // the in-flight pair on a thrown failure 鈥?goes back immediately. Leaving
     // them held would burn the range down over a retry storm.
     for (const pair of claimed) exposurePortPairClaims.release(pair);
   }
@@ -5350,7 +5396,7 @@ export async function waitForRuntimeServiceReadiness(input: {
   while (now() < deadline) {
     const remainingMs = deadline - now();
     // When the readiness budget is what bounds this probe, aborting it only means we ran out of
-    // time — it is not an observation about the service, so it must not replace one we already have.
+    // time 鈥?it is not an observation about the service, so it must not replace one we already have.
     const boundedByDeadline = remainingMs <= RUNTIME_SERVICE_READINESS_PROBE_TIMEOUT_MS;
     const probeBudgetMs = Math.max(1, Math.min(RUNTIME_SERVICE_READINESS_PROBE_TIMEOUT_MS, remainingMs));
     let probeSignal: AbortSignal | undefined;
@@ -6179,7 +6225,7 @@ async function spawnLocalRuntimeService(input: StartLocalRuntimeServiceInput): P
   // alone cannot guarantee that: the process that has to honour them is the
   // *guest checkout's* dev runner, and one from before managed exposure existed
   // overwrites PAPERCLIP_BIND from its own `--bind` argv and deletes
-  // PAPERCLIP_BIND_HOST — which is exactly how a branch pinned at plain master
+  // PAPERCLIP_BIND_HOST 鈥?which is exactly how a branch pinned at plain master
   // bound 0.0.0.0 and failed every start (PAP-17256). argv is honoured by every
   // dev-runner version, so put the loopback bind there.
   //
@@ -6252,8 +6298,8 @@ async function spawnLocalRuntimeService(input: StartLocalRuntimeServiceInput): P
   // An exposed runtime always takes its port from the dedicated broker range, so
   // a configured or previously used port is a *preference*, not a constraint. It
   // is honored when it is already an allowlisted app port whose HMR companion is
-  // free — that keeps a restart on the same port and keeps a backfilled service
-  // stable across deploys — and quietly relocated when it is not, which is the
+  // free 鈥?that keeps a restart on the same port and keeps a backfilled service
+  // stable across deploys 鈥?and quietly relocated when it is not, which is the
   // only way a legacy pinned port (the Paperclip App template's 45439) can be
   // published at all. If the backend then fails to listen where we allocated,
   // the broker's /proc ownership proof refuses the mapping and the start fails
@@ -6275,8 +6321,8 @@ async function spawnLocalRuntimeService(input: StartLocalRuntimeServiceInput): P
     : null;
   // Loopback port this start claimed in-process for its own duration (PAP-17249). A bare
   // `listen(0)` probe is closed before the child binds, so the kernel is free to hand the same
-  // candidate to a sibling start; holding the claim until the child owns the port — or until the
-  // start reaches a terminal state — is what keeps two concurrent lanes distinct. Exposed
+  // candidate to a sibling start; holding the claim until the child owns the port 鈥?or until the
+  // start reaches a terminal state 鈥?is what keeps two concurrent lanes distinct. Exposed
   // runtimes carry no in-process claim: their port pair is held by the broker reservation.
   let reservedPort: number | null = null;
   let port: number | null = reservedExposure?.appPort ?? null;
@@ -6340,7 +6386,7 @@ async function spawnLocalRuntimeService(input: StartLocalRuntimeServiceInput): P
         .catch(() => undefined);
       // The reservation deliberately keeps the winning pair's in-process claim for
       // the caller to release on stop/teardown. No runtime record exists yet, so
-      // that teardown path can never run for this pair — releasing the broker
+      // that teardown path can never run for this pair 鈥?releasing the broker
       // reservation alone would leave the claim held. A hostname outage would then
       // burn one pair per attempt, and a retry storm inside the claim TTL would
       // report the range exhausted rather than the real cause.
@@ -6532,7 +6578,7 @@ async function spawnLocalRuntimeService(input: StartLocalRuntimeServiceInput): P
   // A pinned port is only worth a conflict check when the service will actually
   // bind it. Under HTTPS exposure the port comes from the broker's dedicated
   // range instead, and both ports in that pair were already probed free before
-  // the lease was taken — so checking the pinned port here would reject a
+  // the lease was taken 鈥?so checking the pinned port here would reject a
   // legacy `port: 45439` service purely because the pre-backfill instance still
   // holds 45439, which is exactly the workspace this feature has to upgrade.
   const conflictPort = reservedExposure ? null : port;
@@ -6755,14 +6801,13 @@ async function spawnLocalRuntimeService(input: StartLocalRuntimeServiceInput): P
         // in the operation log is what made PAP-17254 undiagnosable (PAP-17256).
         const code = provisioned.status.lastError ?? "unknown error";
         throw new Error(
-          `HTTPS exposure failed: ${code}${provisioned.errorDetail ? ` — ${provisioned.errorDetail}` : ""}`,
+          `HTTPS exposure failed: ${code}${provisioned.errorDetail ? ` 鈥?${provisioned.errorDetail}` : ""}`,
         );
       }
     }
     // Transport readiness only proves a listener answered. A managed workspace
-    // must additionally satisfy the protected readiness contract — own database,
-    // cloned rows, login handoff, and matching instance/workspace identity —
-    // before it may be published as running/healthy (PAP-17572).
+    // must additionally satisfy the protected readiness contract 鈥?own database,
+    // cloned rows, login handoff, and matching instance/workspace identity 鈥?    // before it may be published as running/healthy (PAP-17572).
     if (managedWorkspaceIdentity) {
       const publishHealthUrl = resolveRuntimeServiceHealthUrl(
         record.port ? `http://127.0.0.1:${record.port}` : rewriteUrlHostToLoopback(record.url ?? backendUrl),
@@ -7095,7 +7140,7 @@ async function cleanupRecordExposure(
   });
   for (const port of result.quarantinedPorts) quarantinedRuntimeExposurePorts.add(port);
   // Drop the in-process pair claim on teardown. The *lease* reservation is what
-  // still protects the pair from another workspace (PAP-17419) — this only
+  // still protects the pair from another workspace (PAP-17419) 鈥?this only
   // releases the short-lived hold that keeps concurrent allocators apart, and
   // keeping it would block this very lane's own restart.
   if (record.port !== null && isRuntimeExposureAppPort(record.port)) {
@@ -7314,7 +7359,7 @@ async function cleanupPersistedExposureRows(
         ownedListeners: corroboration.ownedListeners,
       });
       if (decision.action === "defer") {
-        // Broker unreachable — we cannot prove anything. Never guess; surface it.
+        // Broker unreachable 鈥?we cannot prove anything. Never guess; surface it.
         await db
           .update(workspaceRuntimeServices)
           .set({
@@ -8579,7 +8624,7 @@ export async function reconcilePersistedRuntimeServicesOnStartup(db: Db) {
   for (const row of rows) {
     // PAP-17419: this row's reserved pair is live, or Serve-mapped, under an
     // identity that is not this row's. Every branch below is unsafe for such a
-    // row — cleanup would remove a mapping that is now someone else's, adoption
+    // row 鈥?cleanup would remove a mapping that is now someone else's, adoption
     // would take over another execution workspace's service and re-attribute it
     // here, and the health branch would terminate it outright. None of that is
     // this sweep's call to make, so leave the row and the occupying service
@@ -8593,7 +8638,7 @@ export async function reconcilePersistedRuntimeServicesOnStartup(db: Db) {
       // This branch is a GLOBAL sweep: `rows` spans every execution workspace and
       // company on the host, at any age, and it runs on every server start. It
       // used to issue a broker removal for each stale row on the row's authority
-      // alone — which is how a restart at 12:25:49 UTC deleted the preserved
+      // alone 鈥?which is how a restart at 12:25:49 UTC deleted the preserved
       // `42000/52000` mappings from two rows that were 2 and 3 days old
       // (PAP-17285). Corroborate against the broker's live ownership view, which
       // this function has already fetched, instead of trusting the row.
@@ -8913,7 +8958,7 @@ export async function restartDesiredRuntimeServicesOnStartup(db: Db) {
           : null,
         workspace: {
           baseCwd: row.cwd,
-          source: row.mode === "shared_workspace" ? "project_primary" : "task_session",
+          source: row.mode === "shared_workspace" && !isPersistedTaskDirectory(row) ? "project_primary" : "task_session",
           projectId: row.projectId,
           workspaceId: row.projectWorkspaceId ?? null,
           repoUrl: row.repoUrl ?? null,
@@ -9051,7 +9096,7 @@ const COMMENT_METADATA_LABEL_MAX_LENGTH = 120;
 function workspaceReadyServiceLabel(serviceName: string): string {
   const label = serviceName.trim() || "Service";
   return label.length > COMMENT_METADATA_LABEL_MAX_LENGTH
-    ? `${label.slice(0, COMMENT_METADATA_LABEL_MAX_LENGTH - 1)}…`
+    ? `${label.slice(0, COMMENT_METADATA_LABEL_MAX_LENGTH - 1)}鈥
     : label;
 }
 
@@ -9059,13 +9104,13 @@ export function buildWorkspaceReadyPresentation(
   input: WorkspaceReadyCommentInput,
 ): IssueCommentPresentation {
   const workspaceLabel = input.workspace.branchName ?? input.workspace.strategy;
-  const title = `Workspace ready · ${workspaceLabel}`;
+  const title = `Workspace ready 路 ${workspaceLabel}`;
   const hasWarnings = input.workspace.warnings.length > 0;
 
   return {
     kind: "system_notice",
     tone: hasWarnings ? "warning" : "info",
-    title: title.length > 160 ? `${title.slice(0, 159)}…` : title,
+    title: title.length > 160 ? `${title.slice(0, 159)}鈥 : title,
     density: "compact",
     detailsDefaultOpen: hasWarnings,
   };

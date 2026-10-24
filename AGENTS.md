@@ -16,6 +16,7 @@ Before making changes, read in this order:
 3. `doc/SPEC-implementation.md`
 4. `doc/DEVELOPING.md`
 5. `doc/DATABASE.md`
+6. `doc/FORK-AGENT-RULES.md` (fork-specific agent behavior: automatic wakes, dependency release, idle watchdog, plan-chain, graph evidence)
 
 `doc/SPEC.md` is long-horizon product context.
 `doc/SPEC-implementation.md` is the concrete V1 build contract.

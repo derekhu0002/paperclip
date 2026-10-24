@@ -1315,10 +1315,43 @@ implement `onResourceLifecycle` and `onWorkspaceOperation`. Project lifecycle
 creates and retains the storage; workspace operations manage task checkouts in
 that storage. Execution remains a separate environment driver contract.
 
-Set `project.executionWorkspacePolicy.storageProviderPluginId` to the installed
-plugin's UUID. Core then reserves an execution-workspace row and binds the task
-before it calls `onWorkspaceOperation`. Projects without this setting keep their
-current local behavior. Existing managed workspaces retain their original owner.
+Set `project.executionWorkspacePolicy.storageProviderPluginId` to an installed
+plugin's UUID for an explicit selection, or `null` for explicit Core/local storage.
+Omit the field to inherit the installed company-enabled default. A provider claims
+that default by declaring, for example:
+
+```ts
+workspaceProvider: {
+  modes: ["isolated_workspace", "operator_branch"],
+  strategies: ["git_worktree"],
+  defaultForProjects: { mode: "isolated_workspace", strategy: "git_worktree" },
+}
+```
+
+The declared defaults must be supported by the provider. Core applies missing mode
+and strategy settings to Git projects, including existing unconfigured projects,
+without writing their policy. Explicit settings remain intact; incompatible
+settings fail with a configuration error. Multiple enabled default claims require
+an explicit project choice or disabling a conflicting provider. Worker health does
+not change the selected default: unavailable providers fail without local fallback.
+No company settings row means enabled, matching the normal plugin contract.
+
+New and imported tasks leave an unspecified project mode inherited. Provider-owned
+workspaces retain explicit project and task strategies in shared and operator-branch
+modes. If neither supplies a strategy, those modes use `project_primary`; an agent's
+Git strategy remains a fallback only for isolated mode.
+
+Project responses keep the stored `executionWorkspacePolicy` and expose the
+separate `workspaceProvider` configuration, including its source, effective policy,
+provider choices and configuration error. The project configuration UI supports
+inheritance, explicit plugins and Core/local storage. Conflicts remain readable so
+operators can resolve them through this flow.
+
+Core reserves an execution-workspace row and binds the task before calling
+`onWorkspaceOperation`. Source-free task directories do not prepare project storage. The resolved provider
+choice, including Core/local, stays fixed through source resolution and preparation.
+Existing workspaces, including local workspaces, retain their original owner. Changing defaults never migrates, resets or recreates them;
+normal retirement and cleanup gates still apply on disable/uninstall.
 
 The hook receives a company, project, source revision, execution-workspace ID,
 lifecycle generation, deadline, and stable operation ID. Run and agent IDs are
@@ -1373,3 +1406,29 @@ other Core-host filesystem operations are unavailable for managed storage.
 
 Use `createWorkspaceProviderHarness` from `@paperclipai/plugin-sdk/testing` to
 validate hook inputs and outputs without allocating an execution environment.
+
+
+### Private project instance credentials
+
+Project lifecycle plugins can opt into `projects.instance-secrets` alongside
+`events.subscribe` and `resourceLifecycle: ["project"]`. Automatic project
+callbacks receive `event.instanceSecrets`; return an `instanceSecrets` patch
+with an acknowledged result. Core stores the patch in the existing native
+instance-secret system and acknowledges the event in one transaction. A null
+value removes a key. Retry and deferred results do not store patches.
+
+Each company/project/installed-plugin owns its credentials. Up to 16 lowercase
+snake_case keys may change per result; nonempty string values are limited to
+128 KiB each. Core rejects replies if configuration, project sources, lifecycle
+state, or secret versions changed during the callback. A duplicate response to
+an acknowledged event cannot overwrite credentials. Deleted projects allow
+removal only; their secrets are also deleted by the native owner foreign key.
+
+Trusted worker code can use
+`ctx.projects.getInstanceSecrets(projectId, companyId)` during a company-scoped
+invocation to read its credentials without an external service call. Archived
+or missing projects cannot be read this way. Values never appear in ordinary
+lifecycle inbox listings or the company secret catalog. Do not expose values
+through plugin entities, state, data handlers, UI, or logs. Agent instance
+secrets retain their existing lifecycle contract. Back up the tenant's existing
+local secrets master key together with its database.
