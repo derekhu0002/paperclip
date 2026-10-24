@@ -6,5 +6,6 @@
     "lib": ["ES2023", "DOM"],
     "jsx": "react-jsx"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/ui"]
 }
