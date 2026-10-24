@@ -93,3 +93,7 @@ packages/grok-acp/bin
 
 !packages/paperclip-runner/test/fixtures/copilot-profile-v24-identity.json
 .paperclip-runtime
+.argo
+server/dist
+server/ui-dist
+ui/dist
