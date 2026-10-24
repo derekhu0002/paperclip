@@ -44,6 +44,32 @@ stamp. A mismatch between the health commit and the deployed build is a defect.
 - Historical branches are kept only as rollback anchors
   (`backup-47-*`, `deploy-2026-10-21`). They are never deployed from.
 
+### 3.1 Fallback when 47 cannot reach GitHub
+
+47's link to GitHub is intermittent (`GnuTLS recv error -110`, port 443
+timeouts). The only permitted fallback is a **git bundle of the exact pushed
+commit**, never a copy of the workstation working tree:
+
+```sh
+# Workstation, after the push succeeded:
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/dev/local-install)"
+git bundle create /tmp/origin.bundle HEAD
+scp /tmp/origin.bundle root@47.107.161.168:/tmp/origin.bundle
+```
+
+```sh
+# 47: import the bundle, then prove it is the same commit
+cd /home/paperclip/paperclip-fork
+git fetch /tmp/origin.bundle 'refs/heads/dev/local-install:refs/remotes/origin/dev/local-install'
+test "$(git rev-parse FETCH_HEAD)" = "$SHA"
+git reset --hard FETCH_HEAD
+rm -f /tmp/origin.bundle
+```
+
+The SHA equality check is mandatory. If the bundle's SHA does not match the
+commit already on GitHub, the deploy is aborted.
+
+
 ## 4. Standard deploy runbook
 
 Run steps 1-6 on the workstation, steps 7-10 on 47.
