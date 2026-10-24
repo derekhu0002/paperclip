@@ -14,7 +14,6 @@ export function buildOpenCodeLocalConfig(v: CreateConfigValues): Record<string, 
   if (v.model) ac.model = v.model;
   if (v.thinkingEffort) ac.variant = v.thinkingEffort;
   ac.dangerouslySkipPermissions = v.dangerouslySkipPermissions;
-  if (v.directRemoteWorkspace) ac.directRemoteWorkspace = true;
   const nativeSelected = v.runner === "paperclip"
     || ((v.runner === undefined || v.runner === "auto") && v.resolvedRunner === "paperclip");
   if (nativeSelected) {
@@ -22,6 +21,7 @@ export function buildOpenCodeLocalConfig(v: CreateConfigValues): Record<string, 
     if (v.paperclipRunnerLifecycleMode !== undefined) ac.lifecycleMode = v.paperclipRunnerLifecycleMode;
     if (v.paperclipRunnerIdleTimeoutMs !== undefined) ac.idleTimeoutMs = v.paperclipRunnerIdleTimeoutMs;
   }
+  if (v.directRemoteWorkspace) ac.directRemoteWorkspace = true;
   // OpenCode sessions can run until the CLI exits naturally; keep timeout disabled (0)
   // and rely on graceSec for termination handling when a timeout is configured elsewhere.
   ac.timeoutSec = 0;

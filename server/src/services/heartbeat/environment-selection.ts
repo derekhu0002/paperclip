@@ -31,6 +31,7 @@ import type { TrustPresetResolution } from "../trust-preset-resolver.js";
 import { WORKSPACE_BUSY_RETRY_REASON } from "../../modules/run-dispatch/index.js";
 import { WorkspaceBusyDeferral, type createHeartbeatRetries } from "./retries.js";
 import { ConfigurationIncompleteFailure } from "./run-preparation.js";
+import { assertProjectBoundAgentExecutionTarget } from "../../fork/project-execution-binding.js";
 import { resolveNativeRecoveryExecutionWorkspaceBinding, resolveExecutionWorkspaceReuseRequestForIssue } from "./workspaces.js";
 
 type Issue = typeof issues.$inferSelect;
@@ -79,71 +80,6 @@ export interface HeartbeatEnvironmentSelectionInput {
 
 function readNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
-}
-
-/**
- * A project-bound agent must execute on its execution machine, in the project's
- * real directory. Direct workspace mode gives the run process, and the MCP
- * servers it spawns, the real checkout as their cwd instead of a staged copy.
- */
-async function assertProjectBoundAgentExecutionTarget(
-  db: Db,
-  agent: Pick<typeof agents.$inferSelect, "id" | "companyId" | "adapterType" | "adapterConfig"> & { name?: string | null },
-  selectedEnvironmentForConfig: { driver: string; config: unknown } | null,
-) {
-  if (agent.adapterType !== "opencode_local") return;
-  const agentName = agent.name ?? agent.id;
-  const [bound] = await db
-    .select({ id: projects.id, name: projects.name })
-    .from(projects)
-    .where(and(eq(projects.companyId, agent.companyId), eq(projects.leadAgentId, agent.id)))
-    .limit(1);
-  if (!bound) return;
-
-  const config = parseObject(agent.adapterConfig);
-  if (config.directRemoteWorkspace !== true) {
-    throw new ConfigurationIncompleteFailure(
-      `Project agent "${agentName}" must run with Direct remote workspace enabled so the project checkout is the real execution directory. Open Agent > Configuration and enable Direct remote workspace.`,
-      {
-        configurationIncomplete: {
-          reason: "project_agent_direct_workspace_required",
-          projectId: bound.id,
-          agentId: agent.id,
-        },
-      },
-    );
-  }
-
-  const driver = selectedEnvironmentForConfig?.driver ?? null;
-  if (!driver || driver === "local") {
-    throw new ConfigurationIncompleteFailure(
-      `Project agent "${agentName}" is bound to project "${bound.name}" but resolves to the local environment. Set a remote execution environment on the agent so its task runs on the execution machine.`,
-      {
-        configurationIncomplete: {
-          reason: "project_agent_remote_environment_required",
-          projectId: bound.id,
-          agentId: agent.id,
-        },
-      },
-    );
-  }
-
-  if (driver === "ssh") {
-    const environmentConfig = parseObject(selectedEnvironmentForConfig?.config);
-    const remoteWorkspacePath = readNonEmptyString(environmentConfig.remoteWorkspacePath);
-    if (!remoteWorkspacePath) {
-      throw new ConfigurationIncompleteFailure(
-        `Project agent "${agentName}" uses an SSH environment without a remote workspace path. Set the environment's remote workspace path to project "${bound.name}"'s real checkout.`,
-        {
-          configurationIncomplete: {
-            reason: "project_agent_remote_workspace_path_required",
-            projectId: bound.id,
-            agentId: agent.id,
-          },
-        },
-      );
-    }
-  }
 }
 
 export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnvironmentSelectionInput) {
@@ -240,7 +176,7 @@ export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnviron
   // Managed-sandbox-only policy: a run that would land on the local
   // environment is redirected onto the platform-managed sandbox row, and
   // with no active managed row the resolution fails closed
-  // (ManagedSandboxUnavailableError) 鈥?never local. Mirrors the forced
+  // (ManagedSandboxUnavailableError) — never local. Mirrors the forced
   // kubernetes execution mode below, which takes precedence when both
   // regimes are active.
   const managedSandboxOnly =
@@ -264,7 +200,7 @@ export async function selectHeartbeatEnvironment(db: Db, input: HeartbeatEnviron
   > = requestedExecutionWorkspaceMode;
   const executionPolicy = {
     executionMode: resolvedInstanceSettings.general.executionMode,
-    // Backstop behind the resolver's local鈫抦anaged redirect: the run-time
+    // Backstop behind the resolver's local→managed redirect: the run-time
     // allowlist below fails any run that still resolved to a `local`
     // environment under managed-sandbox-only, so no selection path or
     // tenant-set env var can land untrusted execution on the tenant
