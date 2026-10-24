@@ -1721,6 +1721,14 @@
         {
           "name": "commit",
           "value": "b2642fcf034d52ff846c1a5b06cb7d265bc06344 | 2026-10-24 refactor(org): decouple project tree into a plugin; files: packages/plugins/plugin-project-tree/** , ui/src/App.tsx, ui/src/components/Sidebar.tsx, ui/src/components/Sidebar.production.tsx, ui/src/components/Sidebar.test.tsx, pnpm-lock.yaml (deleted: ui/src/pages/Organization.tsx, ui/src/lib/projectTree.ts, ui/src/pages/Organization.test.tsx, ui/src/lib/projectTree.test.ts)"
+        },
+        {
+          "name": "deployed47",
+          "value": "2026-10-24T05:37Z plugin paperclip-project-tree (id c5f95def-fe9e-42fb-b026-80b144220d33, version 0.1.0) installed from /home/paperclip/paperclip-fork/packages/plugins/plugin-project-tree; status=ready; ui-dist replaced (backup /root/backups/ui-dist-pre-project-tree-<ts>)"
+        },
+        {
+          "name": "deployed47Verified",
+          "value": "health ok (commit 5049ac5d86 server unchanged); GET /paperclip/organization 200; /api/plugins/ui-contributions -> page:organization + sidebar; /_plugins/<id>/ui/index.js 200 contains ProjectTreePage; bridge data project-tree -> stats.projects=3 stats.agents=3; 47 ui/src no longer has Organization.tsx / projectTree.ts and App.tsx/Sidebar no longer reference /organization"
         }
       ],
       "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。\n\n【2026-10-24 解耦（Tier 3，插件化）】页面、导航与路由实现迁入独立插件包 `packages/plugins/plugin-project-tree`（`ui.slots: page(routePath=organization) + sidebar`），对上游文件的侵入从 5 处降为 1 行注册：\n- 删除：`ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts`、`ui/src/pages/Organization.test.tsx`、`ui/src/lib/projectTree.test.ts`、`ui/src/App.tsx` 的 lazy import 与 board route、`ui/src/components/Sidebar.tsx` 与 `Sidebar.production.tsx` 的 Project Tree 导航行。\n- 保留（footprint=registration）：`ui/src/App.tsx` 的 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />` 一行，仅用于无前缀书签 `/organization` 兼容跳转；`/workbench` 之外的真实页面由插件在 `/:companyPrefix/organization` 提供。\n- 未改：`projects.parent_project_id`（core schema）与其写入路径；项目创建/编辑契约不变。\n- 验收迁移：树构建语义（父子嵌套、孤儿为根、归档排除、环保护、子项目 lead 不计入父队）与插件装配（page+sidebar、只读能力）均有可执行用例，命令 `pnpm --filter @paperclipai/plugin-project-tree test`。\n- 启用前提：实例需安装该插件（`paperclipai plugin install packages/plugins/plugin-project-tree`，或在 bundled 目录写 catalog 并加入 `plugins.autoInstall`）；未安装时 `/organization` 不再渲染项目树，这是解耦后的预期行为。",
@@ -2204,9 +2212,17 @@
         {
           "name": "status",
           "value": "ACTIVE"
+        },
+        {
+          "name": "deployed47",
+          "value": "2026-10-24T05:37Z plugin ready, ui-dist swapped, service restarted, health ok"
+        },
+        {
+          "name": "deployed47Id",
+          "value": "c5f95def-fe9e-42fb-b026-80b144220d33"
         }
       ],
-      "description": "【目标】把 fork 自研的 /organization 项目树从上游文件里解耦，降低 upstream 合并冲突面。\n\n【做法】新建可安装插件 `packages/plugins/plugin-project-tree`（manifest page slot routePath=organization + sidebar slot；worker 用 ctx.projects.list/ctx.agents.list 读数据；纯函数 buildProjectTree 带环保护/归档排除/团队规则）。删除 `ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts` 及其两个测试；移除 App.tsx 的 lazy import 与 board route、Sidebar.tsx 与 Sidebar.production.tsx 的 Project Tree 导航行、Sidebar.test.tsx 的期望项。仅保留 1 行 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />`（footprint=registration，保无前缀书签）。`projects.parent_project_id` 与其写入路径未改。\n\n【提交】b2642fcf0（代码）+ 4e9887c81（KG/qea 注册）。\n\n【验证】插件测试 7 passed（tree.spec 5 + manifest.spec 2）；插件 typecheck/build 通过；`@paperclipai/ui tsc -b` 通过；Sidebar.test 30 passed；check:token-gates 全清；validateSystemArchitecture passed。未跑 ui vite build 与全量 test:run。\n\n【关键坑】1) 有两个侧边栏文件：Sidebar.tsx 与 Sidebar.production.tsx，都要删。2) 插件未安装时 /prefix/organization 变 NotFound —— 上线前必须 `paperclipai plugin install packages/plugins/plugin-project-tree`（或 bundled catalog + plugins.autoInstall）。3) 插件 dist/ 被 .gitignore 忽略，安装前必须先 build。4) 插件 page 由 PluginPage 渲染，面包屑会变成 Plugins / Project Tree（宿主行为）。5) sidebar 槽位渲染在 Work 分组而非 Org 分组。6) Windows `pnpm install` 的 postinstall（scripts/link-plugin-dev-sdk.mjs）会因 symlink EPERM 失败，属既有环境问题，不影响 workspace 链接。",
+      "description": "【目标】把 fork 自研的 /organization 项目树从上游文件里解耦，降低 upstream 合并冲突面。\n\n【做法】新建可安装插件 `packages/plugins/plugin-project-tree`（manifest page slot routePath=organization + sidebar slot；worker 用 ctx.projects.list/ctx.agents.list 读数据；纯函数 buildProjectTree 带环保护/归档排除/团队规则）。删除 `ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts` 及其两个测试；移除 App.tsx 的 lazy import 与 board route、Sidebar.tsx 与 Sidebar.production.tsx 的 Project Tree 导航行、Sidebar.test.tsx 的期望项。仅保留 1 行 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />`（footprint=registration，保无前缀书签）。`projects.parent_project_id` 与其写入路径未改。\n\n【提交】b2642fcf0（代码）+ 4e9887c81 / 53d6917ac（KG/qea 注册与记忆）。\n\n【47 部署（2026-10-24T05:37Z）】按\"先装插件、再换 UI\"顺序完成：① 本地 build 插件与 ui；② 同步插件目录（含 dist）并建 `node_modules/@paperclipai/plugin-sdk -> ../../../sdk`（注意是 3 层，不是 2 层）；③ 用临时 board key 调 `POST /api/plugins/install`（isLocalPath=true）→ status=ready；④ 备份并替换 `server/ui-dist`（备份在 /root/backups/ui-dist-pre-project-tree-*）；⑤ 同步 4 个 ui 源文件、删除 4 个旧文件；⑥ 重启 paperclip.service。\n\n【部署验证】health=ok（server commit 仍为 5049ac5d86，未动服务端）；GET /paperclip/organization → 200；ui-contributions 含 `page:organization` 与 `sidebar`；`/_plugins/<id>/ui/index.js` 200 且含 ProjectTreePage；bridge data `project-tree` 返回 stats.projects=3 / agents=3；47 源码已无 Organization.tsx/projectTree.ts，App.tsx 与 Sidebar 不再引用 /organization。\n\n【验证命令】插件测试 7 passed；插件 typecheck/build 通过；`@paperclipai/ui tsc -b` 通过；Sidebar.test 30 passed；check:token-gates 全清；validateSystemArchitecture passed。未跑 ui vite build（已用产物部署）与全量 test:run。\n\n【关键坑】1) 两个侧边栏文件：Sidebar.tsx 与 Sidebar.production.tsx。2) 插件未安装时 /prefix/organization 变 NotFound，上线必须先装插件。3) 插件 dist/ 被 gitignore，安装前必须 build。4) 47 上 workspace 包需要手动 symlink plugin-sdk（3 层相对路径），否则 worker 启动报 Cannot find module。5) 47 用 tsx loader 跑 local-path 插件 worker，普通 node 直接 import SDK 会因 shared 的 TS 源码解析失败——这是测试方法问题，不是部署问题。6) 插件 page 面包屑为 Plugins / Project Tree；sidebar 槽位在 Work 分组。7) Windows `pnpm install` postinstall（scripts/link-plugin-dev-sdk.mjs）的 symlink EPERM 是既有环境问题。8) PowerShell 通过管道给 ssh 传脚本会混入 CRLF，改用本地写 LF 文件 + scp + bash。",
       "name": "2026-10-24 Project Tree 解耦为插件（Tier 3）",
       "type": "Requirement",
       "id": "2026-10-24-project-tree-tier-3"
