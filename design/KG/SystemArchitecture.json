@@ -2234,6 +2234,34 @@
       "name": "2026-10-24 Project Tree 解耦为插件（Tier 3）",
       "type": "Requirement",
       "id": "2026-10-24-project-tree-tier-3"
+    },
+    {
+      "attributes": [
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-24"
+        },
+        {
+          "name": "owner",
+          "value": "人类伙伴 + 项目经理"
+        },
+        {
+          "name": "scope",
+          "value": "47（四期）生产实例的源码、构建与发布"
+        },
+        {
+          "name": "runbook",
+          "value": "doc/DEPLOYMENT-47.md"
+        }
+      ],
+      "description": "【生效时间】2026-10-24。适用于 47.107.161.168 /home/paperclip/paperclip-fork 的全部部署。\n\n【背景】曾以\"本机构建产物 + 从本机拷贝源码\"的方式部署，导致 47 checkout 与 GitHub 分叉（47 上有 2 个未回流本地提交），出现两边代码不一致风险。人类要求：47 的源码一律从 GitHub 拉取，构建只在 workstation 做。\n\n【规则】\n1) 唯一真相源 = GitHub origin/dev/local-install。47 用 `git fetch origin && git reset --hard origin/dev/local-install`（deploy 分支跟踪 origin）。\n2) 禁止从 workstation 拷贝源码到 47；只允许上传构建产物（ui/dist、插件 dist）。\n3) 禁止在 47 上构建（vite/tsc/插件 build）；构建在 workstation 从同一 commit 完成。\n4) 禁止在 47 上本地提交；deploy 分支每次部署被 reset --hard，本地提交会被丢弃。\n5) 部署前备份 ui-dist（/root/backups/ui-dist-pre-*）与 checkout（git branch backup-47-pre-*）；部署后验证 health.commit、三方 HEAD 一致（workstation/origin/47）与受影响路由。\n6) 插件化能力必须先装插件再换 UI，否则旧路由会短暂 404。\n7) 47 上不跑 pnpm install，除非作为声明过的恢复动作（中断的 install 会留下半链接的 node_modules）。\n\n【落地】doc/DEPLOYMENT-47.md（完整 runbook）+ AGENTS.md 第 12 节（硬规则）。",
+      "name": "47 部署原则：源码取 GitHub、本机构建、服务器零本地提交",
+      "type": "Principle",
+      "id": "47-github"
     }
   ],
   "relationships": [
@@ -2379,7 +2407,8 @@
         "fork-cap-project-agent-poller",
         "fork-cap-onboarding-binding",
         "fork-non-invasive-development-principle-2026-10-21",
-        "fork-capabilities-2026-10-21"
+        "fork-capabilities-2026-10-21",
+        "47-github"
       ],
       "included_relationships": [
         "fork-principle-governs-capabilities"

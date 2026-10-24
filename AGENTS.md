@@ -265,6 +265,22 @@ A change is done when all are true:
 4. Docs updated when behavior or commands change
 5. PR description follows the [PR template](.github/PULL_REQUEST_TEMPLATE.md) with all sections filled in (including Model Used)
 
+## 12. Deploying to the phase-4 instance (47)
+
+[`doc/DEPLOYMENT-47.md`](doc/DEPLOYMENT-47.md) is the canonical runbook. These
+rules are non-negotiable:
+
+1. The only source of truth is GitHub (`origin/dev/local-install`). Pull source
+   onto 47 with `git fetch` + `git reset --hard origin/dev/local-install`.
+2. Never copy source files from a workstation to 47. Upload build artifacts
+   only.
+3. Never build on 47. Build `ui/dist` and plugin `dist/` on the workstation
+   from the exact commit being deployed.
+4. Never commit on 47. The deploy branch is reset on every deploy; local
+   commits are discarded.
+5. Before declaring a deploy done, verify `health.commit`, three-way HEAD
+   equality (workstation / `origin` / 47), and the affected route.
+
 ## Design system
 
 `DESIGN.md` at the repo root is the source of truth for UI design decisions. The token-only rule applies to all `ui/` changes: every color, spacing, radius, type, shadow, and motion value in `ui/src/components/**` and `ui/src/pages/**` comes from the token layer in `ui/src/index.css` — no hex, raw px, arbitrary Tailwind bracket values, or raw `font-size`/`fontSize` declarations in components, outside the documented allowlist in `ui/src/index.css`. Run `pnpm check:token-gates` (`scripts/check-token-gates.mjs`) before committing UI changes — it fails on any violation not covered by that allowlist.
