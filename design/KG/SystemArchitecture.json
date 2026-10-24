@@ -2282,6 +2282,34 @@
       "name": "47 部署原则：源码取 GitHub、本机构建、服务器零本地提交",
       "type": "Principle",
       "id": "47-github"
+    },
+    {
+      "attributes": [
+        {
+          "name": "createdAt",
+          "value": "2026-10-24"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "commit",
+          "value": "26999306b6f0afd53cd144055d498afdf8d33ce0 | image built from this commit"
+        },
+        {
+          "name": "files",
+          "value": "doc/DEPLOYMENT-47.md, Dockerfile, .dockerignore, server/src/services/bundled-plugins.ts"
+        }
+      ],
+      "description": "【结果】47 已从 systemd 裸奔源码切换为 Docker 容器部署，镜像 `paperclip-fork:26999306b6f0`（9.96GB，由本机 `docker save | ssh docker load` 送入；ACR 推送未完成）。systemd 服务已 disable（保留 unit 供回滚），容器 `--restart unless-stopped`。\n\n【验证】public https 200；health ok、commit=26999306b6f0afd5…；数据完好（4 companies / 26 projects / 106 agents / 193 issues）；插件自动安装到 `/app/packages/plugins/plugin-project-tree`，status=ready，page:organization + sidebar，bridge data 正常；旧 systemd inactive。\n\n【关键坑】1) config.json 存的是宿主机绝对路径（实例目录、嵌入式 PG dataDir），容器必须**同路径挂载** `/home/paperclip/.paperclip`，不能挂到 `/paperclip`，否则 PG 去容器内空路径建新库失败。2) 旧配置 `server.bind=custom`，新代码要求 `customBindHost`，必须加 `PAPERCLIP_BIND_HOST=0.0.0.0`。3) `PAPERCLIP_BUILD_COMMIT` 必须是 40 位完整 SHA，短 SHA 会被 parseBuildCommit 拒绝并回退到镜像里过期的 build-info。4) 插件行先删除，让自托管自动安装列表从镜像路径重建（验证新设备路径）。5) 直接访问 172.18.2.191:3100 要带 `Host: paperclip.derekworkspacev5.com`，否则 hostname guard 拒绝。\n\n【镜像缺陷】provider pack 未包含（我们的 Agent 是 legacy opencode_local 远端适配器，不受影响）；镜像 9.96GB 含 5 个 Agent CLI（2.23GB）与完整 workspace，下一步做瘦身版（去掉 CLI、.argo、docs/tests）并把镜像推到 ACR。\n\n【回滚】`docker rm -f paperclip && systemctl start paperclip`（1 分钟内）。",
+      "name": "2026-10-24 47 容器化部署（镜像 26999306b6f0）",
+      "type": "Requirement",
+      "id": "2026-10-24-47-26999306b6f0"
     }
   ],
   "relationships": [
@@ -2460,7 +2488,8 @@
       "parent_element_id": "project-manager-001",
       "description": "记录 fork 自研能力向插件/独立包解耦的过程、验收与坑，作为 LTM 的分层子视图（LTM 主视图已满 15 个元素上限）。",
       "included_elements": [
-        "2026-10-24-project-tree-tier-3"
+        "2026-10-24-project-tree-tier-3",
+        "2026-10-24-47-26999306b6f0"
       ]
     }
   ]
