@@ -55,6 +55,10 @@
         {
           "view_id": "paperclip",
           "view_name": "项目经理 · Paperclip 迁移与部署记忆"
+        },
+        {
+          "view_id": "project-manager-fork-decoupling-001",
+          "view_name": "项目经理 · Fork 解耦与插件化记忆"
         }
       ],
       "attributes": [
@@ -2174,6 +2178,38 @@
           "acceptanceCriteria": "无 workspace_validation_failed 终态"
         }
       ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "b2642fcf034d52ff846c1a5b06cb7d265bc06344 | refactor(org): decouple project tree into a plugin"
+        },
+        {
+          "name": "commit",
+          "value": "4e9887c81 | chore(argo): register project tree decoupling commit"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-24"
+        },
+        {
+          "name": "files",
+          "value": "packages/plugins/plugin-project-tree/**, ui/src/App.tsx, ui/src/components/Sidebar.tsx, ui/src/components/Sidebar.production.tsx, ui/src/components/Sidebar.test.tsx, pnpm-lock.yaml"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        }
+      ],
+      "description": "【目标】把 fork 自研的 /organization 项目树从上游文件里解耦，降低 upstream 合并冲突面。\n\n【做法】新建可安装插件 `packages/plugins/plugin-project-tree`（manifest page slot routePath=organization + sidebar slot；worker 用 ctx.projects.list/ctx.agents.list 读数据；纯函数 buildProjectTree 带环保护/归档排除/团队规则）。删除 `ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts` 及其两个测试；移除 App.tsx 的 lazy import 与 board route、Sidebar.tsx 与 Sidebar.production.tsx 的 Project Tree 导航行、Sidebar.test.tsx 的期望项。仅保留 1 行 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />`（footprint=registration，保无前缀书签）。`projects.parent_project_id` 与其写入路径未改。\n\n【提交】b2642fcf0（代码）+ 4e9887c81（KG/qea 注册）。\n\n【验证】插件测试 7 passed（tree.spec 5 + manifest.spec 2）；插件 typecheck/build 通过；`@paperclipai/ui tsc -b` 通过；Sidebar.test 30 passed；check:token-gates 全清；validateSystemArchitecture passed。未跑 ui vite build 与全量 test:run。\n\n【关键坑】1) 有两个侧边栏文件：Sidebar.tsx 与 Sidebar.production.tsx，都要删。2) 插件未安装时 /prefix/organization 变 NotFound —— 上线前必须 `paperclipai plugin install packages/plugins/plugin-project-tree`（或 bundled catalog + plugins.autoInstall）。3) 插件 dist/ 被 .gitignore 忽略，安装前必须先 build。4) 插件 page 由 PluginPage 渲染，面包屑会变成 Plugins / Project Tree（宿主行为）。5) sidebar 槽位渲染在 Work 分组而非 Org 分组。6) Windows `pnpm install` 的 postinstall（scripts/link-plugin-dev-sdk.mjs）会因 symlink EPERM 失败，属既有环境问题，不影响 workspace 链接。",
+      "name": "2026-10-24 Project Tree 解耦为插件（Tier 3）",
+      "type": "Requirement",
+      "id": "2026-10-24-project-tree-tier-3"
     }
   ],
   "relationships": [
@@ -2343,6 +2379,15 @@
         "paperclip-intranet-migration-plan-2026-10-22",
         "paperclip-opencode-runaway-recovery-2026-10-23",
         "paperclip-exec-env-ssh-flap-backlog-2026-10-23"
+      ]
+    },
+    {
+      "view_id": "project-manager-fork-decoupling-001",
+      "view_name": "项目经理 · Fork 解耦与插件化记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "记录 fork 自研能力向插件/独立包解耦的过程、验收与坑，作为 LTM 的分层子视图（LTM 主视图已满 15 个元素上限）。",
+      "included_elements": [
+        "2026-10-24-project-tree-tier-3"
       ]
     }
   ]
