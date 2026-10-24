@@ -53,7 +53,7 @@ commit**, never a copy of the workstation working tree:
 ```sh
 # Workstation, after the push succeeded:
 test "$(git rev-parse HEAD)" = "$(git rev-parse origin/dev/local-install)"
-git bundle create /tmp/origin.bundle HEAD
+git bundle create /tmp/origin.bundle dev/local-install
 scp /tmp/origin.bundle root@47.107.161.168:/tmp/origin.bundle
 ```
 
