@@ -1713,6 +1713,10 @@
         {
           "name": "enablement",
           "value": "paperclipai plugin install packages/plugins/plugin-project-tree (or bundled catalog + plugins.autoInstall). Without the plugin the /organization route resolves to NotFound."
+        },
+        {
+          "name": "commit",
+          "value": "b2642fcf034d52ff846c1a5b06cb7d265bc06344 | 2026-10-24 refactor(org): decouple project tree into a plugin; files: packages/plugins/plugin-project-tree/** , ui/src/App.tsx, ui/src/components/Sidebar.tsx, ui/src/components/Sidebar.production.tsx, ui/src/components/Sidebar.test.tsx, pnpm-lock.yaml (deleted: ui/src/pages/Organization.tsx, ui/src/lib/projectTree.ts, ui/src/pages/Organization.test.tsx, ui/src/lib/projectTree.test.ts)"
         }
       ],
       "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。\n\n【2026-10-24 解耦（Tier 3，插件化）】页面、导航与路由实现迁入独立插件包 `packages/plugins/plugin-project-tree`（`ui.slots: page(routePath=organization) + sidebar`），对上游文件的侵入从 5 处降为 1 行注册：\n- 删除：`ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts`、`ui/src/pages/Organization.test.tsx`、`ui/src/lib/projectTree.test.ts`、`ui/src/App.tsx` 的 lazy import 与 board route、`ui/src/components/Sidebar.tsx` 与 `Sidebar.production.tsx` 的 Project Tree 导航行。\n- 保留（footprint=registration）：`ui/src/App.tsx` 的 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />` 一行，仅用于无前缀书签 `/organization` 兼容跳转；`/workbench` 之外的真实页面由插件在 `/:companyPrefix/organization` 提供。\n- 未改：`projects.parent_project_id`（core schema）与其写入路径；项目创建/编辑契约不变。\n- 验收迁移：树构建语义（父子嵌套、孤儿为根、归档排除、环保护、子项目 lead 不计入父队）与插件装配（page+sidebar、只读能力）均有可执行用例，命令 `pnpm --filter @paperclipai/plugin-project-tree test`。\n- 启用前提：实例需安装该插件（`paperclipai plugin install packages/plugins/plugin-project-tree`，或在 bundled 目录写 catalog 并加入 `plugins.autoInstall`）；未安装时 `/organization` 不再渲染项目树，这是解耦后的预期行为。",
