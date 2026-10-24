@@ -163,7 +163,8 @@ Also confirm `git status --porcelain -uno` is empty and
 The instance now runs from an image; the source-checkout service is disabled but
 kept as a rollback path. Container facts:
 
-- Image: `paperclip-fork:26999306b6f0` (built locally, transferred with
+- Image: `paperclip-fork:1215d44f47bd` (6.32GB, built locally from
+  `1215d44f47bde0bda0952b9d6f5c97b7a609ab92`, transferred with
   `docker save | ssh docker load`; ACR push pending).
 - Command: `docker run -d --name paperclip -p 172.18.2.191:3100:3100
   --env-file /home/paperclip/.paperclip/instances/default/.env
@@ -194,6 +195,8 @@ kept as a rollback path. Container facts:
   unit is disabled, not removed).
 
 Known image gaps: the provider pack is skipped (agents use the legacy
-`opencode_local` remote adapter, so runs are unaffected), and the image is
-9.96GB because upstream's runtime includes five agent CLIs and the full
-workspace. A slim build is planned.
+`opencode_local` remote adapter, so runs are unaffected). The image is 6.32GB:
+the five agent CLIs were dropped, and `.argo`, `server/dist`, `server/ui-dist`
+and `ui/dist` are excluded from the build context. On the first boot after the
+2026-10-24 upstream merge it applied migrations 0370-0378 (upstream 0370-0377
+plus the fork's idempotent 0378).

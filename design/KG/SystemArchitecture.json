@@ -2310,6 +2310,34 @@
       "name": "2026-10-24 47 容器化部署（镜像 26999306b6f0）",
       "type": "Requirement",
       "id": "2026-10-24-47-26999306b6f0"
+    },
+    {
+      "attributes": [
+        {
+          "name": "createdAt",
+          "value": "2026-10-24"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "commit",
+          "value": "1215d44f47bde0bda0952b9d6f5c97b7a609ab92 | merge + decouple + slim image"
+        },
+        {
+          "name": "files",
+          "value": "server/src/fork/**, doc/FORK-AGENT-RULES.md, packages/db/src/migrations/0378_peaceful_synch.sql, Dockerfile, .dockerignore"
+        }
+      ],
+      "description": "【上游合并】upstream/master 515ff0f28（114 个新提交）。合并分支 `merge/upstream-20261024`，9 处冲突全部解决，已快进到 dev/local-install 并推送（1215d44f4）。\n\n【解耦成果】1) `assertProjectBoundAgentExecutionTarget` → `server/src/fork/project-execution-binding.ts`；2) `readRemoteWorkspaceRealization` → `server/src/fork/remote-workspace-realization.ts`；上游文件只剩 1 行 import + 原调用点。3) fork 专属 Agent 规则从 `skills/paperclip/SKILL.md`/references 迁到 `doc/FORK-AGENT-RULES.md`，SKILL.md 恢复上游原样 → capability inventory 检查通过。4) 迁移以上游 0369-0377 为基线，我们的变更合并为单个幂等 `0378_peaceful_synch.sql`（旧库重跑安全）。5) opencode-local 的 directRemoteWorkspace 与上游 native runner 字段共存。\n\n【验证】server tsc、ui tsc 通过；db check:migrations、capability inventory 通过；project-routes-env 4/4（长超时）；execute.remote 仅 Windows 符号链接 EPERM 失败（环境性）。\n\n【镜像与部署】镜像 `paperclip-fork:1215d44f47bd`，**6.32GB**（原 9.96GB；去掉 5 个 Agent CLI，排除 .argo/server-dist/ui-dist）。SSH 直传 47，容器切到新镜像，启动时应用 9 个待执行迁移（上游 0370-0377 + 0378）。验证：health ok / commit=1215d44f47bd / public 200 / 数据 4 companies・26 projects・106 agents・208 issues / 插件 ready（/app 路径）/ parent_project_id + 两个索引存在。未推 ACR（等人类确认）。",
+      "name": "2026-10-24 合并 upstream 114 commits、解耦与容器镜像 1215d44f4",
+      "type": "Requirement",
+      "id": "2026-10-24-upstream-114-commits-1215d44f4"
     }
   ],
   "relationships": [
@@ -2489,7 +2517,8 @@
       "description": "记录 fork 自研能力向插件/独立包解耦的过程、验收与坑，作为 LTM 的分层子视图（LTM 主视图已满 15 个元素上限）。",
       "included_elements": [
         "2026-10-24-project-tree-tier-3",
-        "2026-10-24-47-26999306b6f0"
+        "2026-10-24-47-26999306b6f0",
+        "2026-10-24-upstream-114-commits-1215d44f4"
       ]
     }
   ]
