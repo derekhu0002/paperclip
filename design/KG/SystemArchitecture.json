@@ -2338,6 +2338,34 @@
       "name": "2026-10-24 合并 upstream 114 commits、解耦与容器镜像 1215d44f4",
       "type": "Requirement",
       "id": "2026-10-24-upstream-114-commits-1215d44f4"
+    },
+    {
+      "attributes": [
+        {
+          "name": "createdAt",
+          "value": "2026-10-25"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "commit",
+          "value": "3cb59953eb38525aeffea6c8e3f8c7590f8411ab | final image commit"
+        },
+        {
+          "name": "acr",
+          "value": "crpi-33yedsa348aqgw1p.cn-shenzhen.personal.cr.aliyuncs.com/paperclip/paperclip-fork:3cb59953eb38 (+ latest), digest sha256:7ef283cfea7d8a53c286a65e97106753c332c4066bdfb1b9df8733ac2b1053ad"
+        }
+      ],
+      "description": "【最终镜像】`paperclip-fork:3cb59953eb38`，6.32GB，由 commit 3cb59953eb38 构建（上游 114 提交合并 + Project Tree 插件 + 侧边栏对齐；Windows 支持已回退，保留在标签 feature/windows-ssh-20261025）。\n\n【47 部署】已切换到该镜像，容器 `--restart unless-stopped`，同路径挂载，PAPERCLIP_BIND_HOST=0.0.0.0，40 位 SHA；health ok、commit=3cb59953eb38…、UI/公网 200、project-tree 插件 worker 启动。\n\n【ACR 发布】首次 `docker push` 失败：ACR 个人版不支持 BuildKit attestation（`application/vnd.oci.empty.v1+json`）。解决：在 47 上 `docker save` → 用静态 `crane` 二进制 `crane push` （层已存在，仅推 manifest，秒级）→ `crane tag latest`。远端 digest `sha256:7ef283cf…`；47 上 `docker pull` 验证成功。\n\n【关键坑】1) ACR 个人版上传限速 ~0.33MB/s，层多时推送数小时；先传 47 再在 47 推 ACR（阿里云内网）更快。2) 47 的 apt 内网镜像 mirrors.cloud.aliyuncs.com 不可达，装不了 skopeo。3) 47 下载 GitHub release 会 TLS 中断，crane 需在本机下载后 scp。4) `docker manifest create` 会 ping Docker Hub，47 不可用。5) Windows 执行被 sshd 的 wsl-shell.cmd / WSL interop 阻断，已暂停。",
+      "name": "2026-10-25 47 最终镜像 3cb59953eb38 与 ACR 发布",
+      "type": "Requirement",
+      "id": "2026-10-25-47-3cb59953eb38-acr"
     }
   ],
   "relationships": [
@@ -2518,7 +2546,8 @@
       "included_elements": [
         "2026-10-24-project-tree-tier-3",
         "2026-10-24-47-26999306b6f0",
-        "2026-10-24-upstream-114-commits-1215d44f4"
+        "2026-10-24-upstream-114-commits-1215d44f4",
+        "2026-10-25-47-3cb59953eb38-acr"
       ]
     }
   ]
