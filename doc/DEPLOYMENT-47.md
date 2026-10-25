@@ -34,8 +34,8 @@ stamp. A mismatch between the health commit and the deployed build is a defect.
    runbook does not require it; an interrupted install can leave a partially
    linked `node_modules`.
 6. **Back up before replacing anything.**
-   - `ui-dist` 鈫?`/root/backups/ui-dist-pre-<slug>-<utc-timestamp>`
-   - checkout 鈫?git branch `backup-47-pre-<slug>-<utc-timestamp>`
+   - `ui-dist` 閳?`/root/backups/ui-dist-pre-<slug>-<utc-timestamp>`
+   - checkout 閳?git branch `backup-47-pre-<slug>-<utc-timestamp>`
 
 ## 3. Branch model on 47
 
@@ -163,9 +163,12 @@ Also confirm `git status --porcelain -uno` is empty and
 The instance now runs from an image; the source-checkout service is disabled but
 kept as a rollback path. Container facts:
 
-- Image: `paperclip-fork:1215d44f47bd` (6.32GB, built locally from
-  `1215d44f47bde0bda0952b9d6f5c97b7a609ab92`, transferred with
-  `docker save | ssh docker load`; ACR push pending).
+- Image: `paperclip-fork:3cb59953eb38` (6.32GB, built from
+  `3cb59953eb38525aeffea6c8e3f8c7590f8411ab`, transferred with
+  `docker save | ssh docker load`). Published to ACR as
+  `crpi-33yedsa348aqgw1p.cn-shenzhen.personal.cr.aliyuncs.com/paperclip/paperclip-fork:3cb59953eb38`
+  with `latest` aliasing the same digest
+  `sha256:7ef283cfea7d8a53c286a65e97106753c332c4066bdfb1b9df8733ac2b1053ad`.
 - Command: `docker run -d --name paperclip -p 172.18.2.191:3100:3100
   --env-file /home/paperclip/.paperclip/instances/default/.env
   -e HOST=0.0.0.0 -e PAPERCLIP_BIND_HOST=0.0.0.0 -e PORT=3100 -e SERVE_UI=true
@@ -200,3 +203,18 @@ the five agent CLIs were dropped, and `.argo`, `server/dist`, `server/ui-dist`
 and `ui/dist` are excluded from the build context. On the first boot after the
 2026-10-24 upstream merge it applied migrations 0370-0378 (upstream 0370-0377
 plus the fork's idempotent 0378).
+### 9.1 Publishing to ACR
+
+The ACR personal edition rejects BuildKit attestation manifests
+(`error from registry: unknown manifest class for application/vnd.oci.empty.v1+json`).
+Either build with `--provenance=false --sbom=false`, or push a single manifest from
+the image already on 47 (recommended; reuses uploaded blobs and avoids re-uploading
+layers):
+
+1. `docker save paperclip-fork:<tag> -o /tmp/img.tar`
+2. Put the static `crane` binary on 47 (download on a host with GitHub access and `scp` it)
+3. `crane push /tmp/img.tar <acr>/paperclip/paperclip-fork:<tag>`
+4. `crane tag <acr>/paperclip/paperclip-fork:<tag> latest`
+
+Personal-edition uploads are throttled (~0.33 MB/s); the manifest-only push is
+instant because the layers already exist.
