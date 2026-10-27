@@ -2370,7 +2370,7 @@
     {
       "type": "Requirement",
       "name": "2026-10-27 47 临时对外提供 fork 镜像下载（24h 自动关闭）",
-      "description": "【需求】应人类要求，把 paperclip fork 的 docker 镜像在 47 上临时对外提供下载（不是 ACR 拉取），24 小时后自动关闭。\n\n【结果】镜像 `paperclip-fork:3cb59953eb38`（= 线上运行镜像，6.32GB）经 `docker save | gzip -1` 压成 1.4GB（1,499,740,321 字节）。\n- 下载：http://47.107.161.168/dl-b86a7c2af95a/paperclip-fork-3cb59953eb38.tar.gz\n- 校验：同目录 `paperclip-fork-3cb59953eb38.tar.gz.sha256`，sha256=b990c4da3fc96c02a21042203146aeaacd0c57c37b2d73b2c4287b054150e20d\n- 载入：`docker load -i paperclip-fork-3cb59953eb38.tar.gz`\n- 到期：2026-10-28 02:22:28 UTC（10:22:28 CST），systemd 定时器 paperclip-dl-cleanup.timer 触发 /usr/local/sbin/paperclip-dl-cleanup.sh，删目录 + 撤 nginx include + reload + 自删 timer。\n\n【实现】文件放 /var/www/downloads/<token>/（属主 www-data）；新增 /etc/nginx/snippets/paperclip-dl.conf，用 `location ^~ /dl-<token>/ { alias ...; no-store; limit_rate_after 128m; limit_rate 30m; }`，并在 sites-enabled/default 的 `location / {` 前插一行 include（清理脚本按同一行精确删除）。token 为 openssl rand -hex 6，随机不可猜。\n\n【验证】外网 HEAD 200 + Content-Length 一致；Range 206 取 1MB；前两字节 1f 8b（合法 gzip）；README.txt/sha256 可取；错误 token 落到默认 location（502，改动前就如此）。磁盘 30G 剩余。\n\n【坑】1) 47 的 :80 default_server 把 `location /` 反代到 127.0.0.1:8080，那里无服务返回 502，所以必须用 ^~ 前缀 location 抢在 `location /` 之前，否则会被反代吞掉。2) 不要为此改安全组：80 端口本来就对外（历史 dashboard/vsoc 用），临时下载复用 80 最省事。3) 不用 `docker save > raw.tar`，直接管道 gzip，避免额外 6.3G 中间文件。4) 提前关闭执行 /usr/local/sbin/paperclip-dl-cleanup.sh 即可（幂等，会自删 timer）。",
+      "description": "【需求】应人类要求，把 paperclip fork 的 docker 镜像在 47 上临时对外提供下载（不是 ACR 拉取），24 小时后自动关闭。\n\n【当前状态 2026-10-27】旧下载（`paperclip-fork:3cb59953eb38` / token b86a7c2af95a）已停止；新下载指向当前线上镜像。\n\n【新下载】镜像 `paperclip-fork:1c8b899592de`（= 线上运行镜像，6.33GB，commit 1c8b899592de3d115a437043c9487e04be41242a）经 `docker save | gzip -1` 压成 1.4GB（1,500,527,147 字节）。\n- 下载：http://47.107.161.168/dl-a35eb874d75c/paperclip-fork-1c8b899592de.tar.gz\n- 校验：同目录 `paperclip-fork-1c8b899592de.tar.gz.sha256`，sha256=edd76b7fea9982ff392d24bb7ced71e9a3a24d4daff8dfe4b3e0951105d6392c\n- 载入：`docker load -i paperclip-fork-1c8b899592de.tar.gz`\n- README：http://47.107.161.168/dl-a35eb874d75c/README.txt\n- 到期：2026-10-28T05:38:24Z（13:38:24 CST），systemd 定时器 paperclip-dl-cleanup.timer 触发 /usr/local/sbin/paperclip-dl-cleanup.sh，删目录 + 撤 nginx include + reload + 自删 timer。\n\n【旧下载历史】`paperclip-fork:3cb59953eb38` / `dl-b86a7c2af95a` 已于 2026-10-27 停止；旧目录、旧 include、旧 timer 已删除，旧 URL 返回 502（默认 location 反代无服务）。\n\n【实现】文件放 /var/www/downloads/<token>/（属主 www-data）；新增 /etc/nginx/snippets/paperclip-dl.conf，用 `location ^~ /dl-<token>/ { alias ...; no-store; limit_rate_after 128m; limit_rate 30m; }`，并在 sites-enabled/default 的 `location / {` 前插一行 include（清理脚本按同一行精确删除）。token 为 openssl rand -hex 6，随机不可猜。\n\n【验证】外网 HEAD 200 + Content-Length 一致；Range 206 取 2 字节；前两字节 1f 8b（合法 gzip）；README.txt/sha256 可取；旧 URL 502；timer active；47 磁盘约 25G 剩余。\n\n【坑】1) 47 的 :80 default_server 把 `location /` 反代到 127.0.0.1:8080，那里无服务返回 502，所以必须用 ^~ 前缀 location 抢在 `location /` 之前，否则会被反代吞掉。2) 不要为此改安全组：80 端口本来就对外（历史 dashboard/vsoc 用），临时下载复用 80 最省事。3) 不用 `docker save > raw.tar`，直接管道 gzip，避免额外 6.3G 中间文件。4) 提前关闭执行 /usr/local/sbin/paperclip-dl-cleanup.sh 即可（幂等，会自删 timer）。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -2386,27 +2386,39 @@
         },
         {
           "name": "expiresAt",
-          "value": "2026-10-28T02:22:28Z"
+          "value": "2026-10-28T05:38:24Z"
         },
         {
           "name": "image",
-          "value": "paperclip-fork:3cb59953eb38"
+          "value": "paperclip-fork:1c8b899592de"
         },
         {
           "name": "sha256",
-          "value": "b990c4da3fc96c02a21042203146aeaacd0c57c37b2d73b2c4287b054150e20d"
+          "value": "edd76b7fea9982ff392d24bb7ced71e9a3a24d4daff8dfe4b3e0951105d6392c"
         },
         {
           "name": "url",
-          "value": "http://47.107.161.168/dl-b86a7c2af95a/paperclip-fork-3cb59953eb38.tar.gz"
+          "value": "http://47.107.161.168/dl-a35eb874d75c/paperclip-fork-1c8b899592de.tar.gz"
         },
         {
           "name": "files",
-          "value": "/etc/nginx/snippets/paperclip-dl.conf, /etc/nginx/sites-enabled/default, /usr/local/sbin/paperclip-dl-cleanup.sh, /etc/systemd/system/paperclip-dl-cleanup.{service,timer}, /var/www/downloads/b86a7c2af95a"
+          "value": "/etc/nginx/snippets/paperclip-dl.conf, /etc/nginx/sites-enabled/default, /usr/local/sbin/paperclip-dl-cleanup.sh, /etc/systemd/system/paperclip-dl-cleanup.{service,timer}, /var/www/downloads/a35eb874d75c"
         },
         {
           "name": "owner",
           "value": "人类伙伴 + 项目经理"
+        },
+        {
+          "name": "imageCommit",
+          "value": "1c8b899592de3d115a437043c9487e04be41242a"
+        },
+        {
+          "name": "replacedUrl",
+          "value": "http://47.107.161.168/dl-b86a7c2af95a/paperclip-fork-3cb59953eb38.tar.gz"
+        },
+        {
+          "name": "stoppedAt",
+          "value": "2026-10-27"
         }
       ],
       "id": "2026-10-27-47-fork-24h"
