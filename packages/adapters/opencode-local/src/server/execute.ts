@@ -65,7 +65,11 @@ import { removeMaintainerOnlySkillSymlinks } from "@paperclipai/adapter-utils/se
 import { apiKeyBillingType } from "@paperclipai/adapter-utils/api-billing-type";
 import { prepareOpenCodeRuntimeConfig, prepareManagedOpenCodeRemoteHomes } from "./runtime-config.js";
 import { SANDBOX_INSTALL_COMMAND } from "../index.js";
-import { resolveOpenCodeSkillsHome } from "./skills.js";
+import {
+  buildOpenCodeAgentHomeScript,
+  resolveOpenCodeAgentHome,
+  resolveOpenCodeSkillsHome,
+} from "./skills.js";
 
 const __moduleDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -356,11 +360,9 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     executionTargetIsRemote,
     executionCwd: effectiveExecutionCwd,
   });
-  // Prevent OpenCode from writing an opencode.json config file into the
-  // project working directory (which would pollute the git repo).  Model
-  // selection is already handled via the --model CLI flag.  Set after the
-  // envConfig loop so user overrides cannot disable this guard.
-  env.OPENCODE_DISABLE_PROJECT_CONFIG = "true";
+  // Keep OpenCode's native project config discovery intact so project-level
+  // MCP servers, instructions, plugins, and skills keep working. The model is
+  // still enforced through the --model CLI flag below.
   if (authToken) {
     env.PAPERCLIP_API_KEY = authToken;
   }
@@ -475,6 +477,21 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       });
       remoteRuntimeRootDir = preparedExecutionTargetRuntime.runtimeRootDir;
       const managedHome = adapterExecutionTargetUsesManagedHome(executionTarget);
+      // Resolve the real execution-host home before replacing HOME. This is
+      // the user-level OpenCode surface (config, MCP, instructions, plugins,
+      // and the native global skill dirs) that must stay discoverable.
+      const configuredHome = asString(preparedRuntimeConfig.env.HOME, "");
+      const ambientHome = !config.managedAiConnection
+        ? (configuredHome && path.posix.isAbsolute(configuredHome)
+            ? configuredHome
+            : await readAdapterExecutionTargetHomeDir(runId, executionTarget, {
+                cwd,
+                env: preparedRuntimeConfig.env,
+                timeoutSec,
+                graceSec,
+                onLog,
+              }))
+        : null;
       if (managedHome && preparedExecutionTargetRuntime.runtimeRootDir) {
         preparedRuntimeConfig.env.HOME = preparedExecutionTargetRuntime.runtimeRootDir;
       }
@@ -488,25 +505,43 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         runId,
         configDir: preparedExecutionTargetRuntime.assetDirs.xdgConfig,
       });
-      const remoteHomeDir = config.managedAiConnection
-        ? preparedRuntimeConfig.env.HOME
-        : managedHome && preparedExecutionTargetRuntime.runtimeRootDir
-          ? preparedExecutionTargetRuntime.runtimeRootDir
-          : await readAdapterExecutionTargetHomeDir(runId, executionTarget, {
-            cwd,
-            env: preparedRuntimeConfig.env,
-            timeoutSec,
-            graceSec,
-            onLog,
-          });
-      if (remoteHomeDir && preparedExecutionTargetRuntime.assetDirs.skills) {
-        const remoteSkillsDir = path.posix.join(remoteHomeDir, ".claude", "skills");
+      if (!config.managedAiConnection && ambientHome) {
+        // Per-agent HOME: the checkout/cwd remains shared, but the user-level
+        // OpenCode surface is private to this agent. Paperclip-assigned skills
+        // are copied into this home only, while ambient user skills and
+        // config/MCP/instructions are linked in without changing the repo.
+        const agentHome = resolveOpenCodeAgentHome(ambientHome, agent.id);
+        preparedRuntimeConfig.env.HOME = agentHome;
+        preparedRuntimeConfig.env.XDG_CONFIG_HOME = path.posix.join(agentHome, ".config");
+        preparedRuntimeConfig.env.XDG_DATA_HOME = path.posix.join(agentHome, ".local", "share");
+        preparedRuntimeConfig.env.XDG_CACHE_HOME = path.posix.join(agentHome, ".cache");
+        preparedRuntimeConfig.env.XDG_STATE_HOME = path.posix.join(agentHome, ".local", "state");
         await runAdapterExecutionTargetShellCommand(
           runId,
           executionTarget,
-          `mkdir -p ${JSON.stringify(path.posix.dirname(remoteSkillsDir))} && rm -rf ${JSON.stringify(remoteSkillsDir)} && cp -a ${JSON.stringify(preparedExecutionTargetRuntime.assetDirs.skills)} ${JSON.stringify(remoteSkillsDir)}`,
+          buildOpenCodeAgentHomeScript({
+            baseHome: ambientHome,
+            agentHome,
+            skillsAssetDir: preparedExecutionTargetRuntime.assetDirs.skills ?? null,
+            paperclipSkillNames: openCodeSkillEntries.map((entry) => entry.runtimeName),
+          }),
           { cwd, env: preparedRuntimeConfig.env, timeoutSec, graceSec, onLog },
         );
+      } else {
+        const remoteHomeDir = config.managedAiConnection
+          ? preparedRuntimeConfig.env.HOME
+          : managedHome && preparedExecutionTargetRuntime.runtimeRootDir
+            ? preparedExecutionTargetRuntime.runtimeRootDir
+            : ambientHome;
+        if (remoteHomeDir && preparedExecutionTargetRuntime.assetDirs.skills) {
+          const remoteSkillsDir = path.posix.join(remoteHomeDir, ".claude", "skills");
+          await runAdapterExecutionTargetShellCommand(
+            runId,
+            executionTarget,
+            `mkdir -p ${JSON.stringify(path.posix.dirname(remoteSkillsDir))} && rm -rf ${JSON.stringify(remoteSkillsDir)} && cp -a ${JSON.stringify(preparedExecutionTargetRuntime.assetDirs.skills)} ${JSON.stringify(remoteSkillsDir)}`,
+            { cwd, env: preparedRuntimeConfig.env, timeoutSec, graceSec, onLog },
+          );
+        }
       }
       await ensureRemoteOpenCodeModelConfiguredAndAvailable({
         runId,

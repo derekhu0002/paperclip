@@ -12,6 +12,7 @@ const {
   runSshCommand,
   syncDirectoryToSsh,
   startAdapterExecutionTargetPaperclipBridge,
+  readPaperclipRuntimeSkillEntries,
 } = vi.hoisted(() => ({
   runChildProcess: vi.fn(async (_runId: string, _command: string, args: string[], _options?: { onLog?: (stream: "stdout" | "stderr", chunk: string) => Promise<void> }) => {
     if (args.includes("models")) {
@@ -61,6 +62,9 @@ const {
     },
     stop: async () => {},
   })),
+  // Keep this suite focused on the remote wiring; skill materialization is
+  // covered by skills.test.ts. Symlink creation is privileged on Windows.
+  readPaperclipRuntimeSkillEntries: vi.fn(async () => []),
 }));
 
 vi.mock("@paperclipai/adapter-utils/server-utils", async () => {
@@ -72,6 +76,7 @@ vi.mock("@paperclipai/adapter-utils/server-utils", async () => {
     ensureCommandResolvable,
     resolveCommandForLogs,
     runChildProcess,
+    readPaperclipRuntimeSkillEntries,
   };
 });
 
@@ -163,6 +168,7 @@ describe("opencode remote execution", () => {
     const workspaceDir = path.join(rootDir, "workspace");
     const alternateWorkspaceDir = path.join(rootDir, "workspace-other");
     const managedRemoteWorkspace = "/remote/workspace/.paperclip-runtime/runs/run-1/workspace";
+    const agentHome = "/home/agent/.paperclip/agents/agent-1/home";
     await mkdir(workspaceDir, { recursive: true });
     await mkdir(alternateWorkspaceDir, { recursive: true });
 
@@ -260,12 +266,13 @@ describe("opencode remote execution", () => {
       | [string, string, string[], { env: Record<string, string>; remoteExecution?: { remoteCwd: string } | null }]
       | undefined;
     expect(modelProbeCall?.[2]).toEqual(["models"]);
-    // The model probe runs after the runtime workspace is prepared (so XDG
-    // points at the managed subdirectory) but the SSH session targets the
-    // original target remoteCwd — the per-run subdirectory is layered
-    // underneath via XDG/runtime config rather than by switching the cwd.
+    // The model probe runs after the runtime workspace is prepared. Non-managed
+    // runs use the per-agent home; managed runs keep the managed XDG dir. The
+    // SSH session still targets the original remoteCwd in both cases.
     expect(modelProbeCall?.[3].env.XDG_CONFIG_HOME).toBe(
-      `${managedRemoteWorkspace}/.paperclip-runtime/opencode/xdgConfig`,
+      managed
+        ? `${managedRemoteWorkspace}/.paperclip-runtime/opencode/xdgConfig`
+        : `${agentHome}/.config`,
     );
     expect(modelProbeCall?.[3].remoteExecution?.remoteCwd).toBe("/remote/workspace");
     expect(runCall?.[2].slice(-4)).toEqual(["--dir", managedRemoteWorkspace, "--", "--dir"]);
@@ -283,7 +290,22 @@ describe("opencode remote execution", () => {
         expect.stringContaining(`${home}/.claude/skills`),
         expect.anything(),
       );
+    } else {
+      expect(call?.[3].env.HOME).toBe(agentHome);
+      expect(call?.[3].env.XDG_CONFIG_HOME).toBe(`${agentHome}/.config`);
+      expect(call?.[3].env.XDG_DATA_HOME).toBe(`${agentHome}/.local/share`);
+      expect(call?.[3].env.XDG_CACHE_HOME).toBe(`${agentHome}/.cache`);
+      expect(call?.[3].env.XDG_STATE_HOME).toBe(`${agentHome}/.local/state`);
+      expect(modelProbeCall?.[3].env.XDG_CONFIG_HOME).toBe(`${agentHome}/.config`);
+      expect(runSshCommand).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.stringContaining(agentHome),
+        expect.anything(),
+      );
     }
+    // Project config discovery must stay native: project-level MCP/instructions
+    // are not disabled just because Paperclip manages the run.
+    expect(call?.[3].env.OPENCODE_DISABLE_PROJECT_CONFIG).toBeUndefined();
     expect(JSON.parse(call?.[3].env.PAPERCLIP_WORKSPACES_JSON ?? "[]")).toEqual([
       {
         workspaceId: "workspace-1",
@@ -299,7 +321,11 @@ describe("opencode remote execution", () => {
     ]);
     expect(call?.[3].env.PAPERCLIP_API_URL).toBe("http://127.0.0.1:4310");
     expect(call?.[3].env.PAPERCLIP_API_BRIDGE_MODE).toBe("queue_v1");
-    expect(call?.[3].env.XDG_CONFIG_HOME).toBe(`${managedRemoteWorkspace}/.paperclip-runtime/opencode/xdgConfig`);
+    expect(call?.[3].env.XDG_CONFIG_HOME).toBe(
+      managed
+        ? `${managedRemoteWorkspace}/.paperclip-runtime/opencode/xdgConfig`
+        : `${agentHome}/.config`,
+    );
     expect(call?.[3].remoteExecution?.remoteCwd).toBe(managedRemoteWorkspace);
     expect(startAdapterExecutionTargetPaperclipBridge).toHaveBeenCalledTimes(1);
     expect(restoreWorkspaceFromSshExecution).toHaveBeenCalledTimes(1);
