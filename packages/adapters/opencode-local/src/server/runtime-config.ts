@@ -146,7 +146,9 @@ export async function prepareOpenCodeRuntimeConfig(input: {
 
   const existingConfig = await readJsonObject(runtimeConfigPath);
   const notes = [
-    skipPermissions ? "Injected runtime OpenCode config with permission=allow for all tools and connections." : "Prepared isolated OpenCode provider configuration.",
+    skipPermissions
+      ? "Injected runtime OpenCode config with permission=allow for all tools, connections, and external directories."
+      : "Prepared isolated OpenCode provider configuration.",
   ];
 
   // Merge gateway/custom provider definitions supplied via PAPERCLIP_OPENCODE_PROVIDERS
@@ -198,9 +200,21 @@ export async function prepareOpenCodeRuntimeConfig(input: {
     }
   }
 
+  // OpenCode's external_directory permission defaults to "ask" and is not
+  // covered by the legacy top-level permission string in headless runs. Set it
+  // explicitly so dangerouslySkipPermissions also permits sibling checkouts and
+  // deploy paths. An agent-level OPENCODE_CONFIG_CONTENT remains higher
+  // precedence, so operators can still narrow or override this per agent.
   const nextConfig: Record<string, unknown> = {
     ...existingConfig,
-    ...(skipPermissions ? { permission: "allow" } : {}),
+    ...(skipPermissions
+      ? {
+          permission: {
+            "*": "allow",
+            external_directory: "allow",
+          },
+        }
+      : {}),
   };
   const inlineContent = input.env.OPENCODE_CONFIG_CONTENT ?? process.env.OPENCODE_CONFIG_CONTENT;
   let inlineConfig: Record<string, unknown> | undefined;

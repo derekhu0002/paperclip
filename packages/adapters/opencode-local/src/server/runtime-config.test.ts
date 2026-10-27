@@ -164,7 +164,7 @@ describe("prepareOpenCodeRuntimeConfig", () => {
     await prepared.cleanup();
   });
 
-  it("allows all tools and connected tools by default", async () => {
+  it("allows all tools, connected tools, and external directories by default", async () => {
     const configHome = await makeConfigHome({
       permission: {
         read: "allow",
@@ -189,12 +189,49 @@ describe("prepareOpenCodeRuntimeConfig", () => {
     ) as Record<string, unknown>;
     expect(runtimeConfig).toMatchObject({
       theme: "system",
-      permission: "allow",
+      permission: {
+        "*": "allow",
+        external_directory: "allow",
+      },
     });
 
     await prepared.cleanup();
     cleanupPaths.delete(prepared.env.XDG_CONFIG_HOME);
     await expect(fs.access(prepared.env.XDG_CONFIG_HOME)).rejects.toThrow();
+  });
+
+  it("preserves a per-agent external_directory policy above the default auto allow", async () => {
+    const configHome = await makeConfigHome();
+    const inline = {
+      permission: {
+        external_directory: {
+          "/srv/aic-site/**": "allow",
+          "/srv/blocked/**": "deny",
+        },
+      },
+    };
+    const prepared = await prepareOpenCodeRuntimeConfig({
+      env: {
+        XDG_CONFIG_HOME: configHome,
+        OPENCODE_CONFIG_CONTENT: JSON.stringify(inline),
+      },
+      config: {},
+    });
+    cleanupPaths.add(prepared.env.XDG_CONFIG_HOME);
+
+    expect(JSON.parse(prepared.env.OPENCODE_CONFIG_CONTENT)).toMatchObject(inline);
+    const runtimeConfig = JSON.parse(
+      await fs.readFile(
+        path.join(prepared.env.XDG_CONFIG_HOME, "opencode", "opencode.json"),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    expect(runtimeConfig).toMatchObject({
+      permission: { "*": "allow", external_directory: "allow" },
+    });
+
+    await prepared.cleanup();
+    cleanupPaths.delete(prepared.env.XDG_CONFIG_HOME);
   });
 
   it("merges custom providers from PAPERCLIP_OPENCODE_PROVIDERS into the config", async () => {
@@ -224,7 +261,7 @@ describe("prepareOpenCodeRuntimeConfig", () => {
       await fs.readFile(path.join(prepared.env.XDG_CONFIG_HOME, "opencode", "opencode.json"), "utf8"),
     ) as Record<string, unknown>;
     expect(runtimeConfig).toMatchObject({
-      permission: "allow",
+      permission: { "*": "allow", external_directory: "allow" },
       provider: providers,
     });
     expect(prepared.notes.some((n) => n.includes("bifrost"))).toBe(true);
