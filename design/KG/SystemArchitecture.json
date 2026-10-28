@@ -189,7 +189,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-23"
+          "value": "2026-10-27"
         },
         {
           "name": "memoryTier",
@@ -201,7 +201,7 @@
         },
         {
           "name": "handoff",
-          "value": "无未完成修复。47 可人工使用。可选：维护窗口补跑 test:run:general + serialized；如需消除 runner/HEIC 环境红测，再补 binary staging。升级摩擦治理：先做插件化 spike（未实施）。"
+          "value": "无未完成修复。47 运行 1576；AIC-41/ARG-9 done；ACR latest 45f863…；下载 f89…（24h）。注意 dangerouslySkipPermissions 默认 true；逐 Agent 可在 UI Skip permissions 或 OPENCODE_CONFIG_CONTENT 调整。"
         },
         {
           "name": "agentChatFinding",
@@ -462,11 +462,11 @@
         },
         {
           "name": "nextSessionHandoff",
-          "value": "2026-10-21: 先读 T2 playbook-company-project-team-agent-vsoc、ipd-2026-10-20、paperclip-archgraph-profile-graph-context-2026-10-20。优先 commit Paperclip 仓改动；组织树目前只读，若要编辑再加 parent_project_id UI/接口。active agents 65/65 有 project 绑定；vsoc 已重构 19/8。"
+          "value": "先读 T2 2026-10-27-47-deploy-opencode-permissions；下载/ACR 已更新；旧 3cb tag/旧容器保留；如需所有 Agent 默认 external allow 或收紧，按 per-agent 配置。"
         },
         {
           "name": "sessionDate",
-          "value": "2026-10-21"
+          "value": "2026-10-27"
         },
         {
           "name": "vsocOrgV2",
@@ -566,9 +566,9 @@
           "value": "2026-10-23: VSO-33 insight/planning archived at new-era-cybersecurity-strategy/doc/history/vso-33-ai-vs-ai-2026-10-23, commit e08ac85. Treated as HISTORICAL FACT RECORD, not knowledge/current guidance/approved conclusion; later records win; never load into agent KG. Contains 7 ArchGraph planning snapshots (business insight, plan v1.2, terrain v1.2, industry benchmark, method matrix, Q4 schedule, W1 issuance) + Paperclip issue metadata (VSO-33 + 11 children) + manifest/hashes. Gaps: Paperclip comment bodies (18 observed) and child issue document bodies were not captured because the run-scoped API token expired; do not claim complete transcript."
         }
       ],
-      "description": "【T1 会话总结 · 2026-10-21（会话结束定稿）】\n\n【目标】评估并执行 Paperclip fork 合并 upstream，然后推送、构建、上线 47，完成验收。\n\n【结果】\n1) 合并：upstream c2daf906d（224 commits）已在 dev/local-install；merge commit 2d6d117f1；7 处冲突手工解决；迁移重编 0370/0371；已 push（fb4527c1a、23acf44af）。\n2) 验收：架构验收 20/20；workspace-runtime 181/181；execute.remote 9/9；浏览器 e2e onboarding 6/6、组合 24/26；全量单测部分完成 4789 passed / 5 环境类失败（HEIC 原生二进制、Codex native runner 可用性、git 远端夹具），最后主动停止以释放生产负载。\n3) 上线：47 运行 fb4527c1a 的构建，health ok，部署快照 c166e57 ↔ 源码 fb4527c1a。\n\n【本次修复的真问题】\n- fork 曾强制“建项目必须绑 leadAgentId”（路由 422 + 按钮/下拉 required）→ 打挂上游 10+ e2e 流程；改为创建可不绑、传入时校验唯一绑定。\n- CLI `worktree init --from-config {}` 严格校验空 source config → provisioning 失败；改为容忍并回退 defaults。\n- idle watchdog 派发后记账失败会被记成 skipped；依赖自动释放测试硬编码 statusVersion。\n- e2e 在 Windows 的 `--import=D:\\...` 非法（改 file://）与 webServer 120s 超时（改为环境变量）。\n\n【47 部署模型（关键，后续必读）】\n- systemd drop-in fork.conf 指向本 fork；health 的 commit 取自 checkout 的 git HEAD（不是 build stamp）；checkout 无 remote、GitHub 不可达，故用 deploy 分支快照提交，哈希与分支 commit 不同。\n- runtime 是 tsx 读 **src**（包 exports 指向 src）→ 部署必须同步源码，不能只拷 dist；构建在本地（tsc+vite，无 cargo），47 只做 pnpm install。\n- 47 的 Tailscale DNS 不解析公网，装依赖需临时切 223.5.5.5 再恢复。\n- 备份必须放在仓库外（否则被 git add -A 跟踪，污染 ls-files 并打挂测试）；本次已清理 6,331 个陈旧文件，备份在 /home/paperclip/backups/20261021-deploy/。\n\n【仍成立的产品/组织决策】\n1) Company=产品线；Project 树按子系统/模块；Project↔Team 1:1；一个 Project 唯一 PM；树节点必须是 Project。\n2) 一个 Project 可多 Agent，但一个 Agent 只属于一个 Project（lead + 直属 team；子项目 lead 不计入父 team）。\n3) Paperclip 不侵入 ArchGraph；适配只在本仓 helper；框架自管 ~/.argo 与系统级 opencode 配置。\n4) Agent 默认 opencode_local + direct remote workspace（远端真实 checkout）；不要切 native Paperclip Runner（本环境不可用）。\n5) Pipelines 已随上游移除（数据保留），替代方向是 Cases。\n\n【遗留】\n1) 全量单测未跑完（已停），建议维护窗口跑 test:run:general / test:run:serialized。\n2) 2 个 Codex/runner 测试与 2 个 HEIC 测试在 47 上因环境失败，若要绿需补 native runner binary staging 与原生转换依赖。\n3) health commit 是部署快照哈希而非分支 commit（可选：给 47 一条可靠 git 通道或改为读 build stamp）。\n4) .agents/skills 等 export-ignore 文件不在 47 树内（不影响运行）。",
+      "description": "【T1 会话总结 · 2026-10-27（阶段性收尾）】\n\n【目标】修复 47 的 Docker/WSL 与 OpenCode 权限问题，恢复 AIC-41/ARG-9，发布 1576 并更新下载/ACR。\n\n【本轮完成】\n1) Docker/WSL：WSL VM 从 10-18 连续运行，docker-desktop bootstrap 报 HCS_E_CONNECTION_TIMEOUT；停 Docker 后端 → `wsl --shutdown` → 启动 Docker Desktop；docker info 恢复；ocpc 的 sshd:2222、opencode web:4096、Tailscale 100.87.205.43、keepalive 恢复。\n2) 代码：40093021c per-agent HOME；1c8b89959 doc cleanup；1576ba6c1 让 remote runtime config 在 dangerouslySkipPermissions=true 时显式下发 `permission:{\"*\":\"allow\",\"external_directory\":\"allow\"}`；手工 OPENCODE_CONFIG_CONTENT 优先级更高；typecheck + 3 runtime-config 测试通过。\n3) AIC-41：OpenCode 默认 external_directory=ask，远程 headless 自动拒绝 `/mnt/d/.../aic-site`；给 AIC lead 加 `external_directory: allow` 后 AIC-41 恢复，G5 部署完成；`/insight/`、`/insight/matrix`、`/insight/platforms` 均 200，页面 `data-aic41-deploy-state=deployed`，release 3f94f4a-8f6bb2bcbcea；AIC-41 done。\n4) ARG-9：旧 `WSL2 · archgraph` IP 100.66.122.62 setup_failed；环境已改为 100.87.205.43；重指派 项目经理 · archgraph，run 1d1411ee 成功（pwd=/mnt/d/Projects/archgraph），ARG-9 done。\n5) 发布：镜像 `paperclip-fork:1576ba6c1dc5` 已部署到 47；ACR `1576ba6c1dc5`/`latest` digest `sha256:45f8632fbaedf4eb2b7475d2f61b7bcda897a99a253786fd41c6f8a1e610a3f4`；下载 `http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz`，sha256 `79fe2b4e...`，24h 后关闭；旧 a35 URL 502。\n\n【关键决策/教训】\n- OpenCode 的 `external_directory` 默认 ask，headless 下 auto-reject；旧的 `dangerouslySkipPermissions` 只在本机 runtime 生效，远程没有显式 external 权限。\n- 修复后默认 true 会让所有 remote OpenCode Agent 默认允许外部目录；要限制某个 Agent，在 Agent → Configuration → Adapter 关闭 **Skip permissions**，或用 per-agent `OPENCODE_CONFIG_CONTENT` 的路径级 `external_directory` 规则（* ask + 具体 allow/deny）。\n- Docker push 在 ACR 个人版 manifest 阶段卡住，改用 crane 0.22.1 push 成功；旧 3cb tag 保留。\n- 47 上的 per-agent home 隔离保持；共享 checkout 不变。\n\n【当前状态】47 health ok，commit 1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e；AIC-41/ARG-9 done；下载/ACR 已更新；旧容器 paperclip-pre-1576/pre-1c8/pre-400 保留作回滚。\n\n【遗留/注意】下载 2026-10-28T15:50:08Z 到期；旧 ACR 3cb tag 保留；完整 adapter 测试仍有 Windows bash/symlink 环境性失败；下载/ACR T2 记忆与 T1 摘要已更新。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-10-21：解耦、全项目图谱、IPD 组织重构与组织树）",
+      "name": "T1 会话总结（2026-10-27：47 Docker/权限修复、AIC-41/ARG-9、1576 发布）",
       "type": "Requirement"
     },
     {
@@ -2370,7 +2370,7 @@
     {
       "type": "Requirement",
       "name": "2026-10-27 47 临时对外提供 fork 镜像下载（24h 自动关闭）",
-      "description": "【需求】应人类要求，把 paperclip fork 的 docker 镜像在 47 上临时对外提供下载（不是 ACR 拉取），24 小时后自动关闭。\n\n【当前状态 2026-10-27】旧下载（`paperclip-fork:3cb59953eb38` / token b86a7c2af95a）已停止；新下载指向当前线上镜像。\n\n【新下载】镜像 `paperclip-fork:1c8b899592de`（= 线上运行镜像，6.33GB，commit 1c8b899592de3d115a437043c9487e04be41242a）经 `docker save | gzip -1` 压成 1.4GB（1,500,527,147 字节）。\n- 下载：http://47.107.161.168/dl-a35eb874d75c/paperclip-fork-1c8b899592de.tar.gz\n- 校验：同目录 `paperclip-fork-1c8b899592de.tar.gz.sha256`，sha256=edd76b7fea9982ff392d24bb7ced71e9a3a24d4daff8dfe4b3e0951105d6392c\n- 载入：`docker load -i paperclip-fork-1c8b899592de.tar.gz`\n- README：http://47.107.161.168/dl-a35eb874d75c/README.txt\n- 到期：2026-10-28T05:38:24Z（13:38:24 CST），systemd 定时器 paperclip-dl-cleanup.timer 触发 /usr/local/sbin/paperclip-dl-cleanup.sh，删目录 + 撤 nginx include + reload + 自删 timer。\n\n【旧下载历史】`paperclip-fork:3cb59953eb38` / `dl-b86a7c2af95a` 已于 2026-10-27 停止；旧目录、旧 include、旧 timer 已删除，旧 URL 返回 502（默认 location 反代无服务）。\n\n【实现】文件放 /var/www/downloads/<token>/（属主 www-data）；新增 /etc/nginx/snippets/paperclip-dl.conf，用 `location ^~ /dl-<token>/ { alias ...; no-store; limit_rate_after 128m; limit_rate 30m; }`，并在 sites-enabled/default 的 `location / {` 前插一行 include（清理脚本按同一行精确删除）。token 为 openssl rand -hex 6，随机不可猜。\n\n【验证】外网 HEAD 200 + Content-Length 一致；Range 206 取 2 字节；前两字节 1f 8b（合法 gzip）；README.txt/sha256 可取；旧 URL 502；timer active；47 磁盘约 25G 剩余。\n\n【坑】1) 47 的 :80 default_server 把 `location /` 反代到 127.0.0.1:8080，那里无服务返回 502，所以必须用 ^~ 前缀 location 抢在 `location /` 之前，否则会被反代吞掉。2) 不要为此改安全组：80 端口本来就对外（历史 dashboard/vsoc 用），临时下载复用 80 最省事。3) 不用 `docker save > raw.tar`，直接管道 gzip，避免额外 6.3G 中间文件。4) 提前关闭执行 /usr/local/sbin/paperclip-dl-cleanup.sh 即可（幂等，会自删 timer）。",
+      "description": "【需求】应人类要求，把 paperclip fork 的 docker 镜像在 47 上临时对外提供下载（不是 ACR 拉取），24 小时后自动关闭。\n\n【当前状态 2026-10-27】旧下载（`paperclip-fork:1c8b899592de` / token a35eb874d75c）已停止；新下载指向当前线上镜像。\n\n【新下载】镜像 `paperclip-fork:1576ba6c1dc5`（= 线上运行镜像，6.32GB，commit 1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e）经 `docker save | gzip -1` 压成 1.4GB（1,499,794,163 字节）。\n- 下载：http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz\n- 校验：同目录 `paperclip-fork-1576ba6c1dc5.tar.gz.sha256`，sha256=79fe2b4e45a203fd94cb1b8a030ab88d2996cd8e7340968dc7bc9178047a613d\n- 载入：`docker load -i paperclip-fork-1576ba6c1dc5.tar.gz`\n- README：http://47.107.161.168/dl-f89cd7722f61/README.txt\n- 到期：2026-10-28T15:50:08Z，systemd 定时器 paperclip-dl-cleanup.timer 触发 /usr/local/sbin/paperclip-dl-cleanup.sh，删目录 + 撤 nginx include + reload + 自删 timer。\n\n【旧下载历史】`paperclip-fork:3cb59953eb38` / token b86a7c2af95a 与 `paperclip-fork:1c8b899592de` / token a35eb874d75c 均已停止；旧目录、旧 include、旧 timer 已删除，旧 URL 返回 502（默认 location 反代无服务）。\n\n【实现】文件放 /var/www/downloads/<token>/（属主 www-data）；新增 /etc/nginx/snippets/paperclip-dl.conf，用 `location ^~ /dl-<token>/ { alias ...; no-store; limit_rate_after 128m; limit_rate 30m; }`，并在 sites-enabled/default 的 `location / {` 前插一行 include（清理脚本按同一行精确删除）。token 为 openssl rand -hex 6，随机不可猜。\n\n【验证】外网 HEAD 200 + Content-Length 一致；Range 206；前两字节 1f 8b（合法 gzip）；README.txt/sha256 可取；旧 URL 502；timer active；47 磁盘约 12G 剩余。\n\n【坑】1) 47 的 :80 default_server 把 `location /` 反代到 127.0.0.1:8080，那里无服务返回 502，所以必须用 ^~ 前缀 location 抢在 `location /` 之前，否则会被反代吞掉。2) 不要为此改安全组：80 端口本来就对外（历史 dashboard/vsoc 用），临时下载复用 80 最省事。3) 不用 `docker save > raw.tar`，直接管道 gzip，避免额外 6.3G 中间文件。4) 提前关闭执行 /usr/local/sbin/paperclip-dl-cleanup.sh 即可（幂等，会自删 timer）。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -2386,23 +2386,23 @@
         },
         {
           "name": "expiresAt",
-          "value": "2026-10-28T05:38:24Z"
+          "value": "2026-10-28T15:50:08Z"
         },
         {
           "name": "image",
-          "value": "paperclip-fork:1c8b899592de"
+          "value": "paperclip-fork:1576ba6c1dc5"
         },
         {
           "name": "sha256",
-          "value": "edd76b7fea9982ff392d24bb7ced71e9a3a24d4daff8dfe4b3e0951105d6392c"
+          "value": "79fe2b4e45a203fd94cb1b8a030ab88d2996cd8e7340968dc7bc9178047a613d"
         },
         {
           "name": "url",
-          "value": "http://47.107.161.168/dl-a35eb874d75c/paperclip-fork-1c8b899592de.tar.gz"
+          "value": "http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz"
         },
         {
           "name": "files",
-          "value": "/etc/nginx/snippets/paperclip-dl.conf, /etc/nginx/sites-enabled/default, /usr/local/sbin/paperclip-dl-cleanup.sh, /etc/systemd/system/paperclip-dl-cleanup.{service,timer}, /var/www/downloads/a35eb874d75c"
+          "value": "/etc/nginx/snippets/paperclip-dl.conf, /etc/nginx/sites-enabled/default, /usr/local/sbin/paperclip-dl-cleanup.sh, /etc/systemd/system/paperclip-dl-cleanup.{service,timer}, /var/www/downloads/f89cd7722f61"
         },
         {
           "name": "owner",
@@ -2410,11 +2410,11 @@
         },
         {
           "name": "imageCommit",
-          "value": "1c8b899592de3d115a437043c9487e04be41242a"
+          "value": "1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e"
         },
         {
           "name": "replacedUrl",
-          "value": "http://47.107.161.168/dl-b86a7c2af95a/paperclip-fork-3cb59953eb38.tar.gz"
+          "value": "http://47.107.161.168/dl-a35eb874d75c/paperclip-fork-1c8b899592de.tar.gz"
         },
         {
           "name": "stoppedAt",
@@ -2422,6 +2422,62 @@
         }
       ],
       "id": "2026-10-27-47-fork-24h"
+    },
+    {
+      "id": "2026-10-27-47-deploy-opencode-permissions",
+      "type": "Deliverable",
+      "name": "2026-10-27 47 部署、OpenCode 权限与 AIC-41/ARG-9 修复",
+      "description": "【范围】2026-10-27 47 部署、OpenCode 权限、AIC-41/ARG-9、镜像/ACR/下载。\n\n【Docker/WSL】WSL VM 从 10-18 连续运行，docker-desktop bootstrap 报 Wsl/Service/CreateInstance/HCS_E_CONNECTION_TIMEOUT；宿主资源正常。处置：停 Docker Desktop 后端 → wsl --shutdown → 启动 Docker Desktop；docker info 恢复；ocpc 的 sshd:2222、opencode web:4096、Tailscale 100.87.205.43、keepalive 均恢复。\n\n【代码】分支 dev/local-install：\n- 40093021c per-agent HOME（skills 隔离，共享 checkout 不变）\n- 1c8b89959 doc cleanup\n- 1576ba6c1 fix(opencode): dangerouslySkipPermissions 在 remote runtime config 显式下发 permission {\"*\":\"allow\",\"external_directory\":\"allow\"}；手工 OPENCODE_CONFIG_CONTENT 优先级更高；类型检查 + 3 个 runtime-config 测试通过。\n镜像 paperclip-fork:1576ba6c1dc5；47 health ok，commit 1576...。\n\n【AIC-41】OpenCode 默认 external_directory=ask，远程 headless 自动拒绝 /mnt/d/.../aic-site；给 AIC lead 加 OPENCODE_CONFIG_CONTENT external allow 后，AIC-41 从 in_progress 恢复，G5 部署完成；/insight/、/insight/matrix、/insight/platforms 200，data-aic41-deploy-state=deployed，release 3f94f4a-8f6bb2bcbcea；AIC-41 done。\n\n【ARG-9】旧环境 WSL2 · archgraph IP 100.66.122.62 setup_failed；环境已改为 100.87.205.43；重指派项目经理·archgraph，run 1d1411ee 成功（pwd=/mnt/d/Projects/archgraph），ARG-9 done。\n\n【镜像/ACR/下载】ACR tag 1576ba6c1dc5 与 latest digest sha256:45f8632fbaedf4eb2b7475d2f61b7bcda897a99a253786fd41c6f8a1e610a3f4；docker push 在 ACR 个人版 manifest 阶段卡住，改用 crane 0.22.1 push。临时下载 http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz，sha256=79fe2b4e45a203fd94cb1b8a030ab88d2996cd8e7340968dc7bc9178047a613d，expires 2026-10-28T15:50:08Z；旧 a35 URL 502。\n\n【配置口径】Agent → Configuration → Adapter(OpenCode Local) 有 Skip permissions（adapterConfig.dangerouslySkipPermissions）；默认 true；per-agent env OPENCODE_CONFIG_CONTENT 可做路径级 external_directory（* ask + 具体 allow/deny），优先级高于 Paperclip 注入；项目 opencode.json/global/etc 也可，但不是 per-agent。默认 true 意味着新镜像下所有 remote agents 默认 external allow；要 opt-out 设 false 或路径规则。\n\n【注意】docker push 卡住；crane push 完成；旧 3cb tag 保留；下载/ACR 记忆已更新。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-27"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-27"
+        },
+        {
+          "name": "commit",
+          "value": "1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:1576ba6c1dc5"
+        },
+        {
+          "name": "acrDigest",
+          "value": "sha256:45f8632fbaedf4eb2b7475d2f61b7bcda897a99a253786fd41c6f8a1e610a3f4"
+        },
+        {
+          "name": "downloadUrl",
+          "value": "http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz"
+        },
+        {
+          "name": "downloadSha256",
+          "value": "79fe2b4e45a203fd94cb1b8a030ab88d2996cd8e7340968dc7bc9178047a613d"
+        },
+        {
+          "name": "expiresAt",
+          "value": "2026-10-28T15:50:08Z"
+        },
+        {
+          "name": "scope",
+          "value": "47 Docker/WSL recovery; per-agent HOME; OpenCode external_directory; AIC-41; ARG-9; image 1576; ACR; temporary download"
+        },
+        {
+          "name": "owner",
+          "value": "人类伙伴 + 项目经理"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -2592,7 +2648,8 @@
         "paperclip-intranet-migration-plan-2026-10-22",
         "paperclip-opencode-runaway-recovery-2026-10-23",
         "paperclip-exec-env-ssh-flap-backlog-2026-10-23",
-        "2026-10-27-47-fork-24h"
+        "2026-10-27-47-fork-24h",
+        "2026-10-27-47-deploy-opencode-permissions"
       ]
     },
     {
