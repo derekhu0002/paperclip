@@ -35,81 +35,74 @@ function shellQuote(value: string): string {
 }
 
 /**
- * A stable per-agent OpenCode HOME. The checkout/cwd stays shared; only the
- * user-level OpenCode surface is private to the agent.
+ * A stable per-agent OpenCode config home (the value of `XDG_CONFIG_HOME`).
+ *
+ * Only OpenCode's own config surface moves: the user's HOME, XDG data/cache/
+ * state, and `~/.claude` stay untouched so git, gh, ssh, npm, `~/.argo` and
+ * `~/.paperclip` keep resolving the real user home.
  */
-export function resolveOpenCodeAgentHome(baseHome: string, agentId: string): string {
+export function resolveOpenCodeAgentConfigHome(baseHome: string, agentId: string): string {
   const safeAgentId = agentId.replace(/[^A-Za-z0-9._-]/g, "_");
-  return path.posix.join(baseHome, ".paperclip", "agents", safeAgentId, "home");
+  return path.posix.join(baseHome, ".paperclip", "agents", safeAgentId, "config");
 }
 
 /**
- * Build the per-agent HOME on the execution host.
+ * Build the per-agent OpenCode config home on the execution host.
  *
- * The real user home is symlinked into the agent home so OpenCode keeps its
- * native user-level discovery (config, MCP, instructions, plugins, and the
- * global skill dirs under .config/.agents). Only .claude/skills is rebuilt:
- * Paperclip's desired skills are copied first, then ambient user skills are
- * linked in unless the name is Paperclip-managed or already present. This
- * keeps Paperclip's assignment private without changing the shared checkout.
+ * OpenCode discovers global skills in `$XDG_CONFIG_HOME/opencode/skills`,
+ * `~/.claude/skills`, and `~/.agents/skills`. Redirecting only
+ * `XDG_CONFIG_HOME` gives each agent a private skills directory without
+ * redefining HOME:
+ *
+ * - every other entry of the shared XDG config dir is linked in, so gh, git
+ *   and the OpenCode config (MCP servers, providers, plugins, agents,
+ *   commands, instructions) stay discoverable;
+ * - the shared `opencode/` entries are linked too, except `skills`;
+ * - `opencode/skills` is rebuilt from Paperclip's assignment on every run, so
+ *   an agent only ever sees its own skills and stale links cannot survive.
+ *
+ * Ambient user skills are not copied: they stay visible through the untouched
+ * `~/.claude/skills` and `~/.agents/skills` under the real HOME.
  */
-export function buildOpenCodeAgentHomeScript(input: {
-  baseHome: string;
-  agentHome: string;
+export function buildOpenCodeAgentConfigScript(input: {
+  baseConfigHome: string;
+  agentConfigHome: string;
   skillsAssetDir: string | null;
-  paperclipSkillNames: string[];
 }): string {
-  const baseHome = shellQuote(input.baseHome);
-  const agentHome = shellQuote(input.agentHome);
+  const baseConfigHome = shellQuote(input.baseConfigHome);
+  const agentConfigHome = shellQuote(input.agentConfigHome);
   const skillsAssetDir = shellQuote(input.skillsAssetDir ?? "");
-  const paperclipSkillNames = shellQuote(
-    [...new Set(input.paperclipSkillNames)].sort().join(" "),
-  );
 
   return [
     "set -e",
-    `BASE_HOME=${baseHome}`,
-    `AGENT_HOME=${agentHome}`,
+    `BASE_XDG=${baseConfigHome}`,
+    `AGENT_XDG=${agentConfigHome}`,
     `SKILLS_ASSET=${skillsAssetDir}`,
-    `PAPERCLIP_SKILL_NAMES=${paperclipSkillNames}`,
-    'mkdir -p "$AGENT_HOME"',
-    // Rebuild .claude so an older agent home cannot keep a stale symlink to
-    // the shared user home and leak one agent's skills into another.
-    'rm -rf "$AGENT_HOME/.claude"',
-    'mkdir -p "$AGENT_HOME/.claude/skills"',
-    // Preserve the native user home for config/MCP/instructions/plugins and
-    // the other global skill dirs. .claude is handled separately below.
-    'for entry in "$BASE_HOME"/* "$BASE_HOME"/.[!.]*; do',
-    '  [ -e "$entry" ] || [ -L "$entry" ] || continue',
-    '  name=$(basename "$entry")',
-    '  case "$name" in .claude|.paperclip) continue;; esac',
-    '  [ -e "$AGENT_HOME/$name" ] || [ -L "$AGENT_HOME/$name" ] || ln -s "$entry" "$AGENT_HOME/$name"',
-    "done",
-    // Keep user-level .claude files (CLAUDE.md, settings, commands, ...) but
-    // replace the shared skills directory with the per-agent merged view.
-    'if [ -d "$BASE_HOME/.claude" ]; then',
-    '  for entry in "$BASE_HOME/.claude"/* "$BASE_HOME/.claude"/.[!.]*; do',
+    'mkdir -p "$AGENT_XDG/opencode/skills"',
+    // Keep the user's other XDG config entries (gh, git, ...) reachable.
+    'if [ -d "$BASE_XDG" ]; then',
+    '  for entry in "$BASE_XDG"/* "$BASE_XDG"/.[!.]*; do',
     '    [ -e "$entry" ] || [ -L "$entry" ] || continue',
     '    name=$(basename "$entry")',
-    '    [ "$name" = "skills" ] && continue',
-    '    [ -e "$AGENT_HOME/.claude/$name" ] || [ -L "$AGENT_HOME/.claude/$name" ] || ln -s "$entry" "$AGENT_HOME/.claude/$name"',
+    '    if [ "$name" = "opencode" ]; then continue; fi',
+    '    [ -e "$AGENT_XDG/$name" ] || [ -L "$AGENT_XDG/$name" ] || ln -s "$entry" "$AGENT_XDG/$name"',
     "  done",
     "fi",
-    // Paperclip wins name conflicts with ambient user skills.
+    // Preserve the shared OpenCode config but keep skills per-agent.
+    'if [ -d "$BASE_XDG/opencode" ]; then',
+    '  for entry in "$BASE_XDG/opencode"/* "$BASE_XDG/opencode"/.[!.]*; do',
+    '    [ -e "$entry" ] || [ -L "$entry" ] || continue',
+    '    name=$(basename "$entry")',
+    '    if [ "$name" = "skills" ]; then continue; fi',
+    '    [ -e "$AGENT_XDG/opencode/$name" ] || [ -L "$AGENT_XDG/opencode/$name" ] || ln -s "$entry" "$AGENT_XDG/opencode/$name"',
+    "  done",
+    "fi",
+    // Rebuild the assignment view so a removed or reassigned skill cannot leak.
+    'rm -rf "$AGENT_XDG/opencode/skills"',
+    'mkdir -p "$AGENT_XDG/opencode/skills"',
     'if [ -d "$SKILLS_ASSET" ]; then',
-    '  cp -a "$SKILLS_ASSET"/. "$AGENT_HOME/.claude/skills"/',
+    '  cp -a "$SKILLS_ASSET"/. "$AGENT_XDG/opencode/skills"/',
     "fi",
-    // Add ambient user skills that are not Paperclip-managed and do not
-    // conflict with an assigned Paperclip skill.
-    'if [ -d "$BASE_HOME/.claude/skills" ]; then',
-    '  for entry in "$BASE_HOME/.claude/skills"/* "$BASE_HOME/.claude/skills"/.[!.]*; do',
-    '    [ -e "$entry" ] || [ -L "$entry" ] || continue',
-    '    name=$(basename "$entry")',
-    '    case " $PAPERCLIP_SKILL_NAMES " in *" $name "*) continue;; esac',
-    '    [ -e "$AGENT_HOME/.claude/skills/$name" ] || [ -L "$AGENT_HOME/.claude/skills/$name" ] || ln -s "$entry" "$AGENT_HOME/.claude/skills/$name"',
-    "  done",
-    "fi",
-    'mkdir -p "$AGENT_HOME/.config" "$AGENT_HOME/.local/share" "$AGENT_HOME/.cache" "$AGENT_HOME/.local/state"',
   ].join("\n");
 }
 

@@ -66,8 +66,8 @@ import { apiKeyBillingType } from "@paperclipai/adapter-utils/api-billing-type";
 import { prepareOpenCodeRuntimeConfig, prepareManagedOpenCodeRemoteHomes } from "./runtime-config.js";
 import { SANDBOX_INSTALL_COMMAND } from "../index.js";
 import {
-  buildOpenCodeAgentHomeScript,
-  resolveOpenCodeAgentHome,
+  buildOpenCodeAgentConfigScript,
+  resolveOpenCodeAgentConfigHome,
   resolveOpenCodeSkillsHome,
 } from "./skills.js";
 
@@ -477,9 +477,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       });
       remoteRuntimeRootDir = preparedExecutionTargetRuntime.runtimeRootDir;
       const managedHome = adapterExecutionTargetUsesManagedHome(executionTarget);
-      // Resolve the real execution-host home before replacing HOME. This is
-      // the user-level OpenCode surface (config, MCP, instructions, plugins,
-      // and the native global skill dirs) that must stay discoverable.
+      // Resolve the real execution-host home and XDG config dir before any
+      // per-run override. These are the user-level surfaces (git, gh, ssh,
+      // OpenCode config/MCP/plugins and the native skill dirs) that must stay
+      // discoverable.
       const configuredHome = asString(preparedRuntimeConfig.env.HOME, "");
       const ambientHome = !config.managedAiConnection
         ? (configuredHome && path.posix.isAbsolute(configuredHome)
@@ -491,6 +492,12 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
                 graceSec,
                 onLog,
               }))
+        : null;
+      const configuredConfigHome = asString(preparedRuntimeConfig.env.XDG_CONFIG_HOME, "");
+      const ambientConfigHome = !config.managedAiConnection && ambientHome
+        ? (configuredConfigHome && path.posix.isAbsolute(configuredConfigHome)
+            ? configuredConfigHome
+            : path.posix.join(ambientHome, ".config"))
         : null;
       if (managedHome && preparedExecutionTargetRuntime.runtimeRootDir) {
         preparedRuntimeConfig.env.HOME = preparedExecutionTargetRuntime.runtimeRootDir;
@@ -505,25 +512,21 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
         runId,
         configDir: preparedExecutionTargetRuntime.assetDirs.xdgConfig,
       });
-      if (!config.managedAiConnection && ambientHome) {
-        // Per-agent HOME: the checkout/cwd remains shared, but the user-level
-        // OpenCode surface is private to this agent. Paperclip-assigned skills
-        // are copied into this home only, while ambient user skills and
-        // config/MCP/instructions are linked in without changing the repo.
-        const agentHome = resolveOpenCodeAgentHome(ambientHome, agent.id);
-        preparedRuntimeConfig.env.HOME = agentHome;
-        preparedRuntimeConfig.env.XDG_CONFIG_HOME = path.posix.join(agentHome, ".config");
-        preparedRuntimeConfig.env.XDG_DATA_HOME = path.posix.join(agentHome, ".local", "share");
-        preparedRuntimeConfig.env.XDG_CACHE_HOME = path.posix.join(agentHome, ".cache");
-        preparedRuntimeConfig.env.XDG_STATE_HOME = path.posix.join(agentHome, ".local", "state");
+      if (!config.managedAiConnection && executionTarget.transport === "ssh" && ambientHome && ambientConfigHome) {
+        // Per-agent skill isolation scoped to OpenCode's own config surface.
+        // HOME and the data/cache/state dirs stay untouched: redefining HOME
+        // breaks every other HOME consumer (git, gh, ssh, npm, ~/.argo,
+        // ~/.paperclip). Only XDG_CONFIG_HOME moves, and the shared config
+        // entries are linked into it so MCP/providers/plugins keep working.
+        const agentConfigHome = resolveOpenCodeAgentConfigHome(ambientHome, agent.id);
+        preparedRuntimeConfig.env.XDG_CONFIG_HOME = agentConfigHome;
         await runAdapterExecutionTargetShellCommand(
           runId,
           executionTarget,
-          buildOpenCodeAgentHomeScript({
-            baseHome: ambientHome,
-            agentHome,
+          buildOpenCodeAgentConfigScript({
+            baseConfigHome: ambientConfigHome,
+            agentConfigHome,
             skillsAssetDir: preparedExecutionTargetRuntime.assetDirs.skills ?? null,
-            paperclipSkillNames: openCodeSkillEntries.map((entry) => entry.runtimeName),
           }),
           { cwd, env: preparedRuntimeConfig.env, timeoutSec, graceSec, onLog },
         );
