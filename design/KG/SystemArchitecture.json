@@ -59,6 +59,14 @@
         {
           "view_id": "project-manager-fork-decoupling-001",
           "view_name": "项目经理 · Fork 解耦与插件化记忆"
+        },
+        {
+          "view_id": "project-manager-toolchain-001",
+          "view_name": "项目经理 · 框架与工具链升级记忆"
+        },
+        {
+          "view_id": "project-manager-vsoc-onboarding-001",
+          "view_name": "项目经理 · vsoc 项目与 Agent 上线记忆"
         }
       ],
       "attributes": [
@@ -189,7 +197,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-27"
+          "value": "2026-10-30"
         },
         {
           "name": "memoryTier",
@@ -466,7 +474,7 @@
         },
         {
           "name": "sessionDate",
-          "value": "2026-10-27"
+          "value": "2026-10-30"
         },
         {
           "name": "vsocOrgV2",
@@ -564,11 +572,15 @@
         {
           "name": "historicalFactArchiveVso33",
           "value": "2026-10-23: VSO-33 insight/planning archived at new-era-cybersecurity-strategy/doc/history/vso-33-ai-vs-ai-2026-10-23, commit e08ac85. Treated as HISTORICAL FACT RECORD, not knowledge/current guidance/approved conclusion; later records win; never load into agent KG. Contains 7 ArchGraph planning snapshots (business insight, plan v1.2, terrain v1.2, industry benchmark, method matrix, Q4 schedule, W1 issuance) + Paperclip issue metadata (VSO-33 + 11 children) + manifest/hashes. Gaps: Paperclip comment bodies (18 observed) and child issue document bodies were not captured because the run-scoped API token expired; do not claim complete transcript."
+        },
+        {
+          "name": "related",
+          "value": "opencode-skill-isolation-home-fix-2026-10-30, 2026-10-27-47-fork-24h"
         }
       ],
-      "description": "【T1 会话总结 · 2026-10-27（阶段性收尾）】\n\n【目标】修复 47 的 Docker/WSL 与 OpenCode 权限问题，恢复 AIC-41/ARG-9，发布 1576 并更新下载/ACR。\n\n【本轮完成】\n1) Docker/WSL：WSL VM 从 10-18 连续运行，docker-desktop bootstrap 报 HCS_E_CONNECTION_TIMEOUT；停 Docker 后端 → `wsl --shutdown` → 启动 Docker Desktop；docker info 恢复；ocpc 的 sshd:2222、opencode web:4096、Tailscale 100.87.205.43、keepalive 恢复。\n2) 代码：40093021c per-agent HOME；1c8b89959 doc cleanup；1576ba6c1 让 remote runtime config 在 dangerouslySkipPermissions=true 时显式下发 `permission:{\"*\":\"allow\",\"external_directory\":\"allow\"}`；手工 OPENCODE_CONFIG_CONTENT 优先级更高；typecheck + 3 runtime-config 测试通过。\n3) AIC-41：OpenCode 默认 external_directory=ask，远程 headless 自动拒绝 `/mnt/d/.../aic-site`；给 AIC lead 加 `external_directory: allow` 后 AIC-41 恢复，G5 部署完成；`/insight/`、`/insight/matrix`、`/insight/platforms` 均 200，页面 `data-aic41-deploy-state=deployed`，release 3f94f4a-8f6bb2bcbcea；AIC-41 done。\n4) ARG-9：旧 `WSL2 · archgraph` IP 100.66.122.62 setup_failed；环境已改为 100.87.205.43；重指派 项目经理 · archgraph，run 1d1411ee 成功（pwd=/mnt/d/Projects/archgraph），ARG-9 done。\n5) 发布：镜像 `paperclip-fork:1576ba6c1dc5` 已部署到 47；ACR `1576ba6c1dc5`/`latest` digest `sha256:45f8632fbaedf4eb2b7475d2f61b7bcda897a99a253786fd41c6f8a1e610a3f4`；下载 `http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz`，sha256 `79fe2b4e...`，24h 后关闭；旧 a35 URL 502。\n\n【关键决策/教训】\n- OpenCode 的 `external_directory` 默认 ask，headless 下 auto-reject；旧的 `dangerouslySkipPermissions` 只在本机 runtime 生效，远程没有显式 external 权限。\n- 修复后默认 true 会让所有 remote OpenCode Agent 默认允许外部目录；要限制某个 Agent，在 Agent → Configuration → Adapter 关闭 **Skip permissions**，或用 per-agent `OPENCODE_CONFIG_CONTENT` 的路径级 `external_directory` 规则（* ask + 具体 allow/deny）。\n- Docker push 在 ACR 个人版 manifest 阶段卡住，改用 crane 0.22.1 push 成功；旧 3cb tag 保留。\n- 47 上的 per-agent home 隔离保持；共享 checkout 不变。\n\n【当前状态】47 health ok，commit 1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e；AIC-41/ARG-9 done；下载/ACR 已更新；旧容器 paperclip-pre-1576/pre-1c8/pre-400 保留作回滚。\n\n【遗留/注意】下载 2026-10-28T15:50:08Z 到期；旧 ACR 3cb tag 保留；完整 adapter 测试仍有 Windows bash/symlink 环境性失败；下载/ACR T2 记忆与 T1 摘要已更新。",
+      "description": "【T1 会话总结 · 2026-10-30】\n\n【目标】确认并修复 40093021c 引入的 HOME 重定义缺陷（保留 per-agent 技能隔离特性），然后构建/发布镜像、47 部署与验证，最后开放 24h 镜像下载。\n\n【完成】\n1) 根因：40093021c 把非 managed 直连 SSH 运行的 HOME + 4 个 XDG 目录整体改到 <home>/.paperclip/agents/<id>/home，并整份 home 软链（跳过 .claude/.paperclip）。破坏所有 HOME 消费者：git/gh/ssh/npm 新写入落 per-agent、~/.paperclip 不软链、XDG_CONFIG_HOME 指回共享使 runtime config 失效、每轮 rm -rf .claude。\n2) 修复 4c0b0f7ac：只改 XDG_CONFIG_HOME 到 <home>/.paperclip/agents/<id>/config；共享 XDG 配置项与 opencode/ 配置（MCP/provider/plugins/agents/commands，排除 skills）软链进来；每轮重建 opencode/skills；HOME 与 XDG_DATA/CACHE/STATE 不动；作用域限定 SSH 非 managed，sandbox 回到既有 managed HOME 拷贝行为。依据：opencode.ai/docs/skills + docs/config 的官方全局技能路径（$XDG_CONFIG_HOME/opencode/skills、~/.claude/skills、~/.agents/skills），以及 codex-home.ts 的 tool-specific home + allowlist 范式。\n3) 测试：skills.test.ts + execute.remote.test.ts（非 managed 下 HOME/XDG_DATA/CACHE/STATE 均未设置，仅 XDG_CONFIG_HOME=per-agent）；agent-config-home.integration.test.ts（POSIX）：两 Agent 技能互不可见、共享 opencode.json/gh 可见、共享 .claude 与 .gitconfig 不被修改。Windows 上 29 个失败已用 stash 在 HEAD 复现同批，属既有 symlink EPERM/POSIX-only。\n4) 发布：push 4c0b0f7ac → 镜像 paperclip-fork:4c0b0f7ac40e（6.32GB，tar.gz 1.4GB）；ACR tag 4c0b0f7ac40e + latest = sha256:66c84c917cec537045e3791c97664303083c3a255a974d80a7424901589eebc3（crane 0.22.1）。\n5) 47 部署：GitHub 不可达 → 增量 bundle（^b9d319e0e1）把 checkout 从 b9d319e0e1 纠到 4c0b0f7ac；容器切新镜像；health ok、commit=4c0b0f7ac…；/ 与 /organization 200，/api/companies 403（无凭据）；restarts=0、level50=0；三处 HEAD 相等；镜像内 POSIX 测试 13/13。\n6) 下载：http://47.107.161.168/dl-88af8548fc86/paperclip-fork-4c0b0f7ac40e.tar.gz，sha256 666395236982ff636ce3ddcbdd6271a985ab56f92437963eea92ffba50e75b82，1,499,815,525 字节，2026-10-31T15:51:59Z 到期；外网 HEAD/Range(gzip 1f8b)/sha256/README 均验证。\n\n【关键决策】\n- 不回退特性：人类明确要求保留“不同 Agent 隔离 skill”，只换实现；隔离粒度下沉到 OpenCode 自己的配置面，绝不再重定义 HOME。\n- 选 XDG_CONFIG_HOME 而非 HOME：官方文档证明它是全局技能发现位置之一；其余来源（~/.claude、~/.agents）留在真实 HOME，避免重复拷贝与同名冲突。\n- 作用域只给 SSH 非 managed：sandbox 已有 managed HOME 语义，改动风险大收益低。\n- 发布沿用既有路径：workstation 构建 → docker save/gzip → 47 加载 → crane 推 ACR（ACR 个人版拒绝 buildx attestation，docker push 卡 manifest）。\n\n【教训/坑】\n- 镜像必须 --build-arg USER_UID=998 --build-arg USER_GID=998 构建；否则 /app 归 1000，而 entrypoint 把 node 运行时重映射到 998 → embedded-postgres 建 libcrypto 软链 EACCES，容器崩溃循环（本次已遇到，先回滚 1576 再重构）。\n- 47 到 GitHub 经常不可达：用 git bundle 增量包（^<47旧HEAD>），SHA 必须相等才能 reset。\n- 47 磁盘紧张：先 prune 旧镜像（保留上一版作回滚），本次 8.3G→28G。\n- 远程 shell 脚本一律写 LF 文件再 scp；PowerShell 引号/CRLF 很容易把远端命令弄坏。\n\n【遗留】\n1) 旧 <home>/.paperclip/agents/<id>/home 目录未清理（无害）。\n2) 共享 ~/.claude/skills 里 40093021c 之前遗留的 Paperclip 软链未清理（避免误删用户技能），需要时可加保守迁移。\n3) 同名技能（Paperclip 分配 vs ambient）现同时存在于两个扫描位置，未强制优先级。\n4) 40093021c 同时移除了 OPENCODE_DISABLE_PROJECT_CONFIG；项目级 opencode.json 可覆盖权限，属独立风险待评估。\n\n【关联 T2】opencode-skill-isolation-home-fix-2026-10-30；2026-10-27-47-fork-24h（下载）。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-10-27：47 Docker/权限修复、AIC-41/ARG-9、1576 发布）",
+      "name": "T1 会话总结（2026-10-30：HOME 重定义修复、镜像发布 ACR、47 部署验证与下载）",
       "type": "Requirement"
     },
     {
@@ -1650,6 +1662,15 @@
         {
           "name": "upstreamBaseline",
           "value": "upstream/master c2daf906d (2026-10-20); merge-base 60e03c002; 之前落后 224 commits"
+        },
+        {
+          "name": "commit",
+          "value": "013d01f08",
+          "description": "Merge upstream/master into dev/local-install：同步 381 个上游提交（2026-10-24..10-29，217 fix / 31 feat / 66 perf / 34 evals）。15 处冲突全部解决，fork 特性全部保留（idle watchdog + tickAgentTimers 共存、依赖自动释放、一项目一 Agent 绑定、decision graph metadata、opencode 外部目录权限）。迁移 0378_peaceful_synch 重编为 0417_peaceful_synch（上游占用 0378..0416），snapshot 链接 0416，journal 追加 idx 417，SQL 幂等。附带修复 run-completion 测试的 scheduleBoundedRetryForRun mock 返回 Promise。文件：server/src/services/{heartbeat.ts,heartbeat/scheduling.ts,heartbeat/run-completion.ts,heartbeat/environment-selection.ts,issues.ts,decisions.ts,routes/projects.ts}, packages/shared/src/{index.ts,types/project.ts}, packages/db/src/migrations/{0417_peaceful_synch.sql,meta/0417_snapshot.json,meta/_journal.json}, ui/src/pages/IssueDetail.tsx, packages/paperclip-runner/scripts/materialize-pi-distribution.mjs"
+        },
+        {
+          "name": "upstreamBaseline20261029",
+          "value": "upstream/master 2badf8a4a (2026-10-29); merge-base 515ff0f28; 上游 381 commits / 2638 files / +251259；本地 136 commits；双改文件 45"
         }
       ]
     },
@@ -1784,6 +1805,11 @@
         {
           "name": "deliveryStatus",
           "value": "delivered"
+        },
+        {
+          "name": "commit",
+          "value": "4c0b0f7ac",
+          "description": "fix(opencode): isolate skills without redefining HOME — packages/adapters/opencode-local/src/server/{execute.ts,skills.ts,skills.test.ts,execute.remote.test.ts,agent-config-home.integration.test.ts}"
         }
       ],
       "description": "项目 Agent 在远端执行机上直接使用项目真实 checkout 作为 cwd，不做每轮 workspace staging/sync-back；控制面不再对远端路径做本地 stat 校验。项目绑定的 opencode_local Agent 必须开启 directRemoteWorkspace 且使用非 local 环境（SSH 必须有 remoteWorkspacePath），否则在选环境阶段明确报 configuration incomplete。",
@@ -1810,6 +1836,20 @@
           "description": "GIVEN a workspace with a persisted remote realization, WHEN the control plane checks availability, THEN it does not reject the workspace by stat-ing a path that only exists on the execution host. Runs the vitest suite on a POSIX host; on Windows it prints SKIP and exits 0.",
           "name": "Persisted remote realization survives reuse (POSIX host only)",
           "type": "Acceptance Test"
+        },
+        {
+          "name": "Per-agent skill isolation never redefines HOME",
+          "type": "Acceptance Test",
+          "description": "GIVEN a non-managed direct remote OpenCode run on an SSH target, WHEN the adapter prepares the runtime environment and materializes the agent skills, THEN HOME, XDG_DATA_HOME, XDG_CACHE_HOME and XDG_STATE_HOME keep the execution host values, so git, gh, ssh, npm and ~/.paperclip keep resolving the real user home.",
+          "Input": "pnpm vitest run packages/adapters/opencode-local/src/server/execute.remote.test.ts",
+          "acceptanceCriteria": "The non-managed run env has no per-agent HOME override and only XDG_CONFIG_HOME points at the per-agent OpenCode config home."
+        },
+        {
+          "name": "Assigned skills stay private per agent through the OpenCode config home",
+          "type": "Acceptance Test",
+          "description": "GIVEN two agents sharing one execution host and one git checkout, WHEN each run materializes its Paperclip-assigned skills, THEN agent A's OpenCode config home contains only A's assigned skills and agent B's contains only B's, while the shared OpenCode config (MCP/providers/plugins) and other XDG config entries stay visible and the shared ~/.claude/skills is left untouched.",
+          "Input": "pnpm vitest run packages/adapters/opencode-local/src/server/agent-config-home.integration.test.ts packages/adapters/opencode-local/src/server/skills.test.ts",
+          "acceptanceCriteria": "Skills are isolated per agent under <home>/.paperclip/agents/<id>/config/opencode/skills, shared config files are linked, and the prepared script never writes HOME or the base .claude/skills."
         }
       ],
       "type": "Application Service"
@@ -2370,7 +2410,7 @@
     {
       "type": "Requirement",
       "name": "2026-10-27 47 临时对外提供 fork 镜像下载（24h 自动关闭）",
-      "description": "【需求】应人类要求，把 paperclip fork 的 docker 镜像在 47 上临时对外提供下载（不是 ACR 拉取），24 小时后自动关闭。\n\n【当前状态 2026-10-27】旧下载（`paperclip-fork:1c8b899592de` / token a35eb874d75c）已停止；新下载指向当前线上镜像。\n\n【新下载】镜像 `paperclip-fork:1576ba6c1dc5`（= 线上运行镜像，6.32GB，commit 1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e）经 `docker save | gzip -1` 压成 1.4GB（1,499,794,163 字节）。\n- 下载：http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz\n- 校验：同目录 `paperclip-fork-1576ba6c1dc5.tar.gz.sha256`，sha256=79fe2b4e45a203fd94cb1b8a030ab88d2996cd8e7340968dc7bc9178047a613d\n- 载入：`docker load -i paperclip-fork-1576ba6c1dc5.tar.gz`\n- README：http://47.107.161.168/dl-f89cd7722f61/README.txt\n- 到期：2026-10-28T15:50:08Z，systemd 定时器 paperclip-dl-cleanup.timer 触发 /usr/local/sbin/paperclip-dl-cleanup.sh，删目录 + 撤 nginx include + reload + 自删 timer。\n\n【旧下载历史】`paperclip-fork:3cb59953eb38` / token b86a7c2af95a 与 `paperclip-fork:1c8b899592de` / token a35eb874d75c 均已停止；旧目录、旧 include、旧 timer 已删除，旧 URL 返回 502（默认 location 反代无服务）。\n\n【实现】文件放 /var/www/downloads/<token>/（属主 www-data）；新增 /etc/nginx/snippets/paperclip-dl.conf，用 `location ^~ /dl-<token>/ { alias ...; no-store; limit_rate_after 128m; limit_rate 30m; }`，并在 sites-enabled/default 的 `location / {` 前插一行 include（清理脚本按同一行精确删除）。token 为 openssl rand -hex 6，随机不可猜。\n\n【验证】外网 HEAD 200 + Content-Length 一致；Range 206；前两字节 1f 8b（合法 gzip）；README.txt/sha256 可取；旧 URL 502；timer active；47 磁盘约 12G 剩余。\n\n【坑】1) 47 的 :80 default_server 把 `location /` 反代到 127.0.0.1:8080，那里无服务返回 502，所以必须用 ^~ 前缀 location 抢在 `location /` 之前，否则会被反代吞掉。2) 不要为此改安全组：80 端口本来就对外（历史 dashboard/vsoc 用），临时下载复用 80 最省事。3) 不用 `docker save > raw.tar`，直接管道 gzip，避免额外 6.3G 中间文件。4) 提前关闭执行 /usr/local/sbin/paperclip-dl-cleanup.sh 即可（幂等，会自删 timer）。",
+      "description": "【需求】应人类要求，把 paperclip fork 的 docker 镜像在 47 上临时对外提供下载（不是 ACR 拉取），24 小时后自动关闭。\n\n【当前状态 2026-10-27】旧下载（`paperclip-fork:1c8b899592de` / token a35eb874d75c）已停止；新下载指向当前线上镜像。\n\n【新下载】镜像 `paperclip-fork:1576ba6c1dc5`（= 线上运行镜像，6.32GB，commit 1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e）经 `docker save | gzip -1` 压成 1.4GB（1,499,794,163 字节）。\n- 下载：http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz\n- 校验：同目录 `paperclip-fork-1576ba6c1dc5.tar.gz.sha256`，sha256=79fe2b4e45a203fd94cb1b8a030ab88d2996cd8e7340968dc7bc9178047a613d\n- 载入：`docker load -i paperclip-fork-1576ba6c1dc5.tar.gz`\n- README：http://47.107.161.168/dl-f89cd7722f61/README.txt\n- 到期：2026-10-28T15:50:08Z，systemd 定时器 paperclip-dl-cleanup.timer 触发 /usr/local/sbin/paperclip-dl-cleanup.sh，删目录 + 撤 nginx include + reload + 自删 timer。\n\n【旧下载历史】`paperclip-fork:3cb59953eb38` / token b86a7c2af95a 与 `paperclip-fork:1c8b899592de` / token a35eb874d75c 均已停止；旧目录、旧 include、旧 timer 已删除，旧 URL 返回 502（默认 location 反代无服务）。\n\n【实现】文件放 /var/www/downloads/<token>/（属主 www-data）；新增 /etc/nginx/snippets/paperclip-dl.conf，用 `location ^~ /dl-<token>/ { alias ...; no-store; limit_rate_after 128m; limit_rate 30m; }`，并在 sites-enabled/default 的 `location / {` 前插一行 include（清理脚本按同一行精确删除）。token 为 openssl rand -hex 6，随机不可猜。\n\n【验证】外网 HEAD 200 + Content-Length 一致；Range 206；前两字节 1f 8b（合法 gzip）；README.txt/sha256 可取；旧 URL 502；timer active；47 磁盘约 12G 剩余。\n\n【坑】1) 47 的 :80 default_server 把 `location /` 反代到 127.0.0.1:8080，那里无服务返回 502，所以必须用 ^~ 前缀 location 抢在 `location /` 之前，否则会被反代吞掉。2) 不要为此改安全组：80 端口本来就对外（历史 dashboard/vsoc 用），临时下载复用 80 最省事。3) 不用 `docker save > raw.tar`，直接管道 gzip，避免额外 6.3G 中间文件。4) 提前关闭执行 /usr/local/sbin/paperclip-dl-cleanup.sh 即可（幂等，会自删 timer）。\n\n【更新 2026-10-30】线上镜像换成 `paperclip-fork:4c0b0f7ac40e`（commit 4c0b0f7ac40e397d91f0f2c8179cf55a9b95d694，6.32GB），重新开一个 24h 下载；旧 token f89cd7722f61 已到期并由 cleanup 清掉。\n- 下载：http://47.107.161.168/dl-88af8548fc86/paperclip-fork-4c0b0f7ac40e.tar.gz\n- 大小：1,499,815,525 字节（`docker save | gzip -1`）\n- sha256=666395236982ff636ce3ddcbdd6271a985ab56f92437963eea92ffba50e75b82（同目录 `.sha256` 文件可取）\n- README：http://47.107.161.168/dl-88af8548fc86/README.txt\n- 载入：`docker load -i paperclip-fork-4c0b0f7ac40e.tar.gz`\n- 到期：2026-10-31T15:51:59Z（paperclip-dl-cleanup.timer active，OnActiveSec=24h）\n- 外网实测（workstation 直连 47:80）：HEAD 200、Content-Length=1499815525、Accept-Ranges=bytes；Range 0-9 返回 10 字节且以 1f 8b 08 开头；`.sha256` 与 README 200。47 磁盘剩 26G。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -2386,23 +2426,23 @@
         },
         {
           "name": "expiresAt",
-          "value": "2026-10-28T15:50:08Z"
+          "value": "2026-10-31T15:51:59Z"
         },
         {
           "name": "image",
-          "value": "paperclip-fork:1576ba6c1dc5"
+          "value": "paperclip-fork:4c0b0f7ac40e"
         },
         {
           "name": "sha256",
-          "value": "79fe2b4e45a203fd94cb1b8a030ab88d2996cd8e7340968dc7bc9178047a613d"
+          "value": "666395236982ff636ce3ddcbdd6271a985ab56f92437963eea92ffba50e75b82"
         },
         {
           "name": "url",
-          "value": "http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz"
+          "value": "http://47.107.161.168/dl-88af8548fc86/paperclip-fork-4c0b0f7ac40e.tar.gz"
         },
         {
           "name": "files",
-          "value": "/etc/nginx/snippets/paperclip-dl.conf, /etc/nginx/sites-enabled/default, /usr/local/sbin/paperclip-dl-cleanup.sh, /etc/systemd/system/paperclip-dl-cleanup.{service,timer}, /var/www/downloads/f89cd7722f61"
+          "value": "/etc/nginx/snippets/paperclip-dl.conf, /etc/nginx/sites-enabled/default, /usr/local/sbin/paperclip-dl-cleanup.sh, /etc/systemd/system/paperclip-dl-cleanup.{service,timer}, /var/www/downloads/88af8548fc86"
         },
         {
           "name": "owner",
@@ -2410,15 +2450,19 @@
         },
         {
           "name": "imageCommit",
-          "value": "1576ba6c1dc54bda1c7f18a65139afb3cfb30b9e"
+          "value": "4c0b0f7ac40e397d91f0f2c8179cf55a9b95d694"
         },
         {
           "name": "replacedUrl",
-          "value": "http://47.107.161.168/dl-a35eb874d75c/paperclip-fork-1c8b899592de.tar.gz"
+          "value": "http://47.107.161.168/dl-f89cd7722f61/paperclip-fork-1576ba6c1dc5.tar.gz"
         },
         {
           "name": "stoppedAt",
           "value": "2026-10-27"
+        },
+        {
+          "name": "replacedAt",
+          "value": "2026-10-30"
         }
       ],
       "id": "2026-10-27-47-fork-24h"
@@ -2478,6 +2522,246 @@
           "value": "人类伙伴 + 项目经理"
         }
       ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "backup",
+          "value": "/root/backups/argo-pre-0.29.28-20261028"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-10-28"
+        },
+        {
+          "name": "deployCommand",
+          "value": "OPENCODE_SYSTEM_CONFIG_PATH=/etc/opencode/opencode.json argo-deploy -SkipEnv"
+        },
+        {
+          "name": "deployLog",
+          "value": "/root/backups/argo-deploy-0.29.28.log"
+        },
+        {
+          "name": "fromVersion",
+          "value": "archgraph-argo@0.29.19"
+        },
+        {
+          "name": "host",
+          "value": "WSL2 ocpc (Ubuntu 24.04), npm prefix /opt/node24"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-10-28"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "owner",
+          "value": "人类伙伴 + 项目经理"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "toVersion",
+          "value": "archgraph-argo@0.29.28"
+        },
+        {
+          "name": "verification",
+          "value": "MCP tools/list 18 tools; semantic getSystemArchitecture passed on /mnt/d/Projects/archgraph; opencode-web.service restarted, :4096 HTTP 200"
+        }
+      ],
+      "description": "【结果】WSL 发行版 ocpc（Ubuntu 24.04）全局 npm 包 archgraph-argo 由 0.29.19 升级到 0.29.28（npm 全局前缀 /opt/node24）。执行 `npm i -g archgraph-argo@latest` + `OPENCODE_SYSTEM_CONFIG_PATH=/etc/opencode/opencode.json argo-deploy -SkipEnv`，部署完整走完 22 步并 exit 0。\n\n【兜底】部署前备份 /root/backups/argo-pre-0.29.28-20261028（etc-opencode、user-config-opencode、argo-dir.tgz、npm-global-before.txt）；部署日志 /root/backups/argo-deploy-0.29.28.log。\n\n【验证】① argo MCP stdio 握手 serverInfo=argo 1.0.0，tools/list 18 个工具（含 queryNeo4jGraph / memory_search）；② 在 /mnt/d/Projects/archgraph 上真实跑 getSystemArchitecture（Neo4j + embedding 链路）返回 status=passed、19KB 语义结果；③ opencode-web.service（systemd --user，端口 4096）restart 后新 PID、0.0.0.0:4096 LISTEN、HTTP 200、两个 argo-mcp-server 子进程为新启动；④ /etc/opencode/AGENTS.md 21499→25834 字节（含 PrincipleIndexGuideline 等 0.29.28 规则）；⑤ /root/.config/opencode/AGENTS.md 保持 529 字节（仅 Tooling efficiency，框架规则不重复落入用户级）；⑥ /etc/opencode/opencode.json 与升级前逐字节相同（instructions/skills/mcp/plugin 均保留）；⑦ 陈旧文件检查：~/.argo 仅多出 doubao-mcp.json 与一个 .pyc，无重命名残留。\n\n【关键坑】1) OPENCODE_SYSTEM_CONFIG_PATH 必须是**文件**路径（/etc/opencode/opencode.json）；传目录 /etc/opencode 会报 “existing config is not plain JSON … is a directory”，随后继续但跳过系统级配置。2) `argo-deploy --help` 不是帮助参数，会直接开始部署（本次即因此先跑了一次无系统配置的部署，把框架规则追加进用户级 AGENTS.md，随后带正确系统配置重跑已自动清理回 529 字节）。3) 部署规则：先 `npm view <pkg>@latest` 与已装版本比较，禁止降级/跨 stable-dev 线，禁止本地 tarball。4) 部署后必须重启 MCP 客户端，长期运行的 opencode 进程会一直持有旧代码。\n\n【环境】ARGO_VALIDATION_EXTENSIONS 已在 ~/.argo/.env 启用（ontology 投影，write+init）；pyshacl 0.40.1 / owlready2 0.51 已具备，部署未改动 .env。",
+      "id": "archgraph-argo-0.29.28-wsl-upgrade-2026-10-28",
+      "name": "2026-10-28 WSL ocpc 升级 archgraph-argo 0.29.19 → 0.29.28",
+      "type": "Requirement"
+    },
+    {
+      "id": "paperclip-skills-repo-portability-2026-10-29",
+      "type": "Requirement",
+      "name": "Paperclip 技能加载与项目仓技能携带（2026-10-29 结论：暂不做，人类手动维护）",
+      "description": "【问题】SSH 远程执行下，Agent 运行时不加载项目仓 skill，也不加载用户目录 skill；人类想在平台 UI 里触发扫描把技能落到仓库，但选不到项目。\n\n【诊断结论（已用代码核实）】\n1) 运行时给 Agent 的技能只来自 readPaperclipRuntimeSkillEntries（公司目录/内置），不含项目仓（packages/adapter-utils/src/server-utils.ts:4122；opencode-local/src/server/execute.ts:218,302）。\n2) HOME 被重定向到 per-agent home；managedAiConnection 分支只把 Paperclip 技能拷进 $HOME/.claude/skills，不链接原用户 home → 用户目录技能全丢（execute.ts:530-545）。非 managed 分支会链接 ambient 用户技能，但 Paperclip 同名优先（skills.ts:98-109），且每次 rm -rf $AGENT_HOME/.claude 重建（:78）。\n3) 项目仓技能唯一入口是 POST /companies/:id/skills/scan-projects，且仅支持控制面本地 FS：UI isScannableWorkspace 对 remote_managed/remote_path 返回 false（ui/src/pages/skills/ImportSkillsFromProjectDialog.tsx:81-83）；服务端 browseProjectWorkspace 对 remote 抛 422（server/src/services/company-skills.ts:5112），scanProjectWorkspaces 要求 workspace.cwd 在控制面真实存在（:5240-5263）。SSH 控制面模式下 project_workspaces 被主动清空，故无候选可选。\n4) 即使能扫描，方向也是「仓→平台库」，且是引用非复制：导入不做文件复制，Skill Studio 编辑写回原目录（ImportSkillsFromProjectDialog.tsx:1186-1188），无法实现「把技能复制进仓库」。\n\n【建议方案（未采纳）】仓为真源：技能放 <repo>/.opencode/skills 并提交 git（opencode 按 cwd 原生发现，绕开 HOME 隔离，随仓搬动）；图谱 Skill 元素登记 skillPath 做可检索清单。\n\n【人类裁决 2026-10-29】此事不做，人类自己手动维护技能。不要主动重启该议题或提交相关 fork 改动。\n\n【相关路径】packages/adapters/opencode-local/src/server/{execute.ts,skills.ts}、packages/adapter-utils/src/server-utils.ts、server/src/services/company-skills.ts、ui/src/pages/skills/ImportSkillsFromProjectDialog.tsx",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "DECIDED-NOT-DOING"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-29"
+        },
+        {
+          "name": "files",
+          "value": "packages/adapters/opencode-local/src/server/execute.ts, packages/adapters/opencode-local/src/server/skills.ts, packages/adapter-utils/src/server-utils.ts, server/src/services/company-skills.ts, ui/src/pages/skills/ImportSkillsFromProjectDialog.tsx"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-30"
+        },
+        {
+          "name": "company",
+          "value": "vsoc (29f175e7-7ec0-4d34-86e0-49f46dcedd72)"
+        },
+        {
+          "name": "agent",
+          "value": "544ce22f-47a5-47e3-b9c0-9e8b52bebb29"
+        },
+        {
+          "name": "project",
+          "value": "bea83c98-02ef-4315-b1de-0dcf758615e4"
+        },
+        {
+          "name": "environment",
+          "value": "ac0da7d5-bb74-4a8b-aca1-8f859f4caace"
+        },
+        {
+          "name": "issue",
+          "value": "VSO-69 (08716c47-8136-4a48-a2b8-20148c42b9b0)"
+        },
+        {
+          "name": "repoPath",
+          "value": "/root/repos/ThreatIntelligence"
+        },
+        {
+          "name": "fixIssue",
+          "value": "VSO-70 (38498162-0dbc-411b-9877-1e3a7f96c8f2)"
+        },
+        {
+          "name": "fixScope",
+          "value": "106 agents on WSL host 100.87.205.43 with ARGO_REPO_ROOT; ARGO_ENV_FILE=/root/.argo/.env"
+        },
+        {
+          "name": "probeIssue",
+          "value": "VSO-71 (1fe7a785-9740-4ffb-924e-25208f4f7c23)"
+        }
+      ],
+      "description": "【目标】把 D:\\Projects\\ThreatIntelligence 复制到 WSL ~/repos，并在 47 Paperclip 的 vsoc 公司、情报负责人 · vso-intel 之下新建威胁情报洞察 Agent 及其项目。\n\n【完成】1) WSL(ocpc) 复制到 /root/repos/ThreatIntelligence，保留 Windows 原目录；文件集与源一致（仅多出 .paperclip-runtime 运行产物），分支 main、HEAD f23efc5。2) 新建 SSH 环境 WSL2 · ThreatIntelligence（100.87.205.43:2222, root, remoteWorkspacePath=/root/repos/ThreatIntelligence），probe ok。3) 新建 Agent「威胁情报洞察 · ti-insight」(544ce22f-47a5-47e3-b9c0-9e8b52bebb29, researcher, telescope, runner=legacy, opencode_local, heartbeat 300s)，reportsTo=情报负责人 · vso-intel (94cfe6f7)，lifecycle ready，test-environment pass。4) 新建项目 ThreatIntelligence (bea83c98-02ef-4315-b1de-0dcf758615e4)，leadAgent=ti-insight，parentProject=vso-intel (63788f88)，remote_path workspace。5) VSO-69 只读验证 done：pwd/git/schema(232/352/52)/validate/graph_list 通过；语义 getSystemArchitecture 失败 SECRET_FILE_PATH_PROHIBITED。\n\n【根因/待办】Agent HOME=/root/.paperclip/agents/<id>/home，其 .argo 是指向 /root/.argo 的符号链接；ARGO embedding 守卫要求 $HOME/.argo/.env 为真实文件且 realpath==canonical，故语义检索被拒。既有 vso-command 等 Agent 同样如此（平台级问题）。修复需平台决策（bind mount / HOME / 守卫放宽），本次未改动。另 principleIndex 仍 declared-missing。\n\n【临时凭据】为操作 authenticated 实例，临时签发 board key b1b96aa8…，完成后已 revoked，未落盘。\n\n【跟进修复 2026-10-30】确定使用 ARGO 文档化的 host-only 键 ARGO_ENV_FILE，指向 /root/.argo/.env：getArgoEnvPath 以它为 canonical，符号链接不再参与 realpath 校验，且仍是单一配置源、不复制密钥。先在 ti-insight 的 adapterConfig.env 增加该键，验收 VSO-70 (38498162-0dbc-411b-9877-1e3a7f96c8f2) 通过：semanticRetrieval=invoked、getSystemArchitecture 命中 bsvc-intel-sharing 等、memory_search 8 hits、无 SECRET_FILE_PATH_PROHIBITED。随后推广到 host=100.87.205.43 且配置了 ARGO_REPO_ROOT 的全部 106 个 Agent（vsoc 20、argo 3、AIC 38、IPD 45；本轮新增 105，ti-insight 已有）。回滚方式：删除各 Agent env 中的 ARGO_ENV_FILE 键。另：WSL 本机验证 HOME=<agent-home> 时无该键报 SECRET_FILE_PATH_PROHIBITED，加键后 resolveApprovedLiveConfiguration 返回 OK。\n\n【执行可用性巡检 2026-10-30 · VSO-71】对 Windows 仓库 Agent「情报负责人 · vso-intel」(94cfe6f7) 跑只读巡检：cwd=/mnt/d/Projects/archgraph-agent-intel、分支 master、单 worktree；echo $ARGO_ENV_FILE=/root/.argo/.env；全局规则 /etc/opencode/AGENTS.md 已加载（Agent 引用 STEP 0 原文确认）；opencode debug config 解析出 instructions=[/root/.config/opencode/AGENTS.md, /etc/paperclip/instructions/paperclip-runtime.md, /etc/opencode/AGENTS.md]、mcp=[argo, graph-mcp]、skills=[/root/.config/opencode/skills, /etc/opencode/skills]；queryNeo4jGraph database=archgraph-agent-intel、schemaKind=workspace(Security Intelligence Domain Profile 1.0，151/99/35)、bundleValidation=passed；getSystemArchitecture semanticRetrieval=invoked；memory_search 8 hits；validateSystemArchitecture passed。结论：Windows 仓库（/mnt/d）Agent 的执行、MCP、全局规则均正常。唯一缺口：各图 principleIndex 仍 declared-missing（需人类决定是否建目录）。",
+      "id": "paperclip-session-2026-10-30-vsoc-threatintelligence",
+      "name": "会话记录 2026-10-30：vsoc ThreatIntelligence 项目与威胁情报洞察 Agent 上线",
+      "type": "Requirement"
+    },
+    {
+      "id": "archgraph-issue-17-argo-init-path-2026-10-30",
+      "type": "Requirement",
+      "name": "ArchGraph issue #17：argo-init 非交互入口解析建议（2026-10-30）",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-30"
+        },
+        {
+          "name": "repo",
+          "value": "derekhu0002/archgraph"
+        },
+        {
+          "name": "issue",
+          "value": "#17"
+        },
+        {
+          "name": "url",
+          "value": "https://github.com/derekhu0002/archgraph/issues/17"
+        },
+        {
+          "name": "status",
+          "value": "verified-closed-on-host"
+        },
+        {
+          "name": "release",
+          "value": "archgraph-argo@0.29.29"
+        },
+        {
+          "name": "verifyComment",
+          "value": "https://github.com/derekhu0002/archgraph/issues/17#issuecomment-6523278506"
+        },
+        {
+          "name": "acceptanceIssue",
+          "value": "VSO-73 (4f57d59e-eb52-400e-939b-31de6d6bf5e9)"
+        },
+        {
+          "name": "acceptanceResult",
+          "value": "passed: STEP0 recognized; schema default/Business Actor; read 232/352/52; semantic invoked; memory 8 hits; validate passed; graph_list 6; write create/read/update/remove temp element+view ok; counts restored; tombstone +2; residual: 2 existing views gained empty included_relationships (semantically equivalent)"
+        }
+      ],
+      "description": "向 archgraph 提的建议 issue（2026-10-30）：Paperclip + WSL 非交互执行场景下 argo-init CLI 入口不可发现。根因是 /opt/node24/bin 不在非交互 PATH（/root/.bashrc 的 PS1 守卫），~/.argo/bin 为空（deploy 不部署 bin），且 sandbox/lib/argo-init-cli.js 的候选路径（<repo>/bin、~/.argo/bin、PATH）全部落空；JS 脚本本身存在且解析正确（/opt/node24/bin/argo-init -> archgraph-argo/bin/argo-init.js；~/.argo/scripts/argo-mcp-server.js 与 argoInitSummary.js 均存在）。建议包级统一 resolver（ARGO_CLI_PATH → ~/.argo/bin → npm global prefix → 包内 bin → PATH；.js → dist/*.js，TS 仅在加载器存在时），deploy 加法式创建 ~/.argo/bin/argo-init 包装，生成配置用绝对入口，并补非交互/远端执行文档。明确兼容红线：不改 PATH、不写全局软链、不改 Windows/交互式行为、不放宽 .env 守卫、deploy 仍 copy-overlay；附 GIVEN-WHEN-THEN 验收。该 issue 与 #16（/etc/opencode 系统级配置）相关但不同。\n\n【验证 2026-10-30 · 0.29.29】上游发布 archgraph-argo@0.29.29，新增 argo/scripts/resolveArgoCli.js（包 manifest bin 为权威、PATH 最后兜底、失败列候选+修复建议）、bin/argo-init.js 与 sandbox runner 共用、deploy 加法式生成 ~/.argo/bin/argo-init(.js)（可 -SkipCliShim 关闭）。本机 WSL 执行机已 npm i -g 0.29.29 + argo-deploy -SkipEnv：~/.argo/bin/argo-init 与 .js 生成，两份 argo-init.js sha256 一致 e67ca55…，argo-mcp-server.js 未变。真实 Paperclip Agent shell 实测 PATH 含 /opt/node24/bin、command -v argo-init 命中、~/.argo/bin/argo-init 可执行、resolveArgoCli 解析到 agent-home 部署副本（source=install-root）。Windows 回归测试 18/18 pass（含 AT-01..06 + deploy shim）；剥离 PATH 仍解析到 repo bin；交互式行为不变。重要更正：原 issue 把“SSH 非交互 root shell”与“Agent shell”混同——实际 Agent shell 的 PATH 已含 /opt/node24/bin，裸 argo-init 可用；真正的失败面是普通 SSH 非交互 shell 与 sandbox runner。未跑完整 argo-init（用户稍后手动）。验证评论已回帖到 issue #17。"
+    },
+    {
+      "attributes": [
+        {
+          "name": "createdAt",
+          "value": "2026-10-30"
+        },
+        {
+          "name": "commit",
+          "value": "4c0b0f7ac"
+        },
+        {
+          "name": "evidence",
+          "value": "https://opencode.ai/docs/skills/ ; https://opencode.ai/docs/config/ ; packages/adapters/codex-local/src/server/codex-home.ts（tool-specific home + allowlist seeding 的既有范式）"
+        },
+        {
+          "name": "files",
+          "value": "packages/adapters/opencode-local/src/server/execute.ts, packages/adapters/opencode-local/src/server/skills.ts, packages/adapters/opencode-local/src/server/skills.test.ts, packages/adapters/opencode-local/src/server/execute.remote.test.ts, packages/adapters/opencode-local/src/server/agent-config-home.integration.test.ts"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-10-30"
+        },
+        {
+          "name": "status",
+          "value": "DEPLOYED"
+        },
+        {
+          "name": "supersedes",
+          "value": "40093021c（per-agent HOME 实现，feature 保留、实现替换）"
+        },
+        {
+          "name": "deployedAt",
+          "value": "2026-10-30T15:18:21Z（47 容器 paperclip，restarts=0，health status=ok）"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:4c0b0f7ac40e（USER_UID/GID=998，6.32GB，tar 1.4GB）"
+        },
+        {
+          "name": "acr",
+          "value": "crpi-33yedsa348aqgw1p.cn-shenzhen.personal.cr.aliyuncs.com/paperclip/paperclip-fork:4c0b0f7ac40e = latest = sha256:66c84c917cec537045e3791c97664303083c3a255a974d80a7424901589eebc3"
+        },
+        {
+          "name": "deployVerified",
+          "value": "health commit=4c0b0f7ac40e397d91f0f2c8179cf55a9b95d694；三处 HEAD 相等（workstation=origin=47 checkout）；/ 与 /organization 200；/api/companies 403（无凭据预期）；容器日志 level50=0；镜像内 vitest 3 文件 13/13（含 POSIX agent-config-home 集成测试）"
+        },
+        {
+          "name": "pitfall",
+          "value": "镜像必须带 --build-arg USER_UID=998 --build-arg USER_GID=998 构建，否则 /app/node_modules 归 1000，运行时 entrypoint 把 node 重映射到 998 → embedded-postgres 建 symlink 报 EACCES，容器崩溃循环（本次已遇到并回滚重构）。47 GitHub 不可达时用增量 bundle：git bundle create x ^<47旧HEAD> dev/local-install。"
+        }
+      ],
+      "description": "【问题】提交 40093021c（2026-10-27，feature: isolate remote skills in per-agent homes）为实现「不同 Agent 隔离 Paperclip 分配技能」，把非 managed 的直连远端（SSH）OpenCode 运行的 HOME 与 4 个 XDG 目录整体改到 <home>/.paperclip/agents/<id>/home，并用 shell 把整个用户 home 软链进去（跳过 .claude/.paperclip）。导致执行机上所有依赖 HOME 的逻辑被改变：git/gh/ssh/npm 的新写入落到 per-agent home、~/.paperclip 完全不软链、XDG_CONFIG_HOME 指回共享 .config 使每轮准备的 runtime config 目录失效、每轮 rm -rf .claude 丢状态。\n\n【根因】HOME 是进程级契约，不是技能开关；隔离粒度应落在 OpenCode 自己的配置面上。OpenCode 官方技能发现位置（2026-10-30 核实 opencode.ai/docs/skills）：$XDG_CONFIG_HOME/opencode/skills、~/.claude/skills、~/.agents/skills（及项目级 .opencode/skills、.claude/skills）；配置目录由 XDG_CONFIG_HOME 决定（config 文档）。\n\n【修复 4c0b0f7ac】只改 XDG_CONFIG_HOME 到 <home>/.paperclip/agents/<id>/config；脚本把共享 XDG 配置项（gh/git 等）与共享 opencode/ 配置（MCP、provider、plugins、agents、commands，排除 skills）软链进来；每次 rm -rf 并重建 opencode/skills，从本轮 assignment 拷贝。HOME、XDG_DATA/CACHE/STATE 不动 → 用户 home 的技能仍来自真实 ~/.claude/skills 与 ~/.agents/skills，不重复拷贝，避免同名冲突。作用域限定 SSH 目标；sandbox 走既有 managed HOME + 拷贝 .claude/skills 逻辑（回到 40093021c 之前行为）。\n\n【验收】packages/adapters/opencode-local/src/server/{skills.test.ts, execute.remote.test.ts} 通过（非 managed：HOME/XDG_DATA/CACHE/STATE 全部未设置，仅 XDG_CONFIG_HOME=per-agent）；agent-config-home.integration.test.ts 为 POSIX-only（Windows 跳过，需在 47/WSL 或 Linux CI 跑）：两 Agent 技能互不可见、共享 opencode.json 与 gh 可见、共享 .claude 与 .gitconfig 不被修改。类型检查通过。\n\n【坑】Windows 上 opencode-local 既有 29 个失败均为符号链接 EPERM/POSIX-only 环境限制，已用 stash 在 HEAD 复现同一批失败，非本次回归。\n\n【遗留】1) 旧代码在 <home>/.paperclip/agents/<id>/home 下留下的 per-agent home 目录未清理（无害，未使用）。2) 共享 ~/.claude/skills 里 40093021c 之前遗留的 Paperclip 符号链接仍会让所有 Agent 看到（未做清理，避免误删用户技能），需要时可加保守迁移。3) 同名技能（Paperclip 分配 vs 用户 ambient）现在同时存在于两个扫描位置，OpenCode 要求全局唯一，未做优先级强制。",
+      "id": "opencode-skill-isolation-home-fix-2026-10-30",
+      "name": "OpenCode 每 Agent 技能隔离：不重定义 HOME（2026-10-30 修复）",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -2649,7 +2933,9 @@
         "paperclip-opencode-runaway-recovery-2026-10-23",
         "paperclip-exec-env-ssh-flap-backlog-2026-10-23",
         "2026-10-27-47-fork-24h",
-        "2026-10-27-47-deploy-opencode-permissions"
+        "2026-10-27-47-deploy-opencode-permissions",
+        "paperclip-skills-repo-portability-2026-10-29",
+        "opencode-skill-isolation-home-fix-2026-10-30"
       ]
     },
     {
@@ -2662,6 +2948,25 @@
         "2026-10-24-47-26999306b6f0",
         "2026-10-24-upstream-114-commits-1215d44f4",
         "2026-10-25-47-3cb59953eb38-acr"
+      ]
+    },
+    {
+      "view_id": "project-manager-toolchain-001",
+      "view_name": "项目经理 · 框架与工具链升级记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "ArchGraph/ARGO 框架与工具链在 WSL/宿主侧的版本升级、部署证据与坑位记录。",
+      "included_elements": [
+        "archgraph-argo-0.29.28-wsl-upgrade-2026-10-28"
+      ]
+    },
+    {
+      "view_id": "project-manager-vsoc-onboarding-001",
+      "view_name": "项目经理 · vsoc 项目与 Agent 上线记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "vsoc 公司新项目 / Agent 上线与 WSL 执行环境记录。",
+      "included_elements": [
+        "paperclip-session-2026-10-30-vsoc-threatintelligence",
+        "archgraph-issue-17-argo-init-path-2026-10-30"
       ]
     }
   ]
