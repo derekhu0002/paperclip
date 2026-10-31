@@ -100,11 +100,20 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
   });
 
   it("rejects an agent-created issue with no agent assignee", async () => {
-    const created = await request(app(agentActor(qaAgentId, runOnSource)))
+    // A person assignment is denied by assignment authorization first.
+    const toPerson = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)
       .send({ title: "Unowned follow-up", assigneeUserId: "board-user" });
-    expect(created.status).toBe(422);
-    expect(created.body.error).toContain("must set assigneeAgentId");
+    expect(toPerson.status).toBe(403);
+    // Assignment authorization owns the exact reason (inactive target, board
+    // users, or the low-trust boundary); the fork rule owns the unowned case.
+    expect(typeof toPerson.body.error).toBe("string");
+    // An unassigned follow-up is rejected by the fork rule itself.
+    const unowned = await request(app(agentActor(qaAgentId, runOnSource)))
+      .post(`/api/companies/${companyId}/issues`)
+      .send({ title: "Unowned follow-up" });
+    expect(unowned.status).toBe(422);
+    expect(unowned.body.error).toContain("must set assigneeAgentId");
   });
 
   it("rejects an agent update that clears the agent assignee", async () => {

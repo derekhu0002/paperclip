@@ -748,13 +748,51 @@ async function auditAgentIssueCommentAttributionSpoof(input: {
   });
 }
 
+/**
+ * Mirrors the Coordinator create-route default: an agent run bound to a
+ * conversation task creates work for its own conversation agent. Used by the
+ * attribution guard so that a chat handoff without an explicit assignee still
+ * names an agent owner instead of being rejected as an unowned task.
+ */
+async function resolveConversationAgentIdForRequest(
+  db: Db,
+  req: Request,
+  companyId: string,
+): Promise<string | null> {
+  if (
+    req.actor.type !== "agent" ||
+    !req.actor.agentId ||
+    !req.actor.runId ||
+    !isUuidLike(req.actor.runId)
+  ) {
+    return null;
+  }
+  const [run] = await db
+    .select()
+    .from(heartbeatRuns)
+    .where(
+      and(
+        eq(heartbeatRuns.id, req.actor.runId),
+        eq(heartbeatRuns.companyId, companyId),
+        eq(heartbeatRuns.agentId, req.actor.agentId),
+      ),
+    );
+  if (!run) return null;
+  const source = await loadRunBoundIssue(db, run);
+  return source?.companyId === companyId &&
+    isConversation(source) &&
+    source.conversationAgentId === req.actor.agentId
+    ? source.conversationAgentId
+    : null;
+}
+
 async function sanitizeIssueCreateAttribution<T extends object>(
   db: Db,
   req: Request,
   res: Response,
   companyId: string,
   input: T,
-  options: { surface: string; entityId?: string | null },
+  options: { surface: string; entityId?: string | null; enforceAgentAssignee?: boolean },
 ) {
   const sanitized = { ...input } as T & Record<string, unknown>;
   if (req.actor.type !== "agent") return sanitized;
@@ -799,14 +837,29 @@ async function sanitizeIssueCreateAttribution<T extends object>(
   const sanitizedRecord = sanitized as unknown as Record<string, unknown>;
   const requestedAssigneeAgentId = readNonEmptyString(sanitizedRecord.assigneeAgentId);
   if (!requestedAssigneeAgentId || requestedAssigneeAgentId.toLowerCase() === "null") {
-    // Agent-created issues must name their agent owner explicitly. Silently
-    // defaulting or assigning the Board user creates invisible, non-waking
-    // blockers; human decisions belong in an approval or question interaction.
-    res.status(422).json({
-      error:
-        "Agent-created issues must set assigneeAgentId. Use an approval or question interaction when human action is required.",
-    });
-    return null;
+    // A chat-bound run defaults a task to its conversation agent (upstream
+    // Coordinator handoff). Honoring that default first keeps the fork rule
+    // below from rejecting a legitimate chat task that names its owner.
+    const requestedAssigneeUserId = readNonEmptyString(
+      sanitizedRecord.assigneeUserId,
+    );
+    const conversationAgentId = requestedAssigneeUserId
+      ? null
+      : await resolveConversationAgentIdForRequest(db, req, companyId);
+    if (conversationAgentId) {
+      sanitizedRecord.assigneeAgentId = conversationAgentId;
+    } else if (options.enforceAgentAssignee !== false) {
+      // Agent-created issues must name their agent owner explicitly. Silently
+      // defaulting or assigning the Board user creates invisible, non-waking
+      // blockers; human decisions belong in an approval or question interaction.
+      // The primary create route defers this check until after project and
+      // assignment authorization so their 404/403 precedence is preserved.
+      res.status(422).json({
+        error:
+          "Agent-created issues must set assigneeAgentId. Use an approval or question interaction when human action is required.",
+      });
+      return null;
+    }
   }
 
   delete sanitized.responsibleUserId;
@@ -12459,6 +12512,9 @@ export function issueRoutes(
         req.body,
         {
           surface: "issues.create",
+          // The assignee guard runs after project visibility (404) and
+          // assignment authorization (403) below.
+          enforceAgentAssignee: false,
         },
       );
       if (!sanitizedBody) return;
@@ -12677,6 +12733,20 @@ export function issueRoutes(
         rawCreateBody.assigneeUserId
       ) {
         await assertCanAssignTasks(req, companyId, createAssignmentScope);
+      }
+      // Fork rule, enforced after project visibility and assignment
+      // authorization so a hidden project still answers 404 and a forbidden
+      // assignment still answers 403. Chat-bound runs already received the
+      // conversation-agent default above.
+      if (
+        req.actor.type === "agent" &&
+        !readNonEmptyString(createBody.assigneeAgentId)
+      ) {
+        res.status(422).json({
+          error:
+            "Agent-created issues must set assigneeAgentId. Use an approval or question interaction when human action is required.",
+        });
+        return;
       }
       await assertIssueEnvironmentSelection(
         companyId,
@@ -13000,6 +13070,9 @@ export function issueRoutes(
         {
           surface: "issues.children.create",
           entityId: parent.id,
+          // The assignee guard runs after project visibility (404) and
+          // assignment authorization (403) below.
+          enforceAgentAssignee: false,
         },
       );
       if (!sanitizedBody) return;
@@ -13038,6 +13111,18 @@ export function issueRoutes(
         sanitizedBody.assigneeUserId
       ) {
         await assertCanAssignTasks(req, parent.companyId, childAssignmentScope);
+      }
+      // Fork rule, enforced after project visibility and assignment
+      // authorization so their 404/403 precedence is preserved.
+      if (
+        req.actor.type === "agent" &&
+        !readNonEmptyString(createBody.assigneeAgentId)
+      ) {
+        res.status(422).json({
+          error:
+            "Agent-created issues must set assigneeAgentId. Use an approval or question interaction when human action is required.",
+        });
+        return;
       }
       await assertIssueEnvironmentSelection(
         parent.companyId,

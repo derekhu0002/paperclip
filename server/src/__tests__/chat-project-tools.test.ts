@@ -106,24 +106,47 @@ const support = await getEmbeddedPostgresTestSupport();
         body: JSON.stringify({ title: `Requested task ${randomUUID()}`, projectId: f.projectId, status: "todo", ...assignment }),
       });
       const result = await response.json();
+      if (!conversation) {
+        // Fork rule: an agent-created issue must name an owning agent. A
+        // non-chat run has no conversation agent to default to, so the create
+        // fails closed instead of producing an invisible, non-waking blocker.
+        expect(response.status, JSON.stringify(result)).toBe(422);
+        expect(result.error).toContain("must set assigneeAgentId");
+        continue;
+      }
       expect(response.status, JSON.stringify(result)).toBe(201);
-      expect(result).toMatchObject({ assigneeAgentId: conversation ? f.agentId : null, assigneeUserId: null });
+      expect(result).toMatchObject({ assigneeAgentId: f.agentId, assigneeUserId: null });
     }
   });
 
   it.each(["native", "mcp"])("preserves an explicit alternate agent or person through %s creation", async (transport) => {
     const f = await server.fixture({ conversation: true, disableWakeOnDemand: true });
     const [otherAgent] = await server.db.insert(agents).values({ companyId: f.companyId, name: "Requested editor", status: "idle", adapterType: "process" }).returning();
-    for (const assignment of [{ assigneeActorId: otherAgent.id }, { assigneeUserId: f.responsibleUserId }]) {
-      const args = { title: `Explicitly assigned task ${randomUUID()}`, projectId: f.projectId, idempotencyKey: randomUUID(), ...assignment };
-      const result = transport === "native" ? await call(f, "create_task", args) as any : await callProjectTool({
-        name: "create_task", arguments: args, apiUrl: server.apiUrl,
+    // An explicit alternate agent is preserved.
+    const toAgent = { title: `Explicitly assigned task ${randomUUID()}`, projectId: f.projectId, idempotencyKey: randomUUID(), assigneeActorId: otherAgent.id };
+    const agentResult = transport === "native" ? await call(f, "create_task", toAgent) as any : await callProjectTool({
+      name: "create_task", arguments: toAgent, apiUrl: server.apiUrl,
+      token: createLocalAgentJwt(f.agentId, f.companyId, "paperclip_runner", f.runId, f.responsibleUserId)!,
+      companyId: f.companyId, issueId: f.issueId, agentId: f.agentId, conversation: true,
+    });
+    const agentTaskId = transport === "native" ? agentResult.task.id : agentResult.id;
+    const [agentTask] = await server.db.select().from(issues).where(eq(issues.id, agentTaskId));
+    expect(agentTask).toMatchObject({ assigneeAgentId: otherAgent.id, assigneeUserId: null });
+
+    // Fork rule: the HTTP/MCP create route rejects a person assignment from an
+    // agent-created issue (human decisions belong in an approval or question
+    // interaction). The in-process native authority keeps upstream behavior.
+    const toPerson = { title: `Explicitly assigned task ${randomUUID()}`, projectId: f.projectId, idempotencyKey: randomUUID(), assigneeUserId: f.responsibleUserId };
+    if (transport === "native") {
+      const personResult = await call(f, "create_task", toPerson) as any;
+      const [personTask] = await server.db.select().from(issues).where(eq(issues.id, personResult.task.id));
+      expect(personTask).toMatchObject({ assigneeAgentId: null, assigneeUserId: f.responsibleUserId });
+    } else {
+      await expect(callProjectTool({
+        name: "create_task", arguments: toPerson, apiUrl: server.apiUrl,
         token: createLocalAgentJwt(f.agentId, f.companyId, "paperclip_runner", f.runId, f.responsibleUserId)!,
         companyId: f.companyId, issueId: f.issueId, agentId: f.agentId, conversation: true,
-      });
-      const taskId = transport === "native" ? result.task.id : result.id;
-      const [task] = await server.db.select().from(issues).where(eq(issues.id, taskId));
-      expect(task).toMatchObject({ assigneeAgentId: assignment.assigneeActorId ?? null, assigneeUserId: assignment.assigneeUserId ?? null });
+      })).rejects.toThrow(/must set assigneeAgentId/);
     }
   });
 
