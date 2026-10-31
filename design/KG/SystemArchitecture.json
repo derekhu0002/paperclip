@@ -1671,6 +1671,23 @@
         {
           "name": "upstreamBaseline20261029",
           "value": "upstream/master 2badf8a4a (2026-10-29); merge-base 515ff0f28; 上游 381 commits / 2638 files / +251259；本地 136 commits；双改文件 45"
+        },
+        {
+          "name": "commit",
+          "value": "c34592420",
+          "description": "fix(issues): keep the agent-assignee rule compatible with chat-bound creation — honors upstream Coordinator chat-bound default, enforces the fork rule after project 404 / assignment 403; tests: chat-project-tools 25/25, issue-creation-source-routes 10/10, run-completion 32/32, workspace-runtime 181/181."
+        },
+        {
+          "name": "deployed47",
+          "value": "2026-10-31T16:37Z image paperclip-fork:c345924201ce (6.69GB, built with --build-arg USER_UID=998 --build-arg USER_GID=998, provider pack skipped per doc). health ok, commit=c345924201ce54dde9540e27f7cee5c4d93fa3de, 39 migrations applied (0378..0416; 0417_peaceful_synch matched its already-applied hash), plugin-loader 1/1, / and /paperclip/organization 200, three-way HEAD match (workstation=origin=47). Rollback image paperclip-fork:4c0b0f7ac40e kept; db backups db.bak-pre-20261031T153918Z and db.bak-pre-20261031T163654Z."
+        },
+        {
+          "name": "verification",
+          "value": "Linux/非 root/umask 022 full suite: Test Files 1252 passed / 3 failed / 10 skipped; Tests 28475 passed / 0 failed / 188 skipped. Remaining 3 failures are cargo-missing only (dot-runner, native-codex-runner.integration, plugin-runner-probe). Typecheck: all packages pass except paperclip-runner typecheck:rust (no cargo)."
+        },
+        {
+          "name": "knownPitfalls",
+          "value": "1) 镜像必须用 USER_UID/GID=998 构建，否则 entrypoint 运行时把 node 重映射到 998，/app 文件 owner 1000 不可写，启动即 EACCES (libcrypto.so.1.1 symlink)。2) 传 PAPERCLIP_BUILD_COMMIT 构建会触发 provider pack，当前上游 Pi 原生闭包 pin 不匹配 → 失败；按 doc 跳过 pack（opencode_local 不受影响）。3) 本地脏工作树含 dist/ 会让 COPY 污染上下文，镜像构建必须用 git archive 干净导出。4) Windows 上 git archive 解包 .claude/skills 软链失败，但不影响构建。"
         }
       ]
     },
