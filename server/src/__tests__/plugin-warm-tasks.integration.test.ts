@@ -1,17 +1,20 @@
+import { flushDeferredEnvironmentCleanup, hasDeferredEnvironmentCleanup, registerDeferredEnvironmentCleanup, subscribeDeferredEnvironmentCleanup } from "../services/environment-cleanup-notifications.js";
+import { resolveExternalTestDatabaseUrl } from "./helpers/external-test-database.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
-import { agents, companies, createDb, environmentLeases, environments, heartbeatRuns, issues, plugins, projects } from "@paperclipai/db";
+import { agents, companies, createDb, applyPendingMigrations, environmentLeases, environments, heartbeatRuns, issues, plugins, projects } from "@paperclipai/db";
 import { environmentRuntimeService } from "../services/environment-runtime.js";
 import * as orphanCleanup from "../services/sandbox-orphan-cleanup-spool.js";
 import { resolvePluginTaskResume } from "../services/environment-task-runtime.js";
 import type { PluginWorkerManager } from "../services/plugin-worker-manager.js";
 import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 
-const support=await getEmbeddedPostgresTestSupport();
+const external=resolveExternalTestDatabaseUrl("PAPERCLIP_PLUGIN_WARM_TASKS_TEST_DATABASE_URL");
+const support=external ? {supported:true} : await getEmbeddedPostgresTestSupport();
 (support.supported ? describe : describe.skip)("retained Codex plugin task leases",()=>{
  let db:ReturnType<typeof createDb>,stop:()=>Promise<void>;
- beforeAll(async()=>{const started=await startEmbeddedPostgresTestDatabase("plugin-warm-tasks");db=createDb(started.connectionString);stop=started.stop;});
+ beforeAll(async()=>{if(external){await applyPendingMigrations(external);db=createDb(external);stop=()=>db.$client.end({timeout:1});return;}const started=await startEmbeddedPostgresTestDatabase("plugin-warm-tasks");db=createDb(started.connectionString);stop=started.stop;});
  afterAll(async()=>{await stop?.();});
  async function fixture(initialProjects:string[]=[],initialExpiry?:string,deadline?:Date){
   const companyId=randomUUID(),agentId=randomUUID(),issueId=randomUUID(),environmentId=randomUUID(),pluginId=randomUUID();
@@ -84,6 +87,19 @@ const support=await getEmbeddedPostgresTestSupport();
   const [old]=await db.select().from(environmentLeases).where(eq(environmentLeases.id,f.first.lease.id));
   expect(old.status).toBe("expired");
  });
+ it("keeps successful warm state readable for retirement before and after lease handoff",async()=>{
+  const f=await fixture();
+  const read=()=>f.runtime().task({companyId:f.companyId,leaseId:f.first.lease.id,operation:{kind:"read_state",identity:f.identity}});
+  await expect(read()).resolves.toMatchObject({kind:"state"});
+  await f.nextRun();await f.acquire();
+  await expect(read()).resolves.toMatchObject({kind:"state"});
+  const [prior]=await db.select().from(environmentLeases).where(eq(environmentLeases.id,f.first.lease.id));
+  expect(prior.status).toBe("expired");
+  await expect(f.runtime().task({companyId:f.companyId,leaseId:f.first.lease.id,operation:{kind:"describe"}})).rejects.toThrow("not active");
+  await expect(f.runtime().task({companyId:f.companyId,leaseId:f.first.lease.id,operation:{kind:"read_state",identity:{...f.identity,itemId:"foreign"}}})).rejects.toThrow();
+  expect(f.calls).not.toContain("stop");
+  expect(f.calls.filter(call=>call==="submit")).toHaveLength(1);
+ });
  it("resumes stopped checkpoints through a new physical task instead of reusing a tombstone",async()=>{
   const f=await fixture();f.stopped();await f.nextRun();
   const next=await f.acquire();
@@ -114,25 +130,54 @@ const support=await getEmbeddedPostgresTestSupport();
   const f=await fixture();await f.nextRun();const next=await f.acquire();f.stopped();
   if(mode==="cleanup-error" || mode==="spool") f.failRelease();
   const append=vi.fn(async()=>true);
+  let delayFlush=false,flushCalls=0,releaseFlush!:()=>void;
+  const flushGate=new Promise<void>(resolve=>{releaseFlush=resolve;});
+  const stopGate=mode==="spool" ? registerDeferredEnvironmentCleanup(db,async()=>{
+   if(delayFlush && ++flushCalls===1) await flushGate;
+   return {recovered:0,pending:0};
+  }) : undefined;
+  const wake=vi.fn();
+  const unsubscribe=subscribeDeferredEnvironmentCleanup(db,wake);
   const spool=mode==="spool" ? vi.spyOn(orphanCleanup,"createSandboxOrphanCleanupSpool").mockReturnValue({append,load:async()=>[],remove:async()=>{}}) : undefined;
-  const transaction=mode==="spool" ? vi.spyOn(db,"transaction").mockRejectedValue(Error("database unavailable")) : undefined;
+  let replacementFailed=false;
+  const transact=db.transaction.bind(db);
+  const transaction=mode==="spool" ? vi.spyOn(db,"transaction").mockImplementation((...args)=>replacementFailed
+   ? Promise.reject(Error("database unavailable")) : transact(...args)) : undefined;
   const original=db.update.bind(db);
   const update=vi.spyOn(db,"update").mockImplementation(((table:any)=>{
    const query=original(table),set=query.set.bind(query);
    query.set=((values:any)=>values.providerLeaseId === "task-2"
-    ? {where:()=>({returning:async()=>{if(mode!=="ownership-lost") throw Error("replacement write failed");return [];}})}
+    ? {where:()=>({returning:async()=>{replacementFailed=true;if(mode!=="ownership-lost") throw Error("replacement write failed");return [];}})}
     : set(values)) as never;
    return query;
   }) as never);
   try {
    await expect(f.runtime().task({companyId:f.companyId,leaseId:next.lease.id,operation:{kind:"describe"}}))
     .rejects.toThrow("reconcile the same task");
-  } finally {update.mockRestore();transaction?.mockRestore();spool?.mockRestore();}
+   if(mode==="spool") {
+    expect(wake).toHaveBeenCalledOnce();
+    expect(hasDeferredEnvironmentCleanup(db)).toBe(true);
+    await expect(flushDeferredEnvironmentCleanup(db)).rejects.toThrow("Deferred orphan cleanup failed");
+    expect(hasDeferredEnvironmentCleanup(db)).toBe(true);
+   }
+  } finally {update.mockRestore();transaction?.mockRestore();spool?.mockRestore();unsubscribe();}
   expect(f.calls).toContain("environmentReleaseLease");
   if(mode==="spool") expect(append).toHaveBeenCalledWith(expect.objectContaining({providerLeaseId:"task-2",metadata:expect.objectContaining({driver:"plugin",runnerTaskDispatched:false})}));
   const rows=await db.select().from(environmentLeases).where(eq(environmentLeases.companyId,f.companyId));
   expect(rows.filter(row=>row.providerLeaseId === "task-2")).toEqual(mode==="cleanup-error"
    ? [expect.objectContaining({status:"pending_cleanup",failureReason:"plugin_task_replacement_unowned",metadata:expect.objectContaining({runnerTaskDispatched:false})})] : []);
+  if(mode==="spool") {
+   delayFlush=true;
+   const delayed=flushDeferredEnvironmentCleanup(db);
+   try { expect(await flushDeferredEnvironmentCleanup(db)).toEqual({recovered:1,pending:0}); }
+   finally { releaseFlush(); stopGate!(); }
+   expect(await delayed).toEqual({recovered:1,pending:0});
+   expect(hasDeferredEnvironmentCleanup(db)).toBe(false);
+   const recovered=await db.select().from(environmentLeases).where(eq(environmentLeases.companyId,f.companyId));
+   expect(recovered.filter(row=>row.providerLeaseId==="task-2")).toEqual([
+    expect.objectContaining({status:"pending_cleanup",failureReason:"plugin_task_replacement_unowned"}),
+   ]);
+  }
  });
 
  it.each(["added","removed"] as const)("retires retained mounts when an authorized project is %s after controller restart",async mode=>{

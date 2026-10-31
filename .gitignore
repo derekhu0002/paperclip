@@ -100,3 +100,6 @@ test-results/
 # Opt-in CI timing artifacts
 .ci-profile/
 .argo/temp
+
+# Content-addressed CI task results
+.turbo/
