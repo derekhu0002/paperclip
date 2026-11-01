@@ -217,7 +217,7 @@
         },
         {
           "name": "handoff",
-          "value": "无未完成修复。47 运行 1576；AIC-41/ARG-9 done；ACR latest 45f863…；下载 f89…（24h）。注意 dangerouslySkipPermissions 默认 true；逐 Agent 可在 UI Skip permissions 或 OPENCODE_CONFIG_CONTENT 调整。"
+          "value": "下一步：合并上游 127 个提交（优先远端文件不落磁盘 / run log 入 S3 / Stop 后 native workspace 恢复）；合并前按 10 个差异域核对；backlog 规则后续可开关化/抽模块；插件暂缓。47 运行 294f9f085，回滚镜像 c345924201ce。"
         },
         {
           "name": "agentChatFinding",
@@ -583,12 +583,12 @@
         },
         {
           "name": "related",
-          "value": "opencode-skill-isolation-home-fix-2026-10-30, 2026-10-27-47-fork-24h"
+          "value": "paperclip-upstream-merge-assessment-2026-10-21（本次事实属性）, threat-intel-center-migration-2026-11-01（上一会话）"
         }
       ],
-      "description": "【T1 会话总结 · 2026-11-01】\n\n【目标】在 47 实例新建组织「威胁情报中心」，复制迁入 vsoc 的情报线与 DFIR 线，并把 DFIR 挂到情报负责人/情报项目下。\n\n【完成】\n1) 新建公司 威胁情报中心 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6，前缀 CTI（中文名自动前缀退化，建后改库）。\n2) 官方 portability 导出/导入搬入 6 个 Agent、3 个项目、18 条 issue（CTI-1..18）。\n3) 结构：vso-intel cddd25e8（根）→ ThreatIntelligence e7c0b386、vso-dfir db32bfd6；情报负责人 49d7b778 为根 Agent，DFIR 负责人 cbece325 汇报给它；取证 18d9c582 / 恶意样本 8bc41fa1 汇报 DFIR；情报分析师 4e55bf5e / 威胁情报洞察 b2b1ef25 汇报情报负责人。\n4) 公司级 secret 复制（DeepSeek a014ac89、SSH d86b8bdb/5876c840），克隆 3 个环境 ec676729/902da85c/1ff3275c，绑定齐全，三环境 probe ok。\n5) 真实验收：CTI-18 由 DFIR 负责人跑完（run 68675128…），pwd/分支/design/KG/ARGO MCP/公司作用域全部正确。\n6) 旧 vsoc 三项目归档、六个旧 Agent 暂停（manual）。\n7) 事故恢复：清理时误执行 docker rm -f paperclip，删掉 47 容器；按旧 docker inspect 模板重建 c345924201ce（bind /home/paperclip/.paperclip，端口 172.18.2.191:3100，PAPERCLIP_AGENT_JWT_SECRET 复用），health ok、数据完好。\n\n【关键决策】\n- 人类选择「官方导出/导入（复制）」而非改库真搬移：vsoc 原实体保留并归档/暂停，新组织为带新 ID 的副本。\n- 跨边界 issue 按推荐：VSO-59/64 改挂情报项目；VSO-32 改派 DFIR 负责人。\n- 前缀用 CTI。\n\n【教训/坑】\n- 绝不对运行中的容器执行 rm；清理只删 /tmp 文件。\n- import 会丢 command/env、heartbeat 置 false，必须回填。\n- secret 与环境绑定必须落在目标公司；环境名实例内唯一。\n- parentProjectId 不在 portability 清单，需导入后 PATCH。\n\n【遗留】\n- 新组织内 vso-command 77edfc6a 为带入后归档的空项目。\n- 旧 vsoc 历史 issue/运行记录仍保留（复制语义）。\n\n【关联 T2】threat-intel-center-migration-2026-11-01；此前的 2026-10-30 会话要点（HOME/XDG 修复、镜像发布 ACR、47 部署与下载）见 T2 opencode-skill-isolation-home-fix-2026-10-30 等。",
+      "description": "【T1 会话总结 · 2026-11-01（上游同步 / watchdog / backlog / 47 部署）】\n\n【目标】对齐上游主干、清理 fork 侵入、实现 backlog 需求篮并部署到 47。\n\n【完成】\n1) 合并上游 013d01f08（381 commits），15 处冲突全部手工解决；迁移 0378_peaceful_synch 重编为 0417（snapshot 链 0416、journal idx 417、SQL 幂等）。\n2) 修 fork 的 agent 指派规则与上游 Coordinator chat-bound 默认的冲突（c34592420）：先认上游默认，规则后移到项目 404 / 指派 403 之后。\n3) 移除 idle watchdog（04be015e8，−221 行含文档）：heartbeat/scheduling.ts、heartbeat.ts、server/index.ts、scheduling.test.ts 与上游 0 diff。\n4) 实现 backlog 需求篮（294f9f085）：agent 创建任务在有效状态为 backlog 时可无负责人（省略 status 即 backlog）；todo/in_progress 等可执行状态仍必须有 agent；backlog→todo/in_progress/in_review 的 PATCH 必须带 agent 否则 422。\n5) 验证：Linux 全量 28,474 通过 / 0 断言失败（3 个仅缺 cargo）；定向 11/11 + 25/25 + 54/54 + 64/64。\n6) 部署 paperclip-fork:294f9f085 到 47：health ok、commit=294f9f085、插件 1/1、路由 200；checkout 用 git bundle 同步到 8d6fe004e。\n\n【关键事实】最近合入上游节点 = 2badf8a4a（2026-10-29，merge 013d01f08）；该节点及全部祖先已合入。上游 tip = 1d348bbef（2026-11-01），其后 127 commits 未合。fork 差异 = 128 文件 +10,466/−155（新增 54 +8,444；改上游 74 +2,022/−155；ARGO 数据 +3,603）。依赖自动释放是上游原生，不是 fork。\n\n【决策】跨项目知识图谱 schema 插件暂缓；定位=跨项目交付的“共同语言台账”（声明/继承/使用三层 + 关系签名 + 类型×项目矩阵），详见 T2 属性。\n\n【遗留】合并上游 127 提交（优先远端文件离盘 / S3 日志 / 恢复类）；B 域规则抽模块；J 域 SSH 重试提上游；LTM 视图已达 15 元素上限，下次新增 T2 前先拆子视图。\n\n【关联】上一 T1（威胁情报中心搬迁 + 47 容器误删恢复）细节见 T2 threat-intel-center-migration-2026-11-01；本次事实写入 paperclip-upstream-merge-assessment-2026-10-21 的属性。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-11-01：威胁情报中心组织搬迁 + 47 容器误删恢复）",
+      "name": "T1 会话总结（2026-11-01：上游同步 / watchdog 移除 / backlog 需求篮 / 47 部署）",
       "type": "Requirement"
     },
     {
@@ -1643,7 +1643,65 @@
       "description": "【目标】评估 fork（origin derekhu0002/paperclip，分支 dev/local-install）合并官方 upstream/master 的可行性与冲突。\n\n【基线】merge-base 60e03c002；我们领先 73 commits、落后 224 commits；upstream head c2daf906d（2026-10-20）。upstream 变更 2146 files / +189619 −50934。\n\n【试合并结论（worktree 实测，已清理）】仅 7 处文本冲突：maps/feature-map/tasks.md（文档并集）、packages/db/src/migrations/meta/_journal.json（实际整段取了我们的，必须重建）、packages/shared/src/index.ts（导出并集）、server/src/index.ts（上游改为 scheduled.timers.wake()，我们的 idle watchdog 接线被覆盖）、server/src/services/heartbeat/environment-selection.ts（保留上游 isDotRun 守卫 + 我们的 assertProjectBoundAgentExecutionTarget）、ui/src/App.tsx（上游删 Pipelines 并改用 lib/agent-filter-tabs，需重加 /organization 路由）、ui/src/components/OnboardingWizard.tsx（#17005 重写建 Agent 流程，我们的 opencode_local 默认值 + leadAgentId 绑定需重贴）。\n\n【高风险静默冲突（编译不报错）】\n1) 迁移编号撞车：我们 0347_unique_the_liberteens / 0348_chubby_norman_osborn vs 上游 0347_flippant_imperial_guard / 0348_agent_skill_runtime_hooks；_journal.json 合并后只剩我们的条目，上游 0347-0369 共 23 个迁移被丢弃 → 必须把我们两个迁移改名为 0370/0371、快照同步改名并重建 journal。\n2) idle watchdog 接线被 scheduled.timers.wake() 覆盖 → 需在新 scheduler tick 内重新挂 tickIdleWatchdog。\n3) Pipelines 实验被上游整体移除（#16834，数据保留、表未 drop）；我们 fork 仍在 App.tsx/Sidebar 引用 Pipelines 页面，需决定是否接受移除。\n4) 上游 #17005 让 onboarding 提前创建 agent（setupPrepared/setupAgentId），我们的 buildOnboardingProjectPayload(goalId, createdAgentId) 需改用 setupAgentId。\n\n【无冲突证据】上游 224 commits 完全没碰我们的自定义区：decisions.ts / approval helper / ApprovalCard / DecisionCard / work-timeline / IssueExecutionTimeline / Organization.tsx / projectTree.ts / tools/project-agent-poller / design/KG / paperclip.qea。上游也没有 idle watchdog 或 dependency auto-release；projects 表无 parentProjectId、无 lead_agent_id 唯一索引 → 一项目一 Agent 模型仍是我们独有。opencode-local 的 execute.ts/index.ts/build-config.ts 未被上游修改；adapter-utils 三处冲突已自动合并（sandbox 白名单并集）。\n\n【上游新增依赖/构建风险】新增 picocolors、smol-toml、zod 4.4.3、@opentelemetry/*、vitest 5；paperclip-runner 增加 postinstall install-copilot-assets.mjs 与 build:typescript 的 Copilot 资产步骤 → 合并后需 pnpm install，Windows 本机构建链有风险，需实测。\n\n【状态】评估完成 → 已合并（2d6d117f1）、已 push origin（7e6e8cdc9 → 后续 fb4527c1a）、已上线 47、已完成真实 Agent 与浏览器 e2e 验收。\n\n【2026-10-21 合并、上线与验收结果】\n- 合并：7 处冲突手工解决；迁移重编 0370/0371；能力验收 20/20；修了两个既有红灯（idle watchdog 记账异常、依赖释放 statusVersion 硬编码）。\n- 构建/部署：Windows 上逐包 tsc + PowerShell 拷贝；47 的 runtime 是 tsx 读 **src**（包 exports 指向 src），故除 dist 外还同步源码树并用 package-lock 安装新依赖（Tailscale DNS 不解析公网，临时切 223.5.5.5）。部署快照分支 deploy-2026-10-21，health commit=b1e86b9（源码 fb4527c1a）。\n- 真实 Agent E2E：IPD-39→IPD-40 依赖链，A done 后 B 自动释放并完成；runtimeModeReason=direct_adapter、ARGO_REPO_ROOT=/mnt/d/Projects/robot-system/brain；timeline 4 spans；两个 E2E issue 已 archive。\n- 遗留修复 1（CLI/worktree）：根因是 `paperclipai worktree init --from-config {}` 严格校验空 source config，导致 4 个 workspace-runtime provisioning 测试红。已在 cli/commands/worktree.ts 加容忍读取（失败回退 defaults 并警告）+ 重建 CLI + 47 侧 cli/node_modules 补齐外部依赖（zod/postgres 等 8 个）+ /home/paperclip/bin 包装。结果：workspace-runtime **181/181 通过**；execute.remote 9/9。\n- 遗留修复 3（浏览器 e2e）：修了 Windows 上 `--import=D:\\...` 非法（改 file://）与 webServer 120s 超时（PAPERCLIP_E2E_SERVER_TIMEOUT_MS）。onboarding 6/6 通过；组合 set 24/26（project-repositories、new-task-picker 桌面、agent-chat、task-reload、sidebar、cases 均过）。剩余 2 个失败在本次未改动的区域：company-context-refresh（Vite probe 页面未渲染）与 new-task-picker 移动端 assignee sheet 未关闭（composer 属上游大改区）；归类为环境/上游问题。\n- 合并回归修复：fork 曾强制“项目必须绑定 leadAgentId”（路由 422 + 新建项目按钮/下拉 required），直接打挂上游 10+ e2e 流程 → 改为“创建时可不绑定，传入时仍校验唯一绑定”；NewProjectDialog 的 lead agent 改为可选。commit fb4527c1a。\n- 全量单测：在 47 上后台跑 `pnpm test:run`（nice/ionice），截至 77 分钟 3509 passed / 0 failed，仍在运行，日志 /tmp/full-test2.log。\n- 临时凭证：两次 board token 均已 revoke，key 文件已删；47 上 *.bak2 与 *.bak-20261021-121558 保留用于回滚。",
       "id": "paperclip-upstream-merge-assessment-2026-10-21",
       "name": "Paperclip fork 合并 upstream 评估（2026-10-21）",
-      "type": "Requirement"
+      "type": "Requirement",
+      "attributes": [
+        {
+          "name": "upstreamMergedNode20261101",
+          "value": "最近一次合入上游节点 = 2badf8a4a (2026-10-29 21:35 -0500, #18248)，由 merge commit 013d01f08 (2026-10-31 10:52 +0800, parents=4c0b0f7ac 2badf8a4a) 合入；该节点及全部祖先已合入。同步链：2d6d117f1->c2daf906d (10-20)、ff57a3f21->515ff0f28 (10-24)、013d01f08->2badf8a4a (10-29)。"
+        },
+        {
+          "name": "upstreamUnmerged20261101",
+          "value": "会话结束时上游 tip = 1d348bbef (2026-11-01 04:09 -0600)；2badf8a4a 之后 127 个提交未合入（62 fix / 18 perf / 17 test / 11 feat / 15 无前缀）。代表：远端文件不落 web 磁盘 #18403、run log/trace 入 S3 #18327、managed skills 不依赖 web 磁盘 #18334、Kimi Code 原生运行时 #18028/#18391、主动任务消息投递到 agent chat #18374、多组 Stop 后 native workspace 恢复。"
+        },
+        {
+          "name": "forkDelta20261101",
+          "value": "相对 2badf8a4a：128 文件 +10466/-155。新增文件 54 个 +8444；修改上游文件 74 个 +2022/-155；ARGO 图数据 4 文件 +3603 (34%)。独有提交 150 个，其中 84 个是 ARGO 记忆/图提交。10 个差异域：A 一项目一Agent绑定(core,高冲突)、B backlog+指派规则(routes/issues.ts +226,高冲突)、C 执行时间线、D 图谱证据(decisions.ts 仅 9 行)、E 项目树插件、F OpenCode per-agent XDG、G direct remote workspace、H 运维/poller、I ARGO 记忆、J adapter-utils SSH 重试。依赖自动释放已确认为上游原生（issue-dependency-wakeups.ts 与上游字节相同）；idle watchdog 已移除。"
+        },
+        {
+          "name": "deployed47_20261101",
+          "value": "image paperclip-fork:294f9f085；health ok commit=294f9f085bfadc260d481dd77c8f4b39243a6ae1；migrations already applied；plugin-loader 1/1；/ 与 /paperclip/organization 200；restart=0；公网 health 同 commit。47 到 GitHub 不可达，checkout 用 git bundle 兜底同步到 8d6fe004e。回滚镜像 c345924201ce；DB 备份 db.bak-pre-20261101T083524Z / 091549Z。部署期间有另一被指挥 Agent 同时操作 47（docker rm -f），待其结束后重切成功。"
+        },
+        {
+          "name": "commit",
+          "value": "013d01f08",
+          "description": "Merge upstream/master (381 commits) into dev/local-install；迁移 0378 重编 0417；15 处冲突"
+        },
+        {
+          "name": "commit",
+          "value": "c34592420",
+          "description": "fix(issues): agent-assignee rule compatible with upstream Coordinator chat-bound default"
+        },
+        {
+          "name": "commit",
+          "value": "04be015e8",
+          "description": "refactor(heartbeat): drop idle watchdog (-221 lines)；4 个调度文件与上游 0 diff；scheduling 54/54、dependency/retry 64/64"
+        },
+        {
+          "name": "commit",
+          "value": "294f9f085",
+          "description": "feat(issues): backlog ownership-undecided basket；issue-creation-source-routes 11/11、chat-project-tools 25/25、Linux 全量 28474 passed / 0 断言失败"
+        },
+        {
+          "name": "backlogBasket20261101",
+          "value": "agent 创建任务在有效状态为 backlog 时可不写负责人（省略 status 即 backlog）；todo/in_progress 等可执行状态仍必须有 agent；backlog->todo/in_progress/in_review 的 PATCH 必须带 agent 否则 422。文档：AGENTS.md 第7条、doc/FORK-AGENT-RULES.md、doc/plans/2026-10-31-backlog-ownership-basket.md。"
+        },
+        {
+          "name": "verification20261101",
+          "value": "Linux (WSL ocpc, non-root, umask 022) full suite: Test Files 1252 passed / 3 failed / 10 skipped; Tests 28474 passed / 0 failed assertions / 188 skipped; 3 failures only because cargo is missing (dot-runner, native-codex-runner.integration, plugin-runner-probe)."
+        },
+        {
+          "name": "pitfalls20261101",
+          "value": "1) 镜像必须 --build-arg USER_UID=998 --build-arg USER_GID=998，否则 entrypoint 重映射后 /app 不可写，启动即 EACCES (libcrypto.so.1.1 symlink)。2) 传 PAPERCLIP_BUILD_COMMIT 构建触发 provider pack，上游 Pi 闭包 pin 不匹配而失败；按文档跳过 pack。3) 构建必须用 git archive 干净导出，避免工作树 dist/ 污染 COPY。4) 47 访问 GitHub 常超时，用 git bundle + SHA 校验兜底。5) 部署前确认无其他被指挥 Agent 同时操作 47。"
+        },
+        {
+          "name": "pluginDecision20261101",
+          "value": "跨项目知识图谱 schema 插件未开工（人类暂缓）。定位=跨项目交付的“共同语言台账”：读同 company 各项目 workspace 的 design/KG/SystemArchitecture.json（实际词表）+ <ws>/.argo/schema（声明词表；schema-bundle.config.json 的 elementTypeEnumKey/relationshipTypeEnumKey -> $defs[...].enum，默认 ArchiMate 3.2 = 64 元素类型 / 11 关系类型）。区分显式声明/继承默认/实际使用；关系主视图用实际签名 (源类型,关系,目标类型)；提供类型×项目接收能力矩阵。坑：多数项目继承默认会“共享满屏”；MVP 只做类型级。"
+        },
+        {
+          "name": "ltmViewCapacity",
+          "value": "project-manager-001-ltm-001 已达 15 元素上限，下次新增 T2 前需先拆分层子视图；本次新事实改记在本元素属性中。"
+        }
+      ]
     },
     {
       "description": "本单位集中收纳本 fork 相对 upstream 的自研能力，以及每项能力的架构验收用例（可执行 GIVEN-WHEN-THEN）。用途：合并 upstream 或升级后，用它做回归验收，证明 fork 能力仍然成立。每条 testcase 的 Input 是一条可直接执行的命令，acceptanceCriteria 指向承载断言的测试文件。",
