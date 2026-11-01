@@ -71,6 +71,10 @@
         {
           "view_id": "project-manager-aic-efficiency-001",
           "view_name": "项目经理 · AIC 组织与效率质量记忆"
+        },
+        {
+          "view_id": "project-manager-org-migration-001",
+          "view_name": "项目经理 · 组织搬迁记忆"
         }
       ],
       "attributes": [
@@ -201,7 +205,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-10-30"
+          "value": "2026-11-01"
         },
         {
           "name": "memoryTier",
@@ -478,7 +482,7 @@
         },
         {
           "name": "sessionDate",
-          "value": "2026-10-30"
+          "value": "2026-11-01"
         },
         {
           "name": "vsocOrgV2",
@@ -582,9 +586,9 @@
           "value": "opencode-skill-isolation-home-fix-2026-10-30, 2026-10-27-47-fork-24h"
         }
       ],
-      "description": "【T1 会话总结 · 2026-10-30】\n\n【目标】确认并修复 40093021c 引入的 HOME 重定义缺陷（保留 per-agent 技能隔离特性），然后构建/发布镜像、47 部署与验证，最后开放 24h 镜像下载。\n\n【完成】\n1) 根因：40093021c 把非 managed 直连 SSH 运行的 HOME + 4 个 XDG 目录整体改到 <home>/.paperclip/agents/<id>/home，并整份 home 软链（跳过 .claude/.paperclip）。破坏所有 HOME 消费者：git/gh/ssh/npm 新写入落 per-agent、~/.paperclip 不软链、XDG_CONFIG_HOME 指回共享使 runtime config 失效、每轮 rm -rf .claude。\n2) 修复 4c0b0f7ac：只改 XDG_CONFIG_HOME 到 <home>/.paperclip/agents/<id>/config；共享 XDG 配置项与 opencode/ 配置（MCP/provider/plugins/agents/commands，排除 skills）软链进来；每轮重建 opencode/skills；HOME 与 XDG_DATA/CACHE/STATE 不动；作用域限定 SSH 非 managed，sandbox 回到既有 managed HOME 拷贝行为。依据：opencode.ai/docs/skills + docs/config 的官方全局技能路径（$XDG_CONFIG_HOME/opencode/skills、~/.claude/skills、~/.agents/skills），以及 codex-home.ts 的 tool-specific home + allowlist 范式。\n3) 测试：skills.test.ts + execute.remote.test.ts（非 managed 下 HOME/XDG_DATA/CACHE/STATE 均未设置，仅 XDG_CONFIG_HOME=per-agent）；agent-config-home.integration.test.ts（POSIX）：两 Agent 技能互不可见、共享 opencode.json/gh 可见、共享 .claude 与 .gitconfig 不被修改。Windows 上 29 个失败已用 stash 在 HEAD 复现同批，属既有 symlink EPERM/POSIX-only。\n4) 发布：push 4c0b0f7ac → 镜像 paperclip-fork:4c0b0f7ac40e（6.32GB，tar.gz 1.4GB）；ACR tag 4c0b0f7ac40e + latest = sha256:66c84c917cec537045e3791c97664303083c3a255a974d80a7424901589eebc3（crane 0.22.1）。\n5) 47 部署：GitHub 不可达 → 增量 bundle（^b9d319e0e1）把 checkout 从 b9d319e0e1 纠到 4c0b0f7ac；容器切新镜像；health ok、commit=4c0b0f7ac…；/ 与 /organization 200，/api/companies 403（无凭据）；restarts=0、level50=0；三处 HEAD 相等；镜像内 POSIX 测试 13/13。\n6) 下载：http://47.107.161.168/dl-88af8548fc86/paperclip-fork-4c0b0f7ac40e.tar.gz，sha256 666395236982ff636ce3ddcbdd6271a985ab56f92437963eea92ffba50e75b82，1,499,815,525 字节，2026-10-31T15:51:59Z 到期；外网 HEAD/Range(gzip 1f8b)/sha256/README 均验证。\n\n【关键决策】\n- 不回退特性：人类明确要求保留“不同 Agent 隔离 skill”，只换实现；隔离粒度下沉到 OpenCode 自己的配置面，绝不再重定义 HOME。\n- 选 XDG_CONFIG_HOME 而非 HOME：官方文档证明它是全局技能发现位置之一；其余来源（~/.claude、~/.agents）留在真实 HOME，避免重复拷贝与同名冲突。\n- 作用域只给 SSH 非 managed：sandbox 已有 managed HOME 语义，改动风险大收益低。\n- 发布沿用既有路径：workstation 构建 → docker save/gzip → 47 加载 → crane 推 ACR（ACR 个人版拒绝 buildx attestation，docker push 卡 manifest）。\n\n【教训/坑】\n- 镜像必须 --build-arg USER_UID=998 --build-arg USER_GID=998 构建；否则 /app 归 1000，而 entrypoint 把 node 运行时重映射到 998 → embedded-postgres 建 libcrypto 软链 EACCES，容器崩溃循环（本次已遇到，先回滚 1576 再重构）。\n- 47 到 GitHub 经常不可达：用 git bundle 增量包（^<47旧HEAD>），SHA 必须相等才能 reset。\n- 47 磁盘紧张：先 prune 旧镜像（保留上一版作回滚），本次 8.3G→28G。\n- 远程 shell 脚本一律写 LF 文件再 scp；PowerShell 引号/CRLF 很容易把远端命令弄坏。\n\n【遗留】\n1) 旧 <home>/.paperclip/agents/<id>/home 目录未清理（无害）。\n2) 共享 ~/.claude/skills 里 40093021c 之前遗留的 Paperclip 软链未清理（避免误删用户技能），需要时可加保守迁移。\n3) 同名技能（Paperclip 分配 vs ambient）现同时存在于两个扫描位置，未强制优先级。\n4) 40093021c 同时移除了 OPENCODE_DISABLE_PROJECT_CONFIG；项目级 opencode.json 可覆盖权限，属独立风险待评估。\n\n【关联 T2】opencode-skill-isolation-home-fix-2026-10-30；2026-10-27-47-fork-24h（下载）。",
+      "description": "【T1 会话总结 · 2026-11-01】\n\n【目标】在 47 实例新建组织「威胁情报中心」，复制迁入 vsoc 的情报线与 DFIR 线，并把 DFIR 挂到情报负责人/情报项目下。\n\n【完成】\n1) 新建公司 威胁情报中心 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6，前缀 CTI（中文名自动前缀退化，建后改库）。\n2) 官方 portability 导出/导入搬入 6 个 Agent、3 个项目、18 条 issue（CTI-1..18）。\n3) 结构：vso-intel cddd25e8（根）→ ThreatIntelligence e7c0b386、vso-dfir db32bfd6；情报负责人 49d7b778 为根 Agent，DFIR 负责人 cbece325 汇报给它；取证 18d9c582 / 恶意样本 8bc41fa1 汇报 DFIR；情报分析师 4e55bf5e / 威胁情报洞察 b2b1ef25 汇报情报负责人。\n4) 公司级 secret 复制（DeepSeek a014ac89、SSH d86b8bdb/5876c840），克隆 3 个环境 ec676729/902da85c/1ff3275c，绑定齐全，三环境 probe ok。\n5) 真实验收：CTI-18 由 DFIR 负责人跑完（run 68675128…），pwd/分支/design/KG/ARGO MCP/公司作用域全部正确。\n6) 旧 vsoc 三项目归档、六个旧 Agent 暂停（manual）。\n7) 事故恢复：清理时误执行 docker rm -f paperclip，删掉 47 容器；按旧 docker inspect 模板重建 c345924201ce（bind /home/paperclip/.paperclip，端口 172.18.2.191:3100，PAPERCLIP_AGENT_JWT_SECRET 复用），health ok、数据完好。\n\n【关键决策】\n- 人类选择「官方导出/导入（复制）」而非改库真搬移：vsoc 原实体保留并归档/暂停，新组织为带新 ID 的副本。\n- 跨边界 issue 按推荐：VSO-59/64 改挂情报项目；VSO-32 改派 DFIR 负责人。\n- 前缀用 CTI。\n\n【教训/坑】\n- 绝不对运行中的容器执行 rm；清理只删 /tmp 文件。\n- import 会丢 command/env、heartbeat 置 false，必须回填。\n- secret 与环境绑定必须落在目标公司；环境名实例内唯一。\n- parentProjectId 不在 portability 清单，需导入后 PATCH。\n\n【遗留】\n- 新组织内 vso-command 77edfc6a 为带入后归档的空项目。\n- 旧 vsoc 历史 issue/运行记录仍保留（复制语义）。\n\n【关联 T2】threat-intel-center-migration-2026-11-01；此前的 2026-10-30 会话要点（HOME/XDG 修复、镜像发布 ACR、47 部署与下载）见 T2 opencode-skill-isolation-home-fix-2026-10-30 等。",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-10-30：HOME 重定义修复、镜像发布 ACR、47 部署验证与下载）",
+      "name": "T1 会话总结（2026-11-01：威胁情报中心组织搬迁 + 47 容器误删恢复）",
       "type": "Requirement"
     },
     {
@@ -1701,6 +1705,15 @@
         {
           "name": "forkAreas20261031",
           "value": "二次开发剩余域（按侵入度）：A 一项目一Agent绑定(core schema+~350行) / D 执行时间线(新增UI~850行，服务端+67) / E ArchGraph 图谱证据(新文件~900行，decisions 9行) / F 项目树插件(隔离~600行) / G OpenCode per-agent skills(适配器~250行) / H direct remote workspace(~120行) / I agent 指派守卫(~100行) / J 运维部署(~700行) / K ARGO 记忆。B(依赖自动释放)已确认为上游原生代码，非 fork；idle watchdog 已于 04be015e8 移除。"
+        },
+        {
+          "name": "commit",
+          "value": "294f9f085",
+          "description": "feat(issues): make backlog an ownership-undecided basket — agent 创建任务在有效状态为 backlog 时可无负责人（省略 status 即 backlog）；todo/in_progress 等可执行状态仍必须指名 agent；backlog→todo/in_progress/in_review 的 PATCH 必须有 agent 负责人（否则 422），防止无主待办死锁重现。文件：server/src/routes/issues.ts, server/src/__tests__/issue-creation-source-routes.test.ts, AGENTS.md, doc/FORK-AGENT-RULES.md, doc/plans/2026-10-31-backlog-ownership-basket.md。验证：issue-creation-source-routes 11/11、chat-project-tools 25/25、Linux 全量 28474 passed / 0 断言失败（3 个仅缺 cargo）。"
+        },
+        {
+          "name": "deployed47_20261101",
+          "value": "2026-11-01T09:16Z image paperclip-fork:294f9f085 (built --build-arg USER_UID=998 --build-arg USER_GID=998, provider pack skipped). health ok commit=294f9f085bfadc260d481dd77c8f4b39243a6ae1, migrations already applied, plugin-loader 1/1, / and /paperclip/organization 200, three-way match workstation=origin=47 checkout (47 checkout synced via git bundle because GitHub was unreachable). Rollback image paperclip-fork:c345924201ce kept; db backup db.bak-pre-20261101T091549Z. Incident: a separately commanded agent concurrently destroyed/recreated the container mid-deploy; after it finished the switch was redone successfully."
         }
       ]
     },
@@ -2828,6 +2841,50 @@
       "id": "paperclip-aic-efficiency-agent-onboarding-2026-11-01",
       "name": "AIC 组织新增「效率质量 Agent」+ 效率质量项目（47，2026-11-01）",
       "type": "Requirement"
+    },
+    {
+      "id": "threat-intel-center-migration-2026-11-01",
+      "name": "威胁情报中心组织搬迁（2026-11-01，47 实例）",
+      "type": "Requirement",
+      "description": "【目标】在 47 实例新建组织「威胁情报中心」，把 vsoc 的情报线与 DFIR 线复制迁入，并让 DFIR 挂在情报负责人/情报项目下；原 vsoc 实体归档/暂停。\n\n【结果】\n- 新公司 威胁情报中心 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6，issue prefix CTI（中文名会退化，创建后改库）。\n- 6 个 Agent（新 ID）：情报负责人·vso-intel 49d7b778 / 情报分析师·vso-intel-analysis 4e55bf5e / 威胁情报洞察·ti-insight b2b1ef25 / DFIR 负责人·vso-dfir cbece325 / 取证分析师·vso-dfir-forensics 18d9c582 / 恶意样本分析师·vso-dfir-malware 8bc41fa1。\n- 3 个活动项目：vso-intel cddd25e8（根，lead 情报负责人）、ThreatIntelligence e7c0b386（parent vso-intel）、vso-dfir db32bfd6（parent vso-intel）。另 vso-command 77edfc6a 仅因跨边界 issue 被带入，已归档。\n- 汇报链：情报负责人→null（根）；DFIR 负责人→情报负责人；其余按原链。\n- issue 18 条（CTI-1..18）：15 条原项目 issue + VSO-59/64（原在 vso-command，改挂 vso-intel）+ VSO-32（CTI-5，改派 DFIR 负责人）；CTI-18 为迁移验收只读 issue。comments 35 / documents 22。\n- 密钥与环境：复制 DeepSeek a014ac89、SSH d86b8bdb/5876c840 三个 company secret 及版本；克隆环境 ec676729(intel) / 902da85c(TI) / 1ff3275c(dfir)，名称后缀「· 威胁情报中心」；6 个 agent 绑定 DEEPSEEK_API_KEY，3 个环境绑定 privateKeySecretRef；三环境 probe 全 ok。\n- 验收：CTI-18 由 DFIR 负责人真实跑完（run 68675128-b755-4817-9dfb-654bbefa8a97 succeeded）：pwd=/mnt/d/Projects/vso-dfir、分支 master、design/KG 存在、ARGO MCP 只读检索 passed、公司作用域=威胁情报中心。\n- 旧 vsoc：vso-intel/ThreatIntelligence/vso-dfir 三项目 archived_at=2026-11-01T08:33:33Z；6 个旧 Agent status=paused, pause_reason=manual。\n\n【做法（可复用）】\n1) POST /api/companies 建公司；DB 改 issue_prefix（API 不支持）。\n2) POST /api/companies/:vsoc/export：include{agents,projects,issues}，agents=6 个，projectIssues=3 个项目（自动带出项目内 issue），issues=[VSO-59,VSO-64]（跨项目 issue 会把其项目 vso-command 一并带入，事后归档）。\n3) POST /api/companies/import/preview 再 /import，target={mode:existing_company}，collisionStrategy=rename。\n4) 导入后修：项目 parent_project_id、Agent reports_to、跨边界 issue 的 project/assignee、归档多余项目。\n5) 公司级 secret 必须复制（resolveSecretValue 强制 secret.companyId===companyId），环境 config.privateKeySecretRef 必须指向本公司 secret，因此克隆环境并加本公司 binding；环境名实例内唯一，需改后缀。\n6) 导入会丢掉 adapterConfig.command（system-dependent）与 env，且 heartbeat.enabled=false；用源 adapterConfig 合并回填 command/env（secret 换新 ID），runtimeConfig 恢复 heartbeat{enabled:true,300,1,skipTimer:true}，再把 lifecycle_state=ready/status=idle。\n7) 项目树 parentProjectId 不在 portability 清单里，导入后逐个 PATCH。\n\n【坑/事故】\n- 清理临时文件时误执行 docker rm -f paperclip，销毁了 47 的 paperclip 容器（事件 2026-11-01T16:35:25+08）。已按旧 docker inspect 模板用镜像 paperclip-fork:c345924201ce 重建：--name paperclip --restart unless-stopped -p 172.18.2.191:3100:3100 -v /home/paperclip/.paperclip:/home/paperclip/.paperclip，PAPERCLIP_HOME/CONFIG 指到该目录，PAPERCLIP_AGENT_JWT_SECRET 保留（BETTER_AUTH_SECRET 会回退到它）；health ok/commit c345924…，数据与本次迁移全部完好。教训：清理只删 /tmp 文件，绝不对容器执行 rm。\n- 导入的 agent 初始 paused/verifying，API PATCH status 不会置 ready，需要库内更新 lifecycle_state。\n- 环境 secret 若指向源公司 secret，probe/运行会报 Secret must belong to same company。\n\n【未做】未改仓库代码，无 commit；旧 vsoc 历史 issue/运行记录保留在 vsoc（复制语义）。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-01"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-11-01"
+        },
+        {
+          "name": "company",
+          "value": "威胁情报中心 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6 prefix=CTI"
+        },
+        {
+          "name": "projects",
+          "value": "vso-intel cddd25e8 / ThreatIntelligence e7c0b386 / vso-dfir db32bfd6 (parent=vso-intel); vso-command 77edfc6a archived"
+        },
+        {
+          "name": "agents",
+          "value": "49d7b778 情报负责人; 4e55bf5e 情报分析师; b2b1ef25 威胁情报洞察; cbece325 DFIR负责人; 18d9c582 取证; 8bc41fa1 恶意样本"
+        },
+        {
+          "name": "environments",
+          "value": "ec676729 intel / 902da85c TI / 1ff3275c dfir"
+        },
+        {
+          "name": "acceptance",
+          "value": "CTI-18 done; run 68675128-b755-4817-9dfb-654bbefa8a97 succeeded"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -3048,6 +3105,15 @@
         "paperclip-aic-efficiency-agent-onboarding-2026-11-01"
       ],
       "included_relationships": []
+    },
+    {
+      "view_id": "project-manager-org-migration-001",
+      "view_name": "项目经理 · 组织搬迁记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "公司/组织搬迁、跨组织复制与项目树重塑的长期记忆（T2）。",
+      "included_elements": [
+        "threat-intel-center-migration-2026-11-01"
+      ]
     }
   ]
 }
