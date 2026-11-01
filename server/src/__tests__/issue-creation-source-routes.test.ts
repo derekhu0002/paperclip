@@ -99,7 +99,7 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
     });
   });
 
-  it("rejects an agent-created issue with no agent assignee", async () => {
+  it("allows an unowned backlog requirement but rejects unowned actionable work", async () => {
     // A person assignment is denied by assignment authorization first.
     const toPerson = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)
@@ -108,12 +108,43 @@ describePostgres("agent-created follow-ups: parent links and creation source", (
     // Assignment authorization owns the exact reason (inactive target, board
     // users, or the low-trust boundary); the fork rule owns the unowned case.
     expect(typeof toPerson.body.error).toBe("string");
-    // An unassigned follow-up is rejected by the fork rule itself.
-    const unowned = await request(app(agentActor(qaAgentId, runOnSource)))
+
+    // `backlog` is the ownership-undecided basket: an omitted status defaults
+    // to backlog, so an agent may file it without naming an owner.
+    const basket = await request(app(agentActor(qaAgentId, runOnSource)))
       .post(`/api/companies/${companyId}/issues`)
       .send({ title: "Unowned follow-up" });
+    expect(basket.status, JSON.stringify(basket.body)).toBe(201);
+    expect(basket.body.status).toBe("backlog");
+    expect(basket.body.assigneeAgentId).toBeNull();
+
+    // An actionable status still requires an agent owner.
+    const unowned = await request(app(agentActor(qaAgentId, runOnSource)))
+      .post(`/api/companies/${companyId}/issues`)
+      .send({ title: "Unowned follow-up", status: "todo" });
     expect(unowned.status).toBe(422);
     expect(unowned.body.error).toContain("must set assigneeAgentId");
+  });
+
+  it("requires an agent owner when a backlog requirement leaves the basket", async () => {
+    const created = await request(app(agentActor(qaAgentId, runOnSource)))
+      .post(`/api/companies/${companyId}/issues`)
+      .send({ title: "Promote me later" });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    expect(created.body.status).toBe("backlog");
+
+    const promotedWithoutOwner = await request(app(agentActor(qaAgentId, runOnSource)))
+      .patch(`/api/issues/${created.body.id}`)
+      .send({ status: "todo" });
+    expect(promotedWithoutOwner.status).toBe(422);
+    expect(promotedWithoutOwner.body.error).toContain("Leaving backlog requires an agent assignee");
+
+    const promoted = await request(app(agentActor(qaAgentId, runOnSource)))
+      .patch(`/api/issues/${created.body.id}`)
+      .send({ status: "todo", assigneeAgentId: qaAgentId });
+    expect(promoted.status, JSON.stringify(promoted.body)).toBe(200);
+    expect(promoted.body.status).toBe("todo");
+    expect(promoted.body.assigneeAgentId).toBe(qaAgentId);
   });
 
   it("rejects an agent update that clears the agent assignee", async () => {

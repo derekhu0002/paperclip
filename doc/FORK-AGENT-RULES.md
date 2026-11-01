@@ -23,7 +23,10 @@ do not count as resolved.
 
 ## Plan-chain rule
 
-Create planned work in `todo`, never in `backlog`. Model waiting as `blocked`
+`backlog` is the ownership-undecided basket: file a requirement there while its
+owner (person or agent) is still undecided. Planned, ready work belongs in
+`todo` with an agent assignee — promoting an issue out of `backlog` into
+`todo`, `in_progress`, or `in_review` requires one. Model waiting as `blocked`
 plus `blockedByIssueIds`, assigned to the owning Manager/Purple lane. The server
 releases it when dependencies complete. Do not use an empty manual
 `heartbeat/invoke` to start planned work.

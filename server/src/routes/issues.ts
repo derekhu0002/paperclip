@@ -786,6 +786,19 @@ async function resolveConversationAgentIdForRequest(
     : null;
 }
 
+/**
+ * The create route stores an omitted status as the schema default, `backlog`.
+ * `backlog` is the ownership-undecided basket, so it may stay unowned; every
+ * other status is actionable and must name an agent owner.
+ */
+function effectiveCreatedIssueStatus(value: unknown): string {
+  return readNonEmptyString(value) ?? "backlog";
+}
+
+function isOwnershipBasketStatus(value: unknown): boolean {
+  return effectiveCreatedIssueStatus(value) === "backlog";
+}
+
 async function sanitizeIssueCreateAttribution<T extends object>(
   db: Db,
   req: Request,
@@ -848,7 +861,10 @@ async function sanitizeIssueCreateAttribution<T extends object>(
       : await resolveConversationAgentIdForRequest(db, req, companyId);
     if (conversationAgentId) {
       sanitizedRecord.assigneeAgentId = conversationAgentId;
-    } else if (options.enforceAgentAssignee !== false) {
+    } else if (
+      options.enforceAgentAssignee !== false &&
+      !isOwnershipBasketStatus(sanitizedRecord.status)
+    ) {
       // Agent-created issues must name their agent owner explicitly. Silently
       // defaulting or assigning the Board user creates invisible, non-waking
       // blockers; human decisions belong in an approval or question interaction.
@@ -12740,7 +12756,8 @@ export function issueRoutes(
       // conversation-agent default above.
       if (
         req.actor.type === "agent" &&
-        !readNonEmptyString(createBody.assigneeAgentId)
+        !readNonEmptyString(createBody.assigneeAgentId) &&
+        !isOwnershipBasketStatus(createBody.status)
       ) {
         res.status(422).json({
           error:
@@ -13116,7 +13133,8 @@ export function issueRoutes(
       // authorization so their 404/403 precedence is preserved.
       if (
         req.actor.type === "agent" &&
-        !readNonEmptyString(createBody.assigneeAgentId)
+        !readNonEmptyString(createBody.assigneeAgentId) &&
+        !isOwnershipBasketStatus(createBody.status)
       ) {
         res.status(422).json({
           error:
@@ -14488,6 +14506,26 @@ export function issueRoutes(
       Object.assign(updateFields, transition.patch);
 
       const nextStatus = updateFields.status ?? existing.status;
+      // Ownership basket invariant: `backlog` may stay unowned while its owner
+      // is undecided, but leaving it for an actionable lane must name an agent
+      // owner. This keeps unowned work out of the dispatchable states the
+      // agent-assignee rule protects.
+      const nextAssigneeAgentIdForPatch =
+        updateFields.assigneeAgentId !== undefined
+          ? readNonEmptyString(updateFields.assigneeAgentId)
+          : existing.assigneeAgentId;
+      if (
+        existing.status === "backlog" &&
+        nextStatus !== "backlog" &&
+        ["todo", "in_progress", "in_review"].includes(nextStatus as string) &&
+        !nextAssigneeAgentIdForPatch
+      ) {
+        res.status(422).json({
+          error:
+            "Leaving backlog requires an agent assignee. Keep the issue in backlog while its owner is undecided.",
+        });
+        return;
+      }
       if (updateFields.unblockDescriptor && nextStatus !== "blocked") {
         throw unprocessable("unblockDescriptor requires blocked status");
       }

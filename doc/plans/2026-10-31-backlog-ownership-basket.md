@@ -1,6 +1,6 @@
 # Backlog as an ownership-undecided requirement basket
 
-Status: agreed, not implemented (recorded 2026-10-31).
+Status: implemented 2026-10-31 (see the commit that updates this line).
 
 ## Goal
 
