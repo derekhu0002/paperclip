@@ -16,7 +16,7 @@ Before making changes, read in this order:
 3. `doc/SPEC-implementation.md`
 4. `doc/DEVELOPING.md`
 5. `doc/DATABASE.md`
-6. `doc/FORK-AGENT-RULES.md` (fork-specific agent behavior: automatic wakes, dependency release, idle watchdog, plan-chain, graph evidence)
+6. `doc/FORK-AGENT-RULES.md` (fork-specific agent behavior: automatic wakes, dependency release, plan-chain, graph evidence)
 
 `doc/SPEC.md` is long-horizon product context.
 `doc/SPEC-implementation.md` is the concrete V1 build contract.
@@ -128,8 +128,7 @@ When your task produces a user-inspectable deliverable file, follow the Papercli
 Planned work must be created in `todo`, not parked in `backlog`. When work must
 wait, use first-class `blockedByIssueIds` and assign it to the owning
 Manager/Purple lane. The server auto-releases a dependency-ready `blocked` issue
-to `todo` and wakes its assignee; an idle watchdog also dispatches an assigned
-`todo` issue when the company has no queued/running run. Do not start work with an
+to `todo` and wakes its assignee. Do not start work with an
 empty manual `heartbeat/invoke`; use issue creation or assignment. Reserve a
 manual wake for an explicit on-demand check with no issue.
 

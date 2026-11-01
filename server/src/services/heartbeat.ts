@@ -1561,7 +1561,6 @@ export function heartbeatService(
   const {
     triggerIssueMonitor,
     tickTimers,
-    tickIdleWatchdog,
     tickAgentTimers,
     nextAgentTimerAt,
     tickIssueMonitors,
@@ -4277,8 +4276,6 @@ export function heartbeatService(
     nextAgentTimerAt,
     tickIssueMonitors,
     nextIssueMonitorAt,
-
-    tickIdleWatchdog,
 
     cancelRun: (runId: string, reason?: string, options?: CancelRunOptions) =>
       cancelRunInternal(runId, reason, options),

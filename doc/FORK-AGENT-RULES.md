@@ -21,13 +21,6 @@ reached `done`. The dependent is moved from `blocked` to `todo` and its assignee
 is woken. Do not wait for a human to release the next step. `cancelled` blockers
 do not count as resolved.
 
-## Idle watchdog
-
-`PAPERCLIP_WAKE_REASON=idle_watchdog` means the company had no queued/running
-run but had an assigned `todo` issue, so the server dispatched it. Treat it as a
-recovery signal and investigate why the normal assignment/status wake did not
-start the run.
-
 ## Plan-chain rule
 
 Create planned work in `todo`, never in `backlog`. Model waiting as `blocked`

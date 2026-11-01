@@ -1972,18 +1972,6 @@ async function startServerWithDatabaseTeardown(
         }
 
         if (isIdleTaskDrainActive() || heartbeatSchedulerStopped) return;
-        if (typeof heartbeat.tickIdleWatchdog === "function") {
-          trackHeartbeatSchedulerWork(heartbeat
-            .tickIdleWatchdog(new Date())
-            .then((result) => {
-              if (result.enqueued > 0) {
-                logger.info({ ...result }, "idle watchdog enqueued runs");
-              }
-            })
-            .catch((err) => {
-              logger.error({ err }, "idle watchdog tick failed");
-            }));
-        }
         scheduleExternalObjectRefreshSweep(new Date());
 
         if (isIdleTaskDrainActive() || heartbeatSchedulerStopped) return;
