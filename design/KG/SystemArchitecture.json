@@ -1692,6 +1692,15 @@
         {
           "name": "knownPitfalls",
           "value": "1) 镜像必须用 USER_UID/GID=998 构建，否则 entrypoint 运行时把 node 重映射到 998，/app 文件 owner 1000 不可写，启动即 EACCES (libcrypto.so.1.1 symlink)。2) 传 PAPERCLIP_BUILD_COMMIT 构建会触发 provider pack，当前上游 Pi 原生闭包 pin 不匹配 → 失败；按 doc 跳过 pack（opencode_local 不受影响）。3) 本地脏工作树含 dist/ 会让 COPY 污染上下文，镜像构建必须用 git archive 干净导出。4) Windows 上 git archive 解包 .claude/skills 软链失败，但不影响构建。"
+        },
+        {
+          "name": "commit",
+          "value": "04be015e8",
+          "description": "refactor(heartbeat): drop the idle watchdog to match upstream scheduling — 删除 server/src/services/heartbeat/scheduling.ts 的 IDLE_WATCHDOG 块(160行)、server/src/index.ts 的 12 行接线、heartbeat.ts 两处解构、scheduling.test.ts 的 watchdog 用例；4 个文件与上游合并基线 2badf8a4a 字节一致。docs: AGENTS.md + doc/FORK-AGENT-RULES.md 移除 idle_watchdog 描述。理由：上游 durable scheduling 已覆盖；该能力占据最热文件、并在 2026-10-31 合并中产生语义冲突。验证：server tsc 干净；scheduling 54/54；dependency/retry scheduling 64/64。元素 fork-cap-idle-watchdog 已 tombstone 移除。"
+        },
+        {
+          "name": "forkAreas20261031",
+          "value": "二次开发剩余域（按侵入度）：A 一项目一Agent绑定(core schema+~350行) / D 执行时间线(新增UI~850行，服务端+67) / E ArchGraph 图谱证据(新文件~900行，decisions 9行) / F 项目树插件(隔离~600行) / G OpenCode per-agent skills(适配器~250行) / H direct remote workspace(~120行) / I agent 指派守卫(~100行) / J 运维部署(~700行) / K ARGO 记忆。B(依赖自动释放)已确认为上游原生代码，非 fork；idle watchdog 已于 04be015e8 移除。"
         }
       ]
     },
@@ -1902,31 +1911,6 @@
           "acceptanceCriteria": "server/src/__tests__/issues-service.test.ts",
           "description": "GIVEN a blocked issue with one done blocker, WHEN autoReleaseBlockedDependent runs, THEN status becomes todo, statusVersion increments by exactly one, and blockedTransitionAt is cleared; dependents with unfinished blockers are never returned.",
           "name": "Blocked issue is released exactly once per status version",
-          "type": "Acceptance Test"
-        }
-      ],
-      "type": "Application Service"
-    },
-    {
-      "attributes": [
-        {
-          "name": "files",
-          "value": "server/src/services/heartbeat/scheduling.ts, server/src/index.ts, server/src/services/heartbeat/scheduling.test.ts"
-        },
-        {
-          "name": "deliveryStatus",
-          "value": "delivered"
-        }
-      ],
-      "description": "当某个公司没有任何 queued/running run，但存在已分配给 Agent 的 todo issue 时，watchdog 兜底派发一次（每 Agent 每 tick 最多一次，最多 10 次），不覆盖已有 run；派发记账失败不得把一次成功派发记成 skipped。",
-      "id": "fork-cap-idle-watchdog",
-      "name": "空闲 Agent watchdog（无活跃 run 时派发已分配的 todo）",
-      "testcases": [
-        {
-          "Input": "pnpm vitest run server/src/services/heartbeat/scheduling.test.ts",
-          "acceptanceCriteria": "server/src/services/heartbeat/scheduling.test.ts",
-          "description": "GIVEN a company with an assigned todo issue and no active run, WHEN the idle watchdog ticks, THEN it enqueues one wakeup with reason idle_watchdog; GIVEN a queued/running run for that company, WHEN it ticks again, THEN it skips. A failed activity write must not turn the dispatch into a skip.",
-          "name": "Watchdog dispatches once, then yields to the active run",
           "type": "Acceptance Test"
         }
       ],
@@ -2983,7 +2967,6 @@
         "fork-cap-project-tree",
         "fork-cap-direct-remote-workspace",
         "fork-cap-dependency-auto-release",
-        "fork-cap-idle-watchdog",
         "fork-cap-execution-timeline",
         "fork-cap-decision-graph",
         "fork-cap-project-agent-poller",
@@ -3003,7 +2986,8 @@
       "view_id": "agent",
       "included_elements": [
         "paperclip-agent-creation-approval-gate-2026-10-22"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_name": "项目经理 · Paperclip 迁移与部署记忆",
@@ -3018,7 +3002,8 @@
         "2026-10-27-47-deploy-opencode-permissions",
         "paperclip-skills-repo-portability-2026-10-29",
         "opencode-skill-isolation-home-fix-2026-10-30"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-fork-decoupling-001",
@@ -3030,7 +3015,8 @@
         "2026-10-24-47-26999306b6f0",
         "2026-10-24-upstream-114-commits-1215d44f4",
         "2026-10-25-47-3cb59953eb38-acr"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-toolchain-001",
@@ -3039,7 +3025,8 @@
       "description": "ArchGraph/ARGO 框架与工具链在 WSL/宿主侧的版本升级、部署证据与坑位记录。",
       "included_elements": [
         "archgraph-argo-0.29.28-wsl-upgrade-2026-10-28"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-vsoc-onboarding-001",
@@ -3049,7 +3036,8 @@
       "included_elements": [
         "paperclip-session-2026-10-30-vsoc-threatintelligence",
         "archgraph-issue-17-argo-init-path-2026-10-30"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "description": "T2 长期记忆子视图：AI辅助研发咨询顾问团队（AIC）的组织结构与效率质量项目及 Agent 接入。",
@@ -3058,7 +3046,8 @@
       "view_name": "项目经理 · AIC 组织与效率质量记忆",
       "included_elements": [
         "paperclip-aic-efficiency-agent-onboarding-2026-11-01"
-      ]
+      ],
+      "included_relationships": []
     }
   ]
 }
