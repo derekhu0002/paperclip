@@ -2993,6 +2993,11 @@
         {
           "name": "source",
           "value": "Paperclip 47 API, WSL executor, server/src/routes/agents.ts:2692"
+        },
+        {
+          "name": "commit",
+          "value": "3f3d5863c",
+          "description": "chore(argo): record Argo economy company onboarding (47) — design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
