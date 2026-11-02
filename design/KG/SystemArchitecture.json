@@ -75,6 +75,10 @@
         {
           "view_id": "project-manager-org-migration-001",
           "view_name": "项目经理 · 组织搬迁记忆"
+        },
+        {
+          "view_id": "project-manager-argo-economy-001",
+          "view_name": "项目经理 · Argo economy 公司与能力开通记忆"
         }
       ],
       "attributes": [
@@ -2943,6 +2947,54 @@
           "value": "CTI-18 done; run 68675128-b755-4817-9dfb-654bbefa8a97 succeeded"
         }
       ]
+    },
+    {
+      "id": "argo-economy-onboarding-2026-11-02",
+      "type": "Requirement",
+      "name": "Argo economy 公司创建与 Derek/总项目/环境上线（2026-11-02）",
+      "description": "【目标】在 47 控制面（https://paperclip.derekworkspacev5.com）新建公司「Argo economy」，创建总负责人 Derek（CEO），在 WSL 执行器建公司目录与总项目目录并 git init，创建总项目并绑定 Derek，并为公司全部 Agent 开通「自建 Agent」「自建 skill（提交到 Paperclip 公司技能库）」能力。\n\n【交付】\n- Company: 1d978dc8-9b88-4cc8-a5eb-a5135d59e580，name=Argo economy，issuePrefix=ARGA，requireBoardApprovalForNewAgents=false，defaultResponsibleUserId=7XgNmeuhqdLsfq4SdTZlM2eLvSzrznmW。\n- Agent: fe56c7b2-3d75-49c9-b3b5-4760099a0665，Derek，role=ceo，adapterType=opencode_local，runner=legacy，model=deepseek/deepseek-flash，defaultEnvironmentId=d456af63-8cdd-4d78-a50e-aea74df03c46，permissions canCreateAgents=true/canCreateSkills=true，status=idle/lifecycle=ready。\n- Project: e8d18ba8-652e-446e-bb0f-d8340d4af2be，name=Argo economy，status=planned，leadAgentId=Derek，primaryWorkspace sourceType=remote_path cwd=/root/repos/argo-economy/argo-economy。\n- Environment: d456af63-8cdd-4d78-a50e-aea74df03c46，WSL2 · argo-economy，driver=ssh root@100.87.205.43:2222，remoteWorkspacePath=/root/repos/argo-economy/argo-economy；probe ok 且 remoteCwd 一致。\n- Secrets: DEEPSEEK 7fa13d71-cfb6-4546-9803-2d991b315678（克隆自 argo 的加密材料，未接触明文）；SSH key 95bca010-3ca6-4941-9156-b1dfef4261ba。\n- Repo: /root/repos/argo-economy/argo-economy（公司目录 /root/repos/argo-economy + 总项目目录 argo-economy），git init 成功，初始 commit 347eef4（master）。\n\n【关键根因：route not allowed】Agent key 创建子 Agent 时，若 adapterConfig.env 含非凭据键，服务端返回 403：Agent keys cannot configure host-executed local adapter settings (env)。opencode_local 仅允许 OPENCODE_AUTH_JSON / PAPERCLIP_OPENCODE_PROVIDERS 等凭据引用（server/src/routes/agents.ts:2692-2709），且 INHERITABLE_AGENT_CREDENTIAL_ENV_KEYS 不含 opencode_local。\n\n【修复方案】把 ARGO_ENV_FILE、ARGO_REPO_ROOT、PAPERCLIP_OPENCODE_SMALL_MODEL、DEEPSEEK_API_KEY(secret_ref) 放到环境 envVars（运行路径的基础 env 层，agent adapterConfig.env 优先覆盖），并在 Derek 的 AGENTS.md 写明：agent 调用方创建子 Agent 时不要设置 adapterConfig.env，只传 {model,directRemoteWorkspace:true} + defaultEnvironmentId + runner=legacy + reportsTo。\n\n【验收证据】Derek 的 agent key 调 POST /companies/:id/agents 与 /skills 均返回 400 validation（非 403），说明路由/权限通过；Derek 实际创建了 skill 22db637e-a3dc-4676-9345-c816f7458438 与子 Agent ba69739d-8d93-4b03-b87b-a81ca855f078（reportsTo=Derek），子 Agent 的 test-environment=pass（cwd 正确、env 解析成功）；随后均已清理（skill/agent 删除，临时 agent key 撤销）。Derek test-environment=pass。\n\n【操作注意】47 为 authenticated/private：本次用 DB 插入 board_api_keys（sha256，2h，id=1a6f2e05-5669-49c2-a462-2f960b328091）拿临时 board token，结束后已 revoked（401）。PowerShell 双引号 here-string 会解释反引号（`r/`a），写入 instructions 时需用单引号 here-string。\n\n【边界】未运行 argo-init（新仓库无 ARGO 图，按 skill 要求需人类触发）；未配置独立 GitHub skill 仓库，技能提交到 Paperclip 平台公司技能库。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-02"
+        },
+        {
+          "name": "company",
+          "value": "1d978dc8-9b88-4cc8-a5eb-a5135d59e580 | Argo economy | ARGA"
+        },
+        {
+          "name": "agent",
+          "value": "fe56c7b2-3d75-49c9-b3b5-4760099a0665 | Derek | ceo | opencode_local | idle/ready"
+        },
+        {
+          "name": "project",
+          "value": "e8d18ba8-652e-446e-bb0f-d8340d4af2be | Argo economy | lead=Derek | planned"
+        },
+        {
+          "name": "environment",
+          "value": "d456af63-8cdd-4d78-a50e-aea74df03c46 | WSL2 · argo-economy | root@100.87.205.43:2222"
+        },
+        {
+          "name": "repo",
+          "value": "/root/repos/argo-economy/argo-economy | git init | commit 347eef4 (master)"
+        },
+        {
+          "name": "rootCause",
+          "value": "agent key cannot set adapterConfig.env on host-executed local adapters (403); fix = environment envVars base layer + omit env on child create"
+        },
+        {
+          "name": "source",
+          "value": "Paperclip 47 API, WSL executor, server/src/routes/agents.ts:2692"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -3171,6 +3223,15 @@
       "description": "公司/组织搬迁、跨组织复制与项目树重塑的长期记忆（T2）。",
       "included_elements": [
         "threat-intel-center-migration-2026-11-01"
+      ]
+    },
+    {
+      "view_id": "project-manager-argo-economy-001",
+      "view_name": "项目经理 · Argo economy 公司与能力开通记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "T2 长期记忆子视图：Argo economy 公司创建、Derek(CEO)、总项目、WSL 环境，以及 Agent 自建 Agent / 自建 skill 能力开通与 route 403 根因修复。",
+      "included_elements": [
+        "argo-economy-onboarding-2026-11-02"
       ]
     }
   ]
