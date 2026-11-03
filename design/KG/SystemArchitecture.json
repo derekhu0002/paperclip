@@ -3069,6 +3069,39 @@
           "value": "pnpm --filter @paperclipai/plugin-done-memory-gate test (16 passed); typecheck; build; validateSystemArchitecture passed"
         }
       ]
+    },
+    {
+      "id": "paperclip-done-memory-gate-2026-11-03",
+      "name": "Paperclip done 前记忆捕获门禁（plugin-done-memory-gate，2026-11-03）",
+      "type": "Requirement",
+      "description": "【目标】让 agent 执行的任务在转为 done 前，把经验教训、关键决策写入记忆知识图谱。\n\n【现状结论】Paperclip 平台层原本没有该机制：done 转换只写状态/activity/依赖释放（server/src/routes/issues.ts:16097、19730），DB 无 memory 概念，skills/paperclip/SKILL.md 的 done 只要求完成+验证。所谓“写记忆”全靠 agent 全局 AGENTS.md（ARGO 规则）自觉，不绑定 done。\n\n【方案决策】不做 core 改动，新增插件 @paperclipai/plugin-done-memory-gate（packages/plugins/plugin-done-memory-gate）：events.subscribe 监听 issue.updated；仅拦截 agent actor 且 assigneeAgentId 非空的 issue；证据=comment 行 `memory-capture: <id>` 或 issue document `memory`（>=200 字符）。缺失时：无任何依赖者 → 回退 in_progress + 评论 + 唤醒；有依赖者 → 保留 done 只评论（避免与依赖自动释放竞态：事件在提交后发布，issues.ts:15117 flush 后才在 16097 释故依赖，worker 异步更晚）。每 issue 最多回退 3 次，避免抖动。同时 ship 托管 skill task-memory-capture，并给 paperclip skill 加 “Memory Capture Before Done” 小节。\n\n【关键坑】① 插件面 API 是 ctx.issues.relations.get，不是 getRelations（host-client 内部名）；② 门禁自己的提示评论会包含 marker 文本，扫证据时必须过滤 CONTRACT_COMMENT_PREFIX，否则第二次 done 会被自证通过；③ marker 必须行首锚定，避免正文误匹配。\n\n【验证】pnpm --filter @paperclipai/plugin-done-memory-gate test（16 passed，覆盖回退/证据/依赖安全/人类不拦/attempt cap）、typecheck、build、validateSystemArchitecture 均通过。\n\n【落地状态】代码已提交 2932fa775；插件为 opt-in（未进 self-hosted auto-install），需 operator 安装：pnpm --filter @paperclipai/plugin-done-memory-gate build && paperclipai plugin install packages/plugins/plugin-done-memory-gate。ArchGraph 元素 fork-cap-done-memory-gate 含 6 条可执行验收用例。\n\n【遗留】尚未在 47/本地实例实际安装启用；托管 skill 目前只在门禁触发时 reconcile，未自动分配给 agent。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-03"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-11-03"
+        },
+        {
+          "name": "commit",
+          "value": "2932fa775d0b32eea53669d623009c52737bf7ed",
+          "description": "feat(plugins): gate done transitions on memory capture — packages/plugins/plugin-done-memory-gate, skills/paperclip/SKILL.md, pnpm-lock.yaml"
+        },
+        {
+          "name": "capabilityElement",
+          "value": "fork-cap-done-memory-gate"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -3257,7 +3290,8 @@
         "2026-10-24-project-tree-tier-3",
         "2026-10-24-47-26999306b6f0",
         "2026-10-24-upstream-114-commits-1215d44f4",
-        "2026-10-25-47-3cb59953eb38-acr"
+        "2026-10-25-47-3cb59953eb38-acr",
+        "paperclip-done-memory-gate-2026-11-03"
       ],
       "included_relationships": []
     },
