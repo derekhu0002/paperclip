@@ -26,6 +26,10 @@ type SupertestTestConstructor = {
 // Keep the original home available only for read-only host port-lease checks.
 process.env.PAPERCLIP_TEST_HOST_HOME ??= process.env.PAPERCLIP_HOME?.trim() || path.join(os.homedir(), ".paperclip");
 
+// Fork: the done-memory gate is off inside the general test suite; suites that
+// exercise it opt in by setting PAPERCLIP_DONE_MEMORY_GATE=on.
+process.env.PAPERCLIP_DONE_MEMORY_GATE ??= "off";
+
 // Receipt-spool recovery must never scan a developer's instance during tests.
 const { home: paperclipTestHome, cleanup: cleanupPaperclipTestHome } = createIsolatedTestHome();
 process.env.PAPERCLIP_HOME = paperclipTestHome;

@@ -8,6 +8,7 @@ import { parseObject } from "../adapters/utils.js";
 import { prepareRestrictedWorkspaceRetry } from "../services/restricted-workspace-retry.js";
 import { issueSummariesQuerySchema, type IssueSummary } from "@paperclipai/shared";
 import { listIssueSummaries } from "../services/issue-summaries.js";
+import { assertAgentMemoryCaptureBeforeDone } from "../services/issue-memory-gate.js";
 import { assertNoCaseHandoffMutation } from "../services/heartbeat/case-handoff-lifecycle.js";
 import { assertLegacyRunTaskOwnership } from "../legacy-run-task-ownership.js";
 import { enqueueFastResponse } from "../services/fast-responses.js";
@@ -15015,6 +15016,18 @@ export function issueRoutes(
         shouldRelayStop ||
         persistReviewActivityTransactionally ||
         reviewPolicySensitiveMutationRequested;
+      if (
+        actor.actorType === "agent" &&
+        updateFields.status === "done" &&
+        existing.status !== "done"
+      ) {
+        await assertAgentMemoryCaptureBeforeDone({
+          db,
+          issue: existing,
+          actorAgentId: actor.agentId ?? null,
+          requestCommentBody: commentBody ?? null,
+        });
+      }
       try {
         if (shouldUseTransactionalIssueUpdate) {
           issue = await db.transaction(async (tx) => {
@@ -19216,6 +19229,18 @@ export function issueRoutes(
         };
         const postCommitActivityPublications: ActivityPublication[] = [];
         const postCommitIssueActions: IssuePostCommitAction[] = [];
+        if (
+          actor.actorType === "agent" &&
+          updatePatch.status === "done" &&
+          currentIssue.status !== "done"
+        ) {
+          await assertAgentMemoryCaptureBeforeDone({
+            db,
+            issue: currentIssue,
+            actorAgentId: actor.agentId ?? null,
+            requestCommentBody: req.body.body ?? null,
+          });
+        }
         try {
           txResult = await db.transaction(async (tx) => {
             const insertedComment = await svc.addComment(
