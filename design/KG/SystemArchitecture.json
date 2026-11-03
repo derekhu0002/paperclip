@@ -1776,6 +1776,10 @@
         {
           "name": "deployed47_20261101",
           "value": "2026-11-01T09:16Z image paperclip-fork:294f9f085 (built --build-arg USER_UID=998 --build-arg USER_GID=998, provider pack skipped). health ok commit=294f9f085bfadc260d481dd77c8f4b39243a6ae1, migrations already applied, plugin-loader 1/1, / and /paperclip/organization 200, three-way match workstation=origin=47 checkout (47 checkout synced via git bundle because GitHub was unreachable). Rollback image paperclip-fork:c345924201ce kept; db backup db.bak-pre-20261101T091549Z. Incident: a separately commanded agent concurrently destroyed/recreated the container mid-deploy; after it finished the switch was redone successfully."
+        },
+        {
+          "name": "deployed47_20261103",
+          "value": "image paperclip-fork:50fb2810c (commit 50fb2810cf582b0893334cd4454e553dfd336a1c, 1.53GB tar); container paperclip; health ok; public https 200; UI 200; plugin-loader 1/1; 47 checkout synced; download http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar sha256=489723ef27cd25c2cda91e86fd59950d5aeca436af88ee46b0ab399b67350a64; ACR push running"
         }
       ]
     },
@@ -3096,6 +3100,14 @@
         {
           "name": "protocol",
           "value": "ArchGraph task-memory protocol v2 (archgraph#18): framework defines protocol, control plane enforces; max 2 blocks, no human escalation; marker-only validation"
+        },
+        {
+          "name": "deployed47",
+          "value": "2026-11-03 image paperclip-fork:50fb2810c; container paperclip; health commit=50fb2810cf582b0893334cd4454e553dfd336a1c; public https 200; 47 checkout 50fb2810c"
+        },
+        {
+          "name": "download",
+          "value": "http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar; sha256=489723ef27cd25c2cda91e86fd59950d5aeca436af88ee46b0ab399b67350a64"
         }
       ]
     },
@@ -3156,6 +3168,58 @@
           "description": "docs(skill): tell agents the done memory marker"
         }
       ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-03"
+        },
+        {
+          "name": "commit",
+          "value": "50fb2810cf582b0893334cd4454e553dfd336a1c"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:50fb2810c"
+        },
+        {
+          "name": "imageDigest",
+          "value": "sha256:03f7841ecacacee0dd988c65d2120d8de9d98e41f2c2a4226757f72ef770e3f0"
+        },
+        {
+          "name": "downloadUrl",
+          "value": "http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar"
+        },
+        {
+          "name": "downloadSha256",
+          "value": "489723ef27cd25c2cda91e86fd59950d5aeca436af88ee46b0ab399b67350a64"
+        },
+        {
+          "name": "deployed47",
+          "value": "container paperclip; health ok commit=50fb2810c…; public https 200; UI 200; plugin-loader 1/1; old container paperclip-pre-50fb2810c-20261103T160935Z stopped; old image 294f9f085 kept"
+        },
+        {
+          "name": "acr",
+          "value": "crpi-33yedsa348aqgw1p.cn-shenzhen.personal.cr.aliyuncs.com/paperclip/paperclip-fork:50fb2810c + latest; digest sha256:ed1cf61efe986a5802114b6ab3df46fe528fcedc14101291b9e94dc0d5b400c8; pulled back and verified gate+skill content"
+        },
+        {
+          "name": "checkout47",
+          "value": "deploy @ 50fb2810cf582b0893334cd4454e553dfd336a1c; backup branch created"
+        }
+      ],
+      "description": "范围：把 done-memory-gate（ArchGraph 协议 v2）随 fork 发布到 47，并开放镜像下载。\n\n代码：dev/local-install 50fb2810c（origin 已推送）包含 9a334d503 core 409 门禁、81dbbed18 协议 v2、b78746c37/50fb2810c skill 契约。skill 契约最终放在 SKILL.md 末尾且不用标题，避免 capability inventory 166 行基线漂移；构建前先补生成了 capabilities.yaml。\n\n镜像：paperclip-fork:50fb2810c，1.53GB docker save tar；构建命令 docker build --target production --build-arg USER_UID=998 --build-arg USER_GID=998 --build-arg PAPERCLIP_BUILD_VERSION=0.1.0-fork（不传 PAPERCLIP_BUILD_COMMIT 以跳过 provider pack，运行时注入）。\n\n部署：Windows 构建并 docker save，scp 到 47，docker load；备份旧容器配置，rename 旧容器（rename 不停容器，端口仍占用，首次新容器 bind 失败），stop 旧容器后启动新 paperclip 容器（同 env/port/mount/restart，PAPERCLIP_BUILD_COMMIT=50fb2810c…）。47 checkout fetch+reset 到 50fb2810c，先建 backup 分支。\n\n验证：/api/health status=ok commit=50fb2810cf582b0893334cd4454e553dfd336a1c；公网 https://paperclip.derekworkspacev5.com/api/health 200；UI / 200；plugin-loader 1/1；镜像内 dist-runtime/server.mjs 与 dist/services/issue-memory-gate.js 均含 task_memory_required；skill 含 Finish With Graph Memory；47 checkout HEAD=50fb2810c 且无未跟踪改动。\n\n下载：/var/www/downloads/paperclip-fork-50fb2810c.tar（1.5G），sha256=489723ef27cd25c2cda91e86fd59950d5aeca436af88ee46b0ab399b67350a64；nginx 新增 /downloads/ alias；外部 http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar 返回 200。reload 后首个请求可能仍走旧 worker（502），重试即可。\n\nACR：crane push 在 47 后台运行（pid 2985232，日志 /tmp/crane-push-50fb.log），完成后 crane tag latest。ACR 个人版不支持 BuildKit attestation，所以走本地 docker save + crane push。\n\n回滚：旧容器 paperclip-pre-50fb2810c-20261103T160935Z（已停）与旧镜像 294f9f085 保留；回滚=删新容器、rename 旧容器回 paperclip、start。DB 为 bind mount，未动。\n\n坑：docker rename 不停容器；nginx reload 与首请求有竞态；新增 skill 标题会改变 capability inventory 固定 166 行基线；Windows 下 generate-capability-contract 直接入口判断失效，需 import 调用 main。",
+      "id": "2026-11-03-47-deploy-50fb2810c",
+      "name": "2026-11-03 47 部署 50fb2810c（记忆门禁协议 v2）与镜像下载",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -3331,7 +3395,8 @@
         "2026-10-27-47-fork-24h",
         "2026-10-27-47-deploy-opencode-permissions",
         "paperclip-skills-repo-portability-2026-10-29",
-        "opencode-skill-isolation-home-fix-2026-10-30"
+        "opencode-skill-isolation-home-fix-2026-10-30",
+        "2026-11-03-47-deploy-50fb2810c"
       ],
       "included_relationships": []
     },
