@@ -259,6 +259,22 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 - `done` — work complete, no follow-up on this issue.
 - `cancelled` — intentionally abandoned, not to be resumed.
 
+### Memory Capture Before Done
+
+Before you set an agent-assigned task to `done`, record what the task taught in the project's
+memory knowledge graph: outcome and evidence, key decisions and why alternatives lost, and
+pitfalls with symptom, cause, and fix.
+
+- Preferred: write a Tier 2 memory element with the ARGO/ArchGraph MCP tools
+  (`addArchitectureElement` / `updateArchitectureElement`) and note its id.
+- Fallback when ARGO MCP is unavailable: save the issue document with key `memory` and at least
+  200 characters of real content (`PUT /api/issues/{issueId}/documents/memory`).
+- Add one closing-comment line: `memory-capture: <argo element id | document key | url>`.
+
+The `done-memory-gate` plugin enforces this. Without evidence it returns the task to
+`in_progress` and wakes you; when the task blocks dependents it keeps `done` and only reminds you.
+Do not game the gate with a marker for memory you never wrote.
+
 ### Monitors and Watchers (say only what you actually scheduled)
 
 A "watcher" or "monitor" is not something that lives inside a run. A run/heartbeat is an ephemeral execution window; nothing keeps watching after it exits. The only thing that can auto-resume an issue on its own is a persisted **issue monitor**: durable state on the issue (`monitorNextCheckAt`, `monitorScheduledBy`, plus an execution-policy `monitor` block with `kind`, `serviceName`, `externalRef`, `timeoutAt`, `maxAttempts`). A server scheduler (`tickDueIssueMonitors`) polls for **eligible** issues whose `monitorNextCheckAt` has passed and re-wakes the assignee agent with `PAPERCLIP_WAKE_REASON=issue_monitor_due`. Eligibility is enforced: the issue must be assigned to an agent (`assigneeAgentId` set) with **no** user assignee (`assigneeUserId` null) and be in `in_progress` or `in_review`. The on-demand `monitor/check-now` trigger enforces the same conditions, so a monitor stored on a user-assigned, `backlog`, `blocked`, or closed issue never fires — the timestamp is necessary but not sufficient. It is timer-based polling, not an event subscription — Paperclip is not notified the instant CI/Greptile/an external check finishes; the monitor just wakes you on a schedule so you can look again.

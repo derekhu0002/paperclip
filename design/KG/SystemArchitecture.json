@@ -3000,6 +3000,56 @@
           "description": "chore(argo): record Argo economy company onboarding (47) — design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "id": "fork-cap-done-memory-gate",
+      "name": "任务完成前记忆捕获门禁（done memory gate）",
+      "type": "Application Service",
+      "description": "Agent 把任务置为 done 时，要求先留下机器可验证的记忆捕获证据：ARGO 记忆元素标记（done comment 中的 `memory-capture: <id>`）或 issue document `memory`（不少于 200 字符）。插件 `@paperclipai/plugin-done-memory-gate` 订阅 `issue.updated`；证据缺失且该 issue 没有任何依赖者时，回退 `in_progress` 并唤醒 assignee；存在依赖者时改为保留 done 并评论提醒，避免依赖被提前释放的竞态。仅约束 agent actor 且 assigneeAgentId 非空的 issue，人类关闭与插件操作 issue 不拦截；每 issue 最多回退 3 次以防抖动。",
+      "testcases": [
+        {
+          "name": "Agent done without memory evidence is sent back",
+          "type": "Acceptance Test",
+          "description": "GIVEN an agent-assigned issue with no dependents and no memory evidence, WHEN an agent marks it done, THEN the issue returns to in_progress, a contract comment is posted, and the assignee is woken.",
+          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/gate.spec.ts",
+          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/gate.spec.ts"
+        },
+        {
+          "name": "Memory evidence satisfies the gate",
+          "type": "Acceptance Test",
+          "description": "GIVEN a done transition whose issue has a `memory-capture:` comment or a `memory` issue document, WHEN the gate runs, THEN the done status is preserved.",
+          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/memory-evidence.spec.ts",
+          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/memory-evidence.spec.ts"
+        },
+        {
+          "name": "Issues with dependents are not reverted",
+          "type": "Acceptance Test",
+          "description": "GIVEN an issue that blocks another issue, WHEN its done transition lacks memory evidence, THEN the status stays done and only a reminder comment is posted.",
+          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/dependency-safety.spec.ts",
+          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/dependency-safety.spec.ts"
+        },
+        {
+          "name": "Human and unassigned closes are not gated",
+          "type": "Acceptance Test",
+          "description": "GIVEN a done transition by a human actor or an issue without an agent assignee, WHEN the gate runs, THEN nothing is reverted or commented.",
+          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/gate.spec.ts",
+          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/gate.spec.ts"
+        },
+        {
+          "name": "Attempt cap stops the done/revert loop",
+          "type": "Acceptance Test",
+          "description": "GIVEN an issue whose memory gate already reached the attempt cap, WHEN it is marked done without evidence, THEN the status stays done and the gate stops reverting.",
+          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/gate.spec.ts",
+          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/gate.spec.ts"
+        },
+        {
+          "name": "Manifest declares capabilities and managed skill",
+          "type": "Acceptance Test",
+          "description": "GIVEN the plugin manifest, WHEN it is inspected, THEN it declares events.subscribe, issue read/write/comment/wakeup/documents/relations, skills.managed, plugin state, and the task-memory-capture skill.",
+          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/manifest.spec.ts",
+          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/manifest.spec.ts"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -3103,7 +3153,8 @@
         "1249",
         "1240",
         "project-manager-001",
-        "fork-capabilities-2026-10-21"
+        "fork-capabilities-2026-10-21",
+        "fork-cap-done-memory-gate"
       ],
       "included_relationships": [
         "1161"
@@ -3145,7 +3196,8 @@
         "fork-cap-onboarding-binding",
         "fork-non-invasive-development-principle-2026-10-21",
         "fork-capabilities-2026-10-21",
-        "47-github"
+        "47-github",
+        "fork-cap-done-memory-gate"
       ],
       "included_relationships": [
         "fork-principle-governs-capabilities"
