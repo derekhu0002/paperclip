@@ -31,6 +31,19 @@ const manifest: PaperclipPluginManifestV1 = {
   entrypoints: {
     worker: "./dist/worker.js",
   },
+  instanceConfigSchema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      allowIssueDocumentFallback: {
+        type: "boolean",
+        title: "Allow issue document fallback",
+        description:
+          "When true, a `memory` issue document with 200+ characters also satisfies the gate. Defaults to false: the gate requires an ARGO/ArchGraph element reference.",
+        default: false,
+      },
+    },
+  },
   skills: [
     {
       skillKey: MEMORY_CAPTURE_SKILL_KEY,

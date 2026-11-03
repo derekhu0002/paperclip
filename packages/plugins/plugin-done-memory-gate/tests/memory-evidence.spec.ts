@@ -6,6 +6,7 @@ import {
   findMemoryCaptureMarker,
   findMemoryEvidence,
   hasSubstantiveMemoryDocument,
+  isGraphMemoryReference,
 } from "../src/memory-evidence.js";
 import { MEMORY_DOCUMENT_MIN_CHARS } from "../src/constants.js";
 import { COMPANY_ID, doneEvent, makeIssue } from "./helpers.js";
@@ -22,29 +23,68 @@ describe("memory evidence parsing", () => {
     expect(findMemoryCaptureMarker(null)).toBeNull();
   });
 
+  it("accepts only a graph-qualified element reference", () => {
+    expect(isGraphMemoryReference("argo:design/KG/SystemArchitecture.json#memory-1")).toBe(true);
+    expect(isGraphMemoryReference("argo:graph#element")).toBe(true);
+    expect(isGraphMemoryReference("doc:memory")).toBe(false);
+    expect(isGraphMemoryReference("argo:no-element")).toBe(false);
+    expect(isGraphMemoryReference("#element-only")).toBe(false);
+    expect(isGraphMemoryReference(null)).toBe(false);
+  });
+
   it("accepts only a substantive memory document", () => {
     expect(hasSubstantiveMemoryDocument("short")).toBe(false);
     expect(hasSubstantiveMemoryDocument(" ".repeat(MEMORY_DOCUMENT_MIN_CHARS + 10))).toBe(false);
     expect(hasSubstantiveMemoryDocument(LONG_MEMORY)).toBe(true);
   });
 
-  it("prefers a comment marker and falls back to the memory document", () => {
+  it("prefers a graph marker and falls back to the document only when allowed", () => {
     expect(findMemoryEvidence({
       commentBodies: ["Finished.\nmemory-capture: argo:x#y"],
       memoryDocumentBody: LONG_MEMORY,
     })).toEqual({ kind: "comment-marker", detail: "argo:x#y" });
     expect(findMemoryEvidence({
+      commentBodies: ["memory-capture: doc:memory"],
+      memoryDocumentBody: LONG_MEMORY,
+    })).toBeNull();
+    expect(findMemoryEvidence({
       commentBodies: [],
       memoryDocumentBody: LONG_MEMORY,
+    })).toBeNull();
+    expect(findMemoryEvidence({
+      commentBodies: [],
+      memoryDocumentBody: LONG_MEMORY,
+      allowIssueDocumentFallback: true,
     })).toEqual({ kind: "memory-document", detail: "memory document" });
     expect(findMemoryEvidence({ commentBodies: [], memoryDocumentBody: null })).toBeNull();
   });
 });
 
 describe("done memory gate evidence", () => {
-  it("keeps done when a substantive memory document exists", async () => {
+  it("keeps done for a graph element reference", async () => {
     const harness = createTestHarness({ manifest });
     await plugin.definition.setup(harness.ctx);
+    const issue = makeIssue({ id: "issue-graph" });
+    harness.seed({ issues: [issue] });
+    const wake = vi.spyOn(harness.ctx.issues, "requestWakeup");
+    await harness.ctx.issues.createComment(
+      issue.id,
+      "Done.\nmemory-capture: argo:design/KG/SystemArchitecture.json#memory-graph-1",
+      COMPANY_ID,
+    );
+
+    const event = doneEvent({ issue });
+    await harness.emit("issue.updated", event.payload, event.base);
+
+    const updated = await harness.ctx.issues.get(issue.id, COMPANY_ID);
+    expect(updated?.status).toBe("done");
+    expect(wake).not.toHaveBeenCalled();
+  });
+
+  it("keeps done for a memory document only when the fallback is enabled", async () => {
+    const harness = createTestHarness({ manifest });
+    await plugin.definition.setup(harness.ctx);
+    harness.setConfig({ allowIssueDocumentFallback: true });
     const issue = makeIssue({ id: "issue-doc" });
     harness.seed({ issues: [issue] });
     const wake = vi.spyOn(harness.ctx.issues, "requestWakeup");

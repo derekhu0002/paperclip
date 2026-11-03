@@ -6,8 +6,8 @@
  */
 export const MEMORY_CAPTURE_SKILL_MARKDOWN = `# Task Memory Capture
 
-Capture what a task taught before you mark it done. The memory knowledge graph is the durable
-record; the issue comment is only the pointer.
+Write what a task taught into the project's knowledge graph before you mark it done. The graph is
+the record; the issue comment only points at the element.
 
 ## When
 
@@ -16,7 +16,7 @@ worked on.
 
 ## What to capture
 
-Write a concise memory entry with:
+Write a concise memory element with:
 
 - the outcome and the evidence that proves it;
 - key decisions and why the alternatives were rejected;
@@ -27,20 +27,24 @@ Do not copy the whole run log and do not invent facts.
 
 ## Where
 
-1. Preferred: the project's ArchGraph/ARGO intent graph. Write a long-term memory element
-   (Tier 2) with \`addArchitectureElement\` (or update an existing one with
-   \`updateArchitectureElement\`) and remember its id.
-2. Fallback when ARGO MCP is unavailable: create the issue document with key \`memory\` via
-   \`PUT /api/issues/{id}/documents/memory\`. Write at least 200 characters of real content.
+The project's ARGO/ArchGraph intent graph. Use the ARGO MCP tools:
+
+1. \`addArchitectureElement\` to create the memory element in a memory view
+   (Tier 2 long-term memory for the project/agent), or
+2. \`updateArchitectureElement\` to extend an existing memory element.
+
+The element id is returned by the tool. Use the graph key of the project graph
+(for example \`design/KG/SystemArchitecture.json\`).
 
 ## Proof marker
 
-In the same closing comment, add one line:
+In the same closing comment, add one line with the graph key and element id:
 
 \`\`\`
-memory-capture: <argo element id or document key or URL>
+memory-capture: argo:design/KG/SystemArchitecture.json#<elementId>
 \`\`\`
 
-A substantive \`memory\` document satisfies the gate even without the marker (200+ characters).
-Without either proof, the done-memory gate sends the task back to \`in_progress\`.
+The gate only accepts an \`argo:<graphKey>#<elementId>\` reference. A general "I learned something"
+comment does not count. An operator can enable an issue-document fallback, but the default is
+graph-only.
 `;

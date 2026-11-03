@@ -118,6 +118,54 @@ describe("done memory gate", () => {
     expect(comments[0].body).toContain("attempt cap");
   });
 
+  it("does not accept a marker that does not name a graph element", async () => {
+    const harness = await setupHarness();
+    const issue = makeIssue({ id: "issue-nongraph" });
+    harness.seed({ issues: [issue] });
+    await harness.ctx.issues.createComment(
+      issue.id,
+      "Finished.\nmemory-capture: doc:memory",
+      COMPANY_ID,
+    );
+
+    const event = doneEvent({ issue });
+    await harness.emit("issue.updated", event.payload, event.base);
+
+    const updated = await harness.ctx.issues.get(issue.id, COMPANY_ID);
+    expect(updated?.status).toBe("in_progress");
+  });
+
+  it("does not accept an issue document while strict graph mode is on", async () => {
+    const harness = await setupHarness();
+    const issue = makeIssue({ id: "issue-doc-strict" });
+    harness.seed({ issues: [issue] });
+    harness.ctx.issues.documents.get = async () => ({
+      body: "Lessons and decisions. ".repeat(20),
+    }) as never;
+
+    const event = doneEvent({ issue });
+    await harness.emit("issue.updated", event.payload, event.base);
+
+    const updated = await harness.ctx.issues.get(issue.id, COMPANY_ID);
+    expect(updated?.status).toBe("in_progress");
+  });
+
+  it("accepts an issue document only when the operator enables the fallback", async () => {
+    const harness = await setupHarness();
+    harness.setConfig({ allowIssueDocumentFallback: true });
+    const issue = makeIssue({ id: "issue-doc-optin" });
+    harness.seed({ issues: [issue] });
+    harness.ctx.issues.documents.get = async () => ({
+      body: "Lessons and decisions. ".repeat(20),
+    }) as never;
+
+    const event = doneEvent({ issue });
+    await harness.emit("issue.updated", event.payload, event.base);
+
+    const updated = await harness.ctx.issues.get(issue.id, COMPANY_ID);
+    expect(updated?.status).toBe("done");
+  });
+
   it("does not treat its own contract comment as memory evidence", async () => {
     const harness = await setupHarness();
     const issue = makeIssue({ id: "issue-self" });

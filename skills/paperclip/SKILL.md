@@ -261,19 +261,21 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 
 ### Memory Capture Before Done
 
-Before you set an agent-assigned task to `done`, record what the task taught in the project's
-memory knowledge graph: outcome and evidence, key decisions and why alternatives lost, and
+Before you set an agent-assigned task to `done`, write what the task taught into the project's
+ARGO/ArchGraph memory graph: outcome and evidence, key decisions and why alternatives lost, and
 pitfalls with symptom, cause, and fix.
 
-- Preferred: write a Tier 2 memory element with the ARGO/ArchGraph MCP tools
-  (`addArchitectureElement` / `updateArchitectureElement`) and note its id.
-- Fallback when ARGO MCP is unavailable: save the issue document with key `memory` and at least
-  200 characters of real content (`PUT /api/issues/{issueId}/documents/memory`).
-- Add one closing-comment line: `memory-capture: <argo element id | document key | url>`.
+- Use `addArchitectureElement` (or `updateArchitectureElement`) to write a Tier 2 memory element in
+  the project graph and keep the returned element id.
+- Add one closing-comment line naming it:
+  `memory-capture: argo:<graphKey>#<elementId>`
+  (for example `memory-capture: argo:design/KG/SystemArchitecture.json#paperclip-session-2026-11-03`).
 
-The `done-memory-gate` plugin enforces this. Without evidence it returns the task to
-`in_progress` and wakes you; when the task blocks dependents it keeps `done` and only reminds you.
-Do not game the gate with a marker for memory you never wrote.
+The `done-memory-gate` plugin enforces this. Without an `argo:` element reference it returns the
+task to `in_progress` and wakes you; when the task blocks dependents it keeps `done` and only
+reminds you. An issue comment or document is not a substitute for the graph element unless the
+operator explicitly enables the fallback. Do not game the gate with a marker for memory you never
+wrote.
 
 ### Monitors and Watchers (say only what you actually scheduled)
 

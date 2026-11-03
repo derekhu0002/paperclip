@@ -35,4 +35,11 @@ describe("done memory gate manifest", () => {
     expect(manifest.categories).toEqual(["automation"]);
     expect(manifest.ui).toBeUndefined();
   });
+
+  it("defaults to strict graph mode with an opt-in document fallback", () => {
+    const properties = (manifest.instanceConfigSchema as {
+      properties?: Record<string, { default?: unknown }>;
+    } | undefined)?.properties;
+    expect(properties?.allowIssueDocumentFallback?.default).toBe(false);
+  });
 });

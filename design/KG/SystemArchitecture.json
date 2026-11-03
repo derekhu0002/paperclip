@@ -3005,7 +3005,7 @@
       "id": "fork-cap-done-memory-gate",
       "name": "任务完成前记忆捕获门禁（done memory gate）",
       "type": "Application Service",
-      "description": "Agent 把任务置为 done 时，要求先留下机器可验证的记忆捕获证据：ARGO 记忆元素标记（done comment 中的 `memory-capture: <id>`）或 issue document `memory`（不少于 200 字符）。插件 `@paperclipai/plugin-done-memory-gate` 订阅 `issue.updated`；证据缺失且该 issue 没有任何依赖者时，回退 `in_progress` 并唤醒 assignee；存在依赖者时改为保留 done 并评论提醒，避免依赖被提前释放的竞态。仅约束 agent actor 且 assigneeAgentId 非空的 issue，人类关闭与插件操作 issue 不拦截；每 issue 最多回退 3 次以防抖动。",
+      "description": "Agent 把任务置为 done 时，必须先在项目 ARGO/ArchGraph 记忆图写入元素，并在 done comment 留 `memory-capture: argo:<graphKey>#<elementId>`。插件 `@paperclipai/plugin-done-memory-gate` 订阅 `issue.updated`；默认 strict 只接受图谱元素引用，issue document 必须由 operator 显式开启 `allowIssueDocumentFallback` 才可作为旁路。证据缺失且该 issue 没有任何依赖者时，回退 `in_progress` 并唤醒 assignee；存在依赖者时保留 done 并评论提醒，避免依赖被提前释放的竞态。仅约束 agent actor 且 assigneeAgentId 非空的 issue，人类关闭与插件操作 issue 不拦截；每 issue 最多回退 3 次。局限：插件强制 `argo:<graphKey>#<elementId>` 引用格式，但在未配置 ARGO 端点时无法验证元素真实存在。",
       "testcases": [
         {
           "name": "Agent done without memory evidence is sent back",
@@ -3017,7 +3017,7 @@
         {
           "name": "Memory evidence satisfies the gate",
           "type": "Acceptance Test",
-          "description": "GIVEN a done transition whose issue has a `memory-capture:` comment or a `memory` issue document, WHEN the gate runs, THEN the done status is preserved.",
+          "description": "GIVEN a done transition whose issue has a `memory-capture: argo:<graphKey>#<elementId>` comment, WHEN the gate runs, THEN the done status is preserved; a plain marker or issue document alone does not pass in strict mode.",
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/memory-evidence.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/memory-evidence.spec.ts"
         },
@@ -3045,7 +3045,7 @@
         {
           "name": "Manifest declares capabilities and managed skill",
           "type": "Acceptance Test",
-          "description": "GIVEN the plugin manifest, WHEN it is inspected, THEN it declares events.subscribe, issue read/write/comment/wakeup/documents/relations, skills.managed, plugin state, and the task-memory-capture skill.",
+          "description": "GIVEN the plugin manifest, WHEN it is inspected, THEN it declares the issue/event/skill/state capabilities, the task-memory-capture skill, and defaults `allowIssueDocumentFallback` to false.",
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/manifest.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/manifest.spec.ts"
         }
@@ -3074,7 +3074,7 @@
       "id": "paperclip-done-memory-gate-2026-11-03",
       "name": "Paperclip done 前记忆捕获门禁（plugin-done-memory-gate，2026-11-03）",
       "type": "Requirement",
-      "description": "【目标】让 agent 执行的任务在转为 done 前，把经验教训、关键决策写入记忆知识图谱。\n\n【现状结论】Paperclip 平台层原本没有该机制：done 转换只写状态/activity/依赖释放（server/src/routes/issues.ts:16097、19730），DB 无 memory 概念，skills/paperclip/SKILL.md 的 done 只要求完成+验证。所谓“写记忆”全靠 agent 全局 AGENTS.md（ARGO 规则）自觉，不绑定 done。\n\n【方案决策】不做 core 改动，新增插件 @paperclipai/plugin-done-memory-gate（packages/plugins/plugin-done-memory-gate）：events.subscribe 监听 issue.updated；仅拦截 agent actor 且 assigneeAgentId 非空的 issue；证据=comment 行 `memory-capture: <id>` 或 issue document `memory`（>=200 字符）。缺失时：无任何依赖者 → 回退 in_progress + 评论 + 唤醒；有依赖者 → 保留 done 只评论（避免与依赖自动释放竞态：事件在提交后发布，issues.ts:15117 flush 后才在 16097 释故依赖，worker 异步更晚）。每 issue 最多回退 3 次，避免抖动。同时 ship 托管 skill task-memory-capture，并给 paperclip skill 加 “Memory Capture Before Done” 小节。\n\n【关键坑】① 插件面 API 是 ctx.issues.relations.get，不是 getRelations（host-client 内部名）；② 门禁自己的提示评论会包含 marker 文本，扫证据时必须过滤 CONTRACT_COMMENT_PREFIX，否则第二次 done 会被自证通过；③ marker 必须行首锚定，避免正文误匹配。\n\n【验证】pnpm --filter @paperclipai/plugin-done-memory-gate test（16 passed，覆盖回退/证据/依赖安全/人类不拦/attempt cap）、typecheck、build、validateSystemArchitecture 均通过。\n\n【落地状态】代码已提交 2932fa775；插件为 opt-in（未进 self-hosted auto-install），需 operator 安装：pnpm --filter @paperclipai/plugin-done-memory-gate build && paperclipai plugin install packages/plugins/plugin-done-memory-gate。ArchGraph 元素 fork-cap-done-memory-gate 含 6 条可执行验收用例。\n\n【遗留】尚未在 47/本地实例实际安装启用；托管 skill 目前只在门禁触发时 reconcile，未自动分配给 agent。",
+      "description": "【目标】让 agent 执行的任务在转为 done 前，把经验教训、关键决策写入记忆知识图谱。\n\n【现状结论】Paperclip 平台层原本没有该机制：done 转换只写状态/activity/依赖释放（server/src/routes/issues.ts:16097、19730），DB 无 memory 概念。所谓“写记忆”全靠 agent 全局 AGENTS.md 自觉，不绑定 done。\n\n【方案决策】不做 core 改动，新增插件 @paperclipai/plugin-done-memory-gate：events.subscribe 监听 issue.updated；仅拦截 agent actor 且 assigneeAgentId 非空的 issue。**严格模式（默认）只接受图谱元素引用 `memory-capture: argo:<graphKey>#<elementId>`**；issue document `memory` 仅在 operator 显式开启 `allowIssueDocumentFallback` 时才算。缺失时：无任何依赖者 → 回退 in_progress + 评论 + 唤醒；有依赖者 → 保留 done 只评论（避开依赖自动释放竞态）。每 issue 最多回退 3 次。ship 托管 skill task-memory-capture，并在 paperclip skill 加 “Memory Capture Before Done”。\n\n【关键坑】① 插件面 API 是 ctx.issues.relations.get；② 门禁自己的提示评论包含 marker 文本，扫证据时必须过滤 CONTRACT_COMMENT_PREFIX；③ marker 必须行首锚定且必须是 argo:<graph>#<element>；④ 插件无法验证元素真实存在，未配置 ARGO 端点时只是强制引用格式。\n\n【验证】pnpm --filter @paperclipai/plugin-done-memory-gate test（22 passed）、typecheck、build、validateSystemArchitecture 均通过。\n\n【落地状态】2026-11-03 首版 2932fa775；随后收紧为 strict graph 并追加提交。插件 opt-in，需 operator 安装。ArchGraph 元素 fork-cap-done-memory-gate 含可执行验收用例。\n\n【遗留】未在 47/本地实例实际安装启用；未接 ARGO 端点做元素存在性验证；托管 skill 未自动分配。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -3100,6 +3100,11 @@
         {
           "name": "capabilityElement",
           "value": "fork-cap-done-memory-gate"
+        },
+        {
+          "name": "commit",
+          "value": "pending-strict-graph",
+          "description": "strict graph mode follow-up commit"
         }
       ]
     }

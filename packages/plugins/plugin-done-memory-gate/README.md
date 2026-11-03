@@ -11,13 +11,20 @@ transition commits.
 
 ## Contract
 
-An issue passes the gate when either exists:
+The memory must be written into the project's ARGO/ArchGraph intent graph. The issue passes the
+gate only when a comment line names a graph element:
 
-1. A comment line with a non-empty marker:
-   `memory-capture: <argo element id | document key | url>`
-2. An issue document with key `memory` whose body has at least 200 non-whitespace characters.
+```
+memory-capture: argo:<graphKey>#<elementId>
+```
 
-The plugin also ships a managed company skill `task-memory-capture` that describes the contract.
+for example
+`memory-capture: argo:design/KG/SystemArchitecture.json#paperclip-session-2026-11-03`.
+
+A general comment, a URL, or an issue document does **not** satisfy the default strict mode. An
+operator can opt into the document fallback (`allowIssueDocumentFallback: true`); even then the
+graph reference remains the preferred path. The plugin also ships a managed company skill
+`task-memory-capture` that describes the contract.
 
 ## Behavior
 

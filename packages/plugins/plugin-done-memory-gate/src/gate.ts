@@ -49,15 +49,17 @@ function issueLabel(issue: Issue): string {
   return issue.identifier ?? issue.id;
 }
 
-function contractBody(issue: Issue, attemptsLeft: number): string {
+function contractBody(issue: Issue, attemptsLeft: number, documentFallback: boolean): string {
   return [
-    `${CONTRACT_COMMENT_PREFIX} This task was marked \`done\` without machine-verifiable memory evidence, so it is back in \`in_progress\`.`,
+    `${CONTRACT_COMMENT_PREFIX} This task was marked \`done\` without a memory element in the knowledge graph, so it is back in \`in_progress\`.`,
     "",
-    "Before marking it done again, capture the lessons, key decisions, and pitfalls in the project's memory knowledge graph:",
+    "Write the lessons, key decisions, and pitfalls into the project's ARGO/ArchGraph memory graph before marking it done again:",
     "",
-    "1. Preferred: write a Tier 2 memory element with the ARGO/ArchGraph MCP tools (`addArchitectureElement` or `updateArchitectureElement`) and note its id.",
-    `2. Fallback when ARGO MCP is unavailable: create or update the issue document \`${MEMORY_DOCUMENT_KEY}\` with at least 200 characters of real content.`,
-    "3. Leave one closing-comment line: `memory-capture: <argo element id | document key | url>`.",
+    "1. Use the ARGO/ArchGraph MCP tools (`addArchitectureElement` or `updateArchitectureElement`) to write a Tier 2 memory element.",
+    "2. Leave one closing-comment line naming the element: `memory-capture: argo:<graphKey>#<elementId>`.",
+    ...(documentFallback
+      ? ["", `Operator fallback is enabled: a \`${MEMORY_DOCUMENT_KEY}\` issue document with 200+ characters also satisfies the gate.`]
+      : []),
     "",
     `The plugin-managed skill \`${MEMORY_CAPTURE_SKILL_KEY}\` describes the full contract. Gate attempts left for ${issueLabel(issue)}: ${attemptsLeft}.`,
   ].join("\n");
@@ -67,32 +69,35 @@ function softReminderBody(dependents: number): string {
   return [
     `${CONTRACT_COMMENT_PREFIX} This task is staying \`done\` because ${dependents} dependent task(s) already depend on it, and reverting it could release them prematurely.`,
     "",
-    "The memory capture is still missing. For the next task, record lessons, key decisions, and pitfalls in the project's memory knowledge graph before marking it done.",
-    `Add one closing-comment line \`memory-capture: <id>\`, or save the issue document \`${MEMORY_DOCUMENT_KEY}\` (200+ characters).`,
+    "The graph memory capture is still missing. For the next task, write the lessons, key decisions, and pitfalls into the project's ARGO/ArchGraph memory graph before marking it done.",
+    "Then add one closing-comment line: `memory-capture: argo:<graphKey>#<elementId>`.",
   ].join("\n");
 }
 
 function exhaustedBody(): string {
   return [
-    `${CONTRACT_COMMENT_PREFIX} Memory capture is still missing, but this task reached the gate attempt cap.`,
+    `${CONTRACT_COMMENT_PREFIX} Graph memory capture is still missing, but this task reached the gate attempt cap.`,
     "",
-    `Marking it \`done\` anyway to avoid a done/revert loop. Capture the memory manually in the project's knowledge graph and add a \`memory-capture: <id>\` comment when you can.`,
+    "Marking it `done` anyway to avoid a done/revert loop. Write the memory element into the project graph and add a `memory-capture: argo:<graphKey>#<elementId>` comment when you can.",
   ].join("\n");
 }
 
-async function collectEvidence(ctx: PluginContext, issue: Issue): Promise<MemoryEvidence | null> {
+async function collectEvidence(
+  ctx: PluginContext,
+  issue: Issue,
+  allowIssueDocumentFallback: boolean,
+): Promise<MemoryEvidence | null> {
   const comments = await ctx.issues.listComments(issue.id, issue.companyId);
-  const document = await ctx.issues.documents.get(
-    issue.id,
-    MEMORY_DOCUMENT_KEY,
-    issue.companyId,
-  );
+  const document = allowIssueDocumentFallback
+    ? await ctx.issues.documents.get(issue.id, MEMORY_DOCUMENT_KEY, issue.companyId)
+    : null;
   return findMemoryEvidence({
     // The gate's own reminder comments quote the marker; never treat them as proof.
     commentBodies: comments
       .map((comment) => comment.body)
       .filter((body) => !body?.includes(CONTRACT_COMMENT_PREFIX)),
     memoryDocumentBody: document?.body,
+    allowIssueDocumentFallback,
   });
 }
 
@@ -103,6 +108,21 @@ async function ensureCaptureSkill(ctx: PluginContext, companyId: string): Promis
     ctx.logger.warn("done-memory-gate could not reconcile its managed skill", {
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+}
+
+async function readDocumentFallbackConfig(
+  ctx: PluginContext,
+  companyId: string,
+): Promise<boolean> {
+  try {
+    const config = await ctx.config.get(companyId);
+    return config?.allowIssueDocumentFallback === true;
+  } catch (error) {
+    ctx.logger.warn("done-memory-gate could not read its config; using strict graph mode", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
   }
 }
 
@@ -137,7 +157,9 @@ export async function handleIssueUpdated(
     return { action: "ignored", reason: "plugin operation issue" };
   }
 
-  const evidence = await collectEvidence(ctx, issue);
+  const allowIssueDocumentFallback = await readDocumentFallbackConfig(ctx, companyId);
+
+  const evidence = await collectEvidence(ctx, issue, allowIssueDocumentFallback);
   if (evidence) return { action: "passed", evidence };
 
   const attempts = readAttempts(await ctx.state.get(attemptKey(issue.id)));
@@ -163,7 +185,7 @@ export async function handleIssueUpdated(
   await ctx.issues.update(issue.id, { status: "in_progress" }, companyId);
   await ctx.issues.createComment(
     issue.id,
-    contractBody(issue, MAX_GATE_ATTEMPTS - (attempts + 1)),
+    contractBody(issue, MAX_GATE_ATTEMPTS - (attempts + 1), allowIssueDocumentFallback),
     companyId,
   );
   try {

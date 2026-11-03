@@ -4,8 +4,14 @@ export const PLUGIN_VERSION = "0.1.0";
 export const MEMORY_DOCUMENT_KEY = "memory";
 export const MEMORY_DOCUMENT_MIN_CHARS = 200;
 
-/** Machine-readable marker an agent leaves on its own comment line: `memory-capture: <id>`. */
+/** Machine-readable marker an agent leaves on its own comment line: `memory-capture: <ref>`. */
 export const MEMORY_MARKER_PATTERN = /(?:^|\n)[ \t]*(?:[-*][ \t]+)?memory-capture[ \t]*:[ \t]*(\S[^\n]*)/i;
+
+/**
+ * A memory reference must point at a real graph element:
+ * `argo:<graphKey>#<elementId>`.
+ */
+export const GRAPH_MEMORY_REFERENCE_PATTERN = /^argo:\S+#\S+$/;
 
 export const MAX_GATE_ATTEMPTS = 3;
 export const STATE_NAMESPACE = "done-memory-gate";
