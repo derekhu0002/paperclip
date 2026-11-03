@@ -2,17 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestHarness, type TestHarness } from "@paperclipai/plugin-sdk/testing";
 import manifest from "../src/manifest.js";
 import plugin from "../src/worker.js";
-import { AGENT_ID, COMPANY_ID, doneEvent, makeComment, makeIssue } from "./helpers.js";
+import { AGENT_ID, COMPANY_ID, doneEvent, makeAgent, makeComment, makeIssue } from "./helpers.js";
 
-async function setupHarness(): Promise<TestHarness> {
+async function setupHarness(): Promise<{
+  harness: TestHarness;
+  invoke: ReturnType<typeof vi.spyOn>;
+}> {
   const harness = createTestHarness({ manifest });
   await plugin.definition.setup(harness.ctx);
-  return harness;
+  harness.seed({ agents: [makeAgent()] });
+  const invoke = vi
+    .spyOn(harness.ctx.agents, "invoke")
+    .mockResolvedValue({ runId: "run-1" });
+  return { harness, invoke };
 }
 
-async function listFollowUps(harness: TestHarness, parentId: string) {
-  const issues = await harness.ctx.issues.list({ companyId: COMPANY_ID });
-  return issues.filter((issue) => issue.parentId === parentId);
+async function issueCount(harness: TestHarness): Promise<number> {
+  return (await harness.ctx.issues.list({ companyId: COMPANY_ID })).length;
 }
 
 describe("done memory gate", () => {
@@ -20,8 +26,8 @@ describe("done memory gate", () => {
     vi.restoreAllMocks();
   });
 
-  it("keeps done but creates a follow-up memory task when graph memory is missing", async () => {
-    const harness = await setupHarness();
+  it("wakes the same agent for memory capture without creating a task", async () => {
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-1" });
     harness.seed({ issues: [issue] });
     const event = doneEvent({ issue });
@@ -30,23 +36,19 @@ describe("done memory gate", () => {
 
     const updated = await harness.ctx.issues.get(issue.id, COMPANY_ID);
     expect(updated?.status).toBe("done");
-
-    const followUps = await listFollowUps(harness, issue.id);
-    expect(followUps).toHaveLength(1);
-    expect(followUps[0]).toMatchObject({
-      status: "todo",
-      assigneeAgentId: AGENT_ID,
-      originKind: `plugin:${manifest.id}`,
-      originId: issue.id,
-    });
-    expect(followUps[0].title).toContain("记录任务记忆");
-    expect(followUps[0].description).toContain("memory-capture: argo:");
-
+    expect(await issueCount(harness)).toBe(1);
+    expect(invoke).toHaveBeenCalledTimes(1);
+    const [agentId, companyId, opts] = invoke.mock.calls[0];
+    expect(agentId).toBe(AGENT_ID);
+    expect(companyId).toBe(COMPANY_ID);
+    expect(opts).toMatchObject({ reason: "done_memory_capture" });
+    expect(opts.prompt).toContain("memory-capture: argo:");
+    expect(opts.prompt).toContain(issue.identifier ?? issue.id);
     expect(await harness.ctx.issues.listComments(issue.id, COMPANY_ID)).toHaveLength(0);
   });
 
-  it("does not create a second follow-up for the same ended conversation", async () => {
-    const harness = await setupHarness();
+  it("does not wake the agent twice for the same ended conversation", async () => {
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-2" });
     harness.seed({ issues: [issue] });
     const event = doneEvent({ issue });
@@ -54,11 +56,11 @@ describe("done memory gate", () => {
     await harness.emit("issue.updated", event.payload, event.base);
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(1);
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 
   it("stays silent when a graph element reference exists", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-3" });
     harness.seed({ issues: [issue] });
     harness.seed({
@@ -71,12 +73,11 @@ describe("done memory gate", () => {
 
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(0);
-    expect(await harness.ctx.issues.listComments(issue.id, COMPANY_ID)).toHaveLength(1);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("does not accept a marker that does not name a graph element", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-4" });
     harness.seed({ issues: [issue] });
     harness.seed({
@@ -86,11 +87,11 @@ describe("done memory gate", () => {
 
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(1);
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 
   it("does not accept an issue document in strict mode", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-5" });
     harness.seed({ issues: [issue] });
     harness.ctx.issues.documents.get = async () => ({
@@ -100,11 +101,11 @@ describe("done memory gate", () => {
 
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(1);
+    expect(invoke).toHaveBeenCalledTimes(1);
   });
 
   it("accepts an issue document only when the operator enables the fallback", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     harness.setConfig({ allowIssueDocumentFallback: true });
     const issue = makeIssue({ id: "issue-6" });
     harness.seed({ issues: [issue] });
@@ -115,34 +116,33 @@ describe("done memory gate", () => {
 
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(0);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("does not check a human close", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-7" });
     harness.seed({ issues: [issue] });
     const event = doneEvent({ issue, actorType: "user" });
 
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(0);
-    expect(await harness.ctx.issues.listComments(issue.id, COMPANY_ID)).toHaveLength(0);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("does not check an issue without an agent assignee", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-8", assigneeAgentId: null });
     harness.seed({ issues: [issue] });
     const event = doneEvent({ issue });
 
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(0);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("ignores updates that are not a done transition", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({ id: "issue-9", status: "in_progress" });
     harness.seed({ issues: [issue] });
 
@@ -152,11 +152,11 @@ describe("done memory gate", () => {
       { companyId: COMPANY_ID, entityId: issue.id, entityType: "issue", actorType: "agent" },
     );
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(0);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it("skips plugin operation issues", async () => {
-    const harness = await setupHarness();
+    const { harness, invoke } = await setupHarness();
     const issue = makeIssue({
       id: "issue-10",
       originKind: `plugin:${manifest.id}`,
@@ -166,6 +166,6 @@ describe("done memory gate", () => {
 
     await harness.emit("issue.updated", event.payload, event.base);
 
-    expect(await listFollowUps(harness, issue.id)).toHaveLength(0);
+    expect(invoke).not.toHaveBeenCalled();
   });
 });

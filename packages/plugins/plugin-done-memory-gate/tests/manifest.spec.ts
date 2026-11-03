@@ -6,7 +6,7 @@ describe("done memory gate manifest", () => {
     for (const capability of [
       "events.subscribe",
       "issues.read",
-      "issues.create",
+      "agents.invoke",
       "issue.comments.read",
       "issue.documents.read",
       "plugin.state.read",
@@ -16,6 +16,7 @@ describe("done memory gate manifest", () => {
     }
     expect(manifest.capabilities).not.toContain("issues.update");
     expect(manifest.capabilities).not.toContain("issues.wakeup");
+    expect(manifest.capabilities).not.toContain("issues.create");
   });
 
   it("ships a worker-only entrypoint", () => {

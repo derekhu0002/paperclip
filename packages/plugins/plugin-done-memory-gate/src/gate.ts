@@ -2,7 +2,6 @@ import type { Issue, PluginContext, PluginEvent } from "@paperclipai/plugin-sdk"
 import {
   CONTRACT_COMMENT_PREFIX,
   MEMORY_DOCUMENT_KEY,
-  PLUGIN_ID,
   STATE_KEY_REMINDED,
   STATE_NAMESPACE,
 } from "./constants.js";
@@ -15,7 +14,7 @@ import {
 export type GateOutcome =
   | { action: "ignored"; reason: string }
   | { action: "passed"; evidence: MemoryEvidence }
-  | { action: "reminded"; followUpIssueId: string };
+  | { action: "reminded"; runId: string };
 
 function remindedKey(issueId: string) {
   return {
@@ -30,19 +29,17 @@ function issueLabel(issue: Issue): string {
   return issue.identifier ?? issue.id;
 }
 
-function followUpDescription(issue: Issue, documentFallback: boolean): string {
+function capturePrompt(issue: Issue, documentFallback: boolean): string {
   return [
-    `这是 done-memory-gate 自动创建的收尾任务：${issueLabel(issue)} 已完成，但未检测到图谱记忆。`,
+    `【记忆收尾】你刚完成的任务 ${issueLabel(issue)}（${issue.title}）已置为 done，但项目 ARGO/ArchGraph 记忆图里还没有本次对话的元素。`,
     "",
-    "请在这个任务里完成记忆捕获，然后把它置为 done：",
-    "",
-    `1. 读原任务 ${issueLabel(issue)}（父任务）的最终 comment、文档和结果。`,
-    "2. 把经验教训、关键决策（含被否决方案与原因）、坑与修复，写入项目 ARGO/ArchGraph 记忆图（T2 长期记忆）：",
-    "   使用 addArchitectureElement（或 updateArchitectureElement），拿到返回的元素 id。",
-    `3. 在本任务留一行引用：\`memory-capture: argo:<graphKey>#<elementId>\`（例如 argo:design/KG/SystemArchitecture.json#memory-xxx）。`,
+    "请基于这次任务的实际结果，把经验教训、关键决策（含被否决方案与原因）、坑与修复整理成一个 T2 长期记忆元素：",
+    "使用 addArchitectureElement（或 updateArchitectureElement）写入项目图（design/KG/SystemArchitecture.json），拿到返回的元素 id。",
+    "然后在回复中给出：`memory-capture: argo:<graphKey>#<elementId>`。",
     ...(documentFallback
-      ? ["", `本实例允许兜底：保存 ${MEMORY_DOCUMENT_KEY} 文档（200+ 字符）也可以。`]
+      ? [`本实例允许兜底：保存 ${MEMORY_DOCUMENT_KEY} 文档（200+ 字符）也可以。`]
       : []),
+    "不要创建新任务，也不要重新打开原任务。",
   ].join("\n");
 }
 
@@ -121,21 +118,18 @@ export async function handleIssueUpdated(
   await ctx.state.set(remindedKey(issue.id), true);
 
   try {
-    const followUp = await ctx.issues.create({
-      companyId,
-      projectId: issue.projectId ?? undefined,
-      parentId: issue.id,
-      title: `记录任务记忆：${issueLabel(issue)}`,
-      description: followUpDescription(issue, allowIssueDocumentFallback),
-      status: "todo",
-      priority: "low",
-      assigneeAgentId: issue.assigneeAgentId,
-      originKind: `plugin:${PLUGIN_ID}`,
-      originId: issue.id,
+    const { runId } = await ctx.agents.invoke(issue.assigneeAgentId, companyId, {
+      reason: "done_memory_capture",
+      prompt: capturePrompt(issue, allowIssueDocumentFallback),
     });
-    return { action: "reminded", followUpIssueId: followUp.id };
+    return { action: "reminded", runId };
   } catch (error) {
     await ctx.state.set(remindedKey(issue.id), false);
-    throw error;
+    ctx.logger.warn("done-memory-gate could not wake the agent for memory capture", {
+      issueId: issue.id,
+      agentId: issue.assigneeAgentId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { action: "ignored", reason: "agent invoke failed" };
   }
 }
