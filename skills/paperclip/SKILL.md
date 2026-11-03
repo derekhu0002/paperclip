@@ -259,26 +259,6 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 - `done` — work complete, no follow-up on this issue.
 - `cancelled` — intentionally abandoned, not to be resumed.
 
-### Finish With Graph Memory
-
-Write one task summary to the Actor's T2 memory when a task ends — once per task, not once per run —
-then finish with a machine-readable marker.
-
-1. Write a Tier 2 memory element with the ARGO MCP tools (`addArchitectureElement` or
-   `updateArchitectureElement`) in the project's `design/KG` graph. Keep the returned element id.
-2. Put these in the summary: result and evidence; key decisions and rejected alternatives; pitfalls
-   with symptom, cause, and fix; the target T2 element id.
-3. End the final comment with exactly one marker line (the `memory-capture:` prefix is
-   case-sensitive):
-   - written: `memory-capture: argo:<graphKey>#<elementId>`
-     (for example `memory-capture: argo:design/KG/SystemArchitecture.json#paperclip-session-2026-11-03`)
-   - voluntary exemption when you cannot write the graph: `memory-capture: none: <reason>`
-
-`PATCH /issues/{id}` returns `409 task_memory_required` when the marker is missing. The task is not
-modified, so you stay in the same run: write the element, add the marker, and retry. The control
-plane blocks at most twice, then allows the transition and records `memory-capture missed`. An
-explicit `none:` exemption is allowed immediately. Board/human closes are not gated.
-
 ### Monitors and Watchers (say only what you actually scheduled)
 
 A "watcher" or "monitor" is not something that lives inside a run. A run/heartbeat is an ephemeral execution window; nothing keeps watching after it exits. The only thing that can auto-resume an issue on its own is a persisted **issue monitor**: durable state on the issue (`monitorNextCheckAt`, `monitorScheduledBy`, plus an execution-policy `monitor` block with `kind`, `serviceName`, `externalRef`, `timeoutAt`, `maxAttempts`). A server scheduler (`tickDueIssueMonitors`) polls for **eligible** issues whose `monitorNextCheckAt` has passed and re-wakes the assignee agent with `PAPERCLIP_WAKE_REASON=issue_monitor_due`. Eligibility is enforced: the issue must be assigned to an agent (`assigneeAgentId` set) with **no** user assignee (`assigneeUserId` null) and be in `in_progress` or `in_review`. The on-demand `monitor/check-now` trigger enforces the same conditions, so a monitor stored on a user-assigned, `backlog`, `blocked`, or closed issue never fires — the timestamp is necessary but not sufficient. It is timer-based polling, not an event subscription — Paperclip is not notified the instant CI/Greptile/an external check finishes; the monitor just wakes you on a schedule so you can look again.
@@ -813,3 +793,23 @@ provider, and keep the agent assigned with `continuationPolicy: "wake_assignee"`
 so the answer resumes verification. A handoff comment asking the user to comment
 back or reassign the task is not a confirmation card. The card records the user's
 answer; verify the provider's gate and publish result before continuing.
+
+**Finish With Graph Memory**
+
+When a task ends, write one task summary to the Actor's T2 memory (once per task, not once per run),
+then finish with a machine-readable marker.
+
+1. Write a Tier 2 memory element with the ARGO MCP tools (`addArchitectureElement` or
+   `updateArchitectureElement`) in the project's `design/KG` graph. Keep the returned element id.
+2. Put these in the summary: result and evidence; key decisions and rejected alternatives; pitfalls
+   with symptom, cause, and fix; the target T2 element id.
+3. End the final comment with exactly one marker line (the `memory-capture:` prefix is
+   case-sensitive):
+   - written: `memory-capture: argo:<graphKey>#<elementId>`
+     (for example `memory-capture: argo:design/KG/SystemArchitecture.json#paperclip-session-2026-11-03`)
+   - voluntary exemption when you cannot write the graph: `memory-capture: none: <reason>`
+
+`PATCH /issues/{id}` returns `409 task_memory_required` when the marker is missing. The task is not
+modified, so you stay in the same run: write the element, add the marker, and retry. The control
+plane blocks at most twice, then allows the transition and records `memory-capture missed`. An
+explicit `none:` exemption is allowed immediately. Board/human closes are not gated.
