@@ -3220,6 +3220,50 @@
       "id": "2026-11-03-47-deploy-50fb2810c",
       "name": "2026-11-03 47 部署 50fb2810c（记忆门禁协议 v2）与镜像下载",
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-03"
+        },
+        {
+          "name": "company",
+          "value": "威胁情报中心 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6"
+        },
+        {
+          "name": "issue",
+          "value": "CTI-24 145125e5-70df-4a65-a3de-713224370bf2 (in_review) -> 恢复载体 CTI-25 7c98e822-1ce4-463c-9018-04e57edcd66a"
+        },
+        {
+          "name": "agent",
+          "value": "851ee77b-fdad-4696-b96a-ee1efd82ee1e HR 与组织能力负责人 · vso-hr"
+        },
+        {
+          "name": "recoveryAction",
+          "value": "25a0ece6-b72a-4b07-b2af-fb27dacadce6 active_run_watchdog -> resolved false_positive"
+        },
+        {
+          "name": "run",
+          "value": "ed8f55d4 interrupted (orphaned_running_run); 恢复 run c37e0d15 running on CTI-25"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:50fb2810c / commit 50fb2810cf582b0893334cd4454e553dfd336a1c"
+        }
+      ],
+      "description": "【现象】威胁情报中心唯一未完成任务 CTI-24（HR 领域规划）卡在 in_review；人类两次“继续处理”均无反应；agent vso-hr 显示 running 但没有任何活跃 run。\n\n【根因】旧 run ed8f55d4 进程消失，被 recovery backstop 终止为 interrupted（error_code orphaned_running_run）；对应 wake a4735535 仍为 claimed；recovery action 25a0ece6（active_run_watchdog / legacy_execution_requires_reconciliation）一直 active；agent.status 停在 running。新评论 wake 因此全部写为 deferred_issue_execution（executionWait.reason=execution_recovery）。\n\n【处置】① vso-hr running→idle；② 取消 stale claimed wake a4735535；③ 用控制面 recovery-actions/resolve 把 25a0ece6 标记 false_positive（保留 evidence）；④ 但旧 issue 上的 comment wake 仍被 legacy 执行状态 defer；⑤ 创建 CTI-25 子任务（parent=CTI-24，指派 vso-hr，todo）作为恢复载体，描述里要求继续 CTI-24 并在 done 前按协议 v2 写 memory marker；⑥ CTI-25 创建即触发 issue_assigned wake，run c37e0d15 启动，agent 恢复 running；⑦ 删除两条恢复用的重复“继续处理”评论，取消剩余 deferred wake，撤销临时 board key。\n\n【教训】① docker rename 不停容器（部署时）；② recovery backstop 终止 run 不一定同步清 agent.status/wake；③ legacy 执行状态的 comment wake 可能长期 defer，单靠 resolve recovery action 不一定解除；④ 新子任务是可靠的重新唤醒载体（新 issue 无旧执行残留）；⑤ 操作 board key 必须即用即撤。\n\n【证据】CTI-24 updated_at 2026-11-03T16:36Z；wake 053f/579c/b10ee deferred；run c37e0d15 started 2026-11-03T16:52:06Z；agent running 16:52:06Z。",
+      "id": "threat-intel-cti24-stuck-recovery-2026-11-03",
+      "name": "威胁情报中心 CTI-24 卡死恢复（2026-11-03）",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -3431,7 +3475,8 @@
       "description": "vsoc 公司新项目 / Agent 上线与 WSL 执行环境记录。",
       "included_elements": [
         "paperclip-session-2026-10-30-vsoc-threatintelligence",
-        "archgraph-issue-17-argo-init-path-2026-10-30"
+        "archgraph-issue-17-argo-init-path-2026-10-30",
+        "threat-intel-cti24-stuck-recovery-2026-11-03"
       ],
       "included_relationships": []
     },
