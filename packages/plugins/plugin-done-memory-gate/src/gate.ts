@@ -46,14 +46,6 @@ function followUpDescription(issue: Issue, documentFallback: boolean): string {
   ].join("\n");
 }
 
-function reminderComment(followUpIssueId: string): string {
-  return [
-    `${CONTRACT_COMMENT_PREFIX} 本任务已结束，但未检测到图谱记忆。`,
-    "",
-    `已创建收尾任务 ${followUpIssueId} 并指派给同一 Agent；完成后把记忆元素引用写在那条任务的 comment 中。`,
-  ].join("\n");
-}
-
 async function readDocumentFallbackConfig(
   ctx: PluginContext,
   companyId: string,
@@ -141,7 +133,6 @@ export async function handleIssueUpdated(
       originKind: `plugin:${PLUGIN_ID}`,
       originId: issue.id,
     });
-    await ctx.issues.createComment(issue.id, reminderComment(followUp.id), companyId);
     return { action: "reminded", followUpIssueId: followUp.id };
   } catch (error) {
     await ctx.state.set(remindedKey(issue.id), false);

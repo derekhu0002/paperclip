@@ -1,4 +1,4 @@
-import type { Issue } from "@paperclipai/plugin-sdk";
+import type { Issue, IssueComment } from "@paperclipai/plugin-sdk";
 
 export const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 export const AGENT_ID = "22222222-2222-4222-8222-222222222222";
@@ -43,6 +43,24 @@ export function makeIssue(overrides: Partial<Issue> & Pick<Issue, "id">): Issue 
     hiddenAt: null,
     ...overrides,
   } as Issue;
+}
+
+export function makeComment(issue: Issue, body: string): IssueComment {
+  const now = new Date();
+  return {
+    id: `${issue.id}-comment-${Math.random().toString(36).slice(2, 8)}`,
+    companyId: issue.companyId,
+    issueId: issue.id,
+    authorType: "agent",
+    authorAgentId: AGENT_ID,
+    authorUserId: null,
+    onBehalfOfUserId: null,
+    body,
+    presentation: null,
+    metadata: null,
+    createdAt: now,
+    updatedAt: now,
+  } as IssueComment;
 }
 
 export function doneEvent(input: {

@@ -3005,7 +3005,7 @@
       "id": "fork-cap-done-memory-gate",
       "name": "任务结束记忆检查与提醒（done memory gate）",
       "type": "Application Service",
-      "description": "Agent 把任务置为 done（对话最终结束）时，检查本次对话是否已在项目 ARGO/ArchGraph 记忆图留下元素：comment 行 `memory-capture: argo:<graphKey>#<elementId>`；默认 strict，issue document 仅在 operator 开启 `allowIssueDocumentFallback` 时算。缺失时不改状态、不唤醒原任务，而是发一条提醒评论并创建一个子任务「记录任务记忆：<identifier>」，指派给同一 Agent（originKind=plugin，后续不再被本检查拦截）。同一 issue 只提醒一次（plugin state）。中间 run 不检查。仅约束 agent actor 且 assigneeAgentId 非空的 issue；人类关闭与插件操作 issue 不拦截。局限：只强制图谱引用格式，不验证元素真实存在。",
+      "description": "Agent 把任务置为 done（对话最终结束）时，检查本次对话是否已在项目 ARGO/ArchGraph 记忆图留下元素：comment 行 `memory-capture: argo:<graphKey>#<elementId>`；默认 strict，issue document 仅在 operator 开启 `allowIssueDocumentFallback` 时算。缺失时不改状态、不评论，只创建一个子任务「记录任务记忆：<identifier>」，指派给同一 Agent（originKind=plugin，parentId/originId 指向原任务，后续不再被本检查拦截）；创建即触发 assignment wake。同一 issue 只提醒一次（plugin state）。中间 run 不检查。仅约束 agent actor 且 assigneeAgentId 非空的 issue；人类关闭与插件操作 issue 不拦截。局限：只强制图谱引用格式，不验证元素真实存在。",
       "testcases": [
         {
           "name": "Memory evidence satisfies the gate",
@@ -3024,7 +3024,7 @@
         {
           "name": "Missing memory creates one follow-up task",
           "type": "Acceptance Test",
-          "description": "GIVEN an agent-assigned issue with a done transition and no graph memory reference, WHEN the check runs, THEN the issue stays done, one reminder comment is posted, and exactly one todo follow-up task is created for the same agent under the finished issue.",
+          "description": "GIVEN an agent-assigned issue with a done transition and no graph memory reference, WHEN the check runs, THEN the issue stays done, no comment is posted, and exactly one todo follow-up task is created for the same agent under the finished issue.",
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/gate.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/gate.spec.ts"
         },
@@ -3070,7 +3070,7 @@
       "id": "paperclip-done-memory-gate-2026-11-03",
       "name": "Paperclip done 前记忆捕获门禁（plugin-done-memory-gate，2026-11-03）",
       "type": "Requirement",
-      "description": "【目标】每个 agent 对话在最终结束（issue 置 done）时，能识别需要记住的内容并写入项目 ARGO/ArchGraph 记忆图；中间 run 不要求。\n\n【人类裁决】不再改 Paperclip skill（全局 AGENTS.md 已含记忆触发规则）；不做事后回退（避免依赖自动释放竞态）；只做一次结束检查和提醒。\n\n【实现】插件 @paperclipai/plugin-done-memory-gate（packages/plugins/plugin-done-memory-gate）：订阅 issue.updated；仅在 agent actor、assigneeAgentId 非空、真实 done 转换、非插件操作 issue 时检查。默认 strict：只接受 comment 行 `memory-capture: argo:<graphKey>#<elementId>`；issue document `memory` 需 operator 开 allowIssueDocumentFallback。缺失时保持 done，发一条提醒评论，并创建一个子任务「记录任务记忆：<identifier>」指派给同一 Agent（originKind=plugin），同一 issue 只提醒一次（plugin state）。不改状态、不唤醒原任务，因此无依赖竞态；中间 run 不检查。\n\n【关键坑】① 插件面 API 是 ctx.issues.relations.get（本版已不再使用关系）；② 门禁自己的提醒评论会包含 marker 文本，扫证据时过滤 CONTRACT_COMMENT_PREFIX；③ marker 行首锚定且必须 argo:<graph>#<element>；④ 无法验证元素真实存在，只强制引用格式。\n\n【验证】pnpm --filter @paperclipai/plugin-done-memory-gate test（17 passed）、typecheck、build、validateSystemArchitecture 均通过。\n\n【落地状态】2026-11-03 首版 2932fa775；strict 图引用 a90b84e2d；本版改为结束检查+收尾任务。插件 opt-in，未装实例。\n\n【遗留】未在 47/本地安装启用；未接 ARGO 端点做存在性验证；follow-up 任务若被忽略不会重复提醒（设计如此）。",
+      "description": "【目标】每个 agent 对话在最终结束（issue 置 done）时，能识别需要记住的内容并写入项目 ARGO/ArchGraph 记忆图；中间 run 不要求。\n\n【人类裁决】不改 Paperclip skill（全局 AGENTS.md 已含记忆触发规则）；不做事后回退（避免依赖自动释放竞态）；只做一次结束检查；不要多余的提醒评论——收尾子任务本身就是唤醒机制。\n\n【实现】插件 @paperclipai/plugin-done-memory-gate：订阅 issue.updated；仅在 agent actor、assigneeAgentId 非空、真实 done 转换、非插件操作 issue 时检查。默认 strict：只接受 comment 行 `memory-capture: argo:<graphKey>#<elementId>`；issue document `memory` 需 operator 开 allowIssueDocumentFallback。缺失时保持 done、不评论，只创建一个子任务「记录任务记忆：<identifier>」指派给同一 Agent（originKind=plugin，parentId/originId 指向原任务）；创建即 assignment wake。同一 issue 只提醒一次（plugin state）。中间 run 不检查。\n\n【关键坑】① 提醒评论是冗余的：done 对话不会因评论被唤醒，且 parentId/originId 已足够追溯；② marker 行首锚定且必须 argo:<graph>#<element>；③ 无法验证元素真实存在，只强制引用格式。\n\n【验证】pnpm --filter @paperclipai/plugin-done-memory-gate test（17 passed）、typecheck、build、validateSystemArchitecture 均通过。\n\n【落地状态】2026-11-03 首版 2932fa775；strict 图引用 a90b84e2d；结束检查 0e34d600d；本版去掉评论。插件 opt-in，未装实例。\n\n【遗留】未在 47/本地安装启用；未接 ARGO 端点做存在性验证；follow-up 任务若被忽略不会重复提醒（设计如此）。",
       "attributes": [
         {
           "name": "memoryTier",

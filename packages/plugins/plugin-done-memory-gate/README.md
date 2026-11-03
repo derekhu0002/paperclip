@@ -34,10 +34,11 @@ operator-configured endpoint and is intentionally out of scope for now.
 - Runs only when: the event is a real transition into `done`, the actor is an agent, the issue has an
   `assigneeAgentId`, and the issue is not a plugin-operation issue.
 - Graph memory present: nothing happens.
-- Graph memory missing: the issue stays `done`; the plugin posts one comment and creates one
-  follow-up task (`记录任务记忆：<identifier>`) assigned to the same agent, in the same project, as a
-  child of the finished issue. The follow-up runs the agent again and asks it to write the memory
-  element.
+- Graph memory missing: the issue stays `done`; the plugin creates one follow-up task
+  (`记录任务记忆：<identifier>`) assigned to the same agent, in the same project, as a child of the
+  finished issue. The assignment wakes the agent, which then writes the memory element.
+- No comment is posted on the finished issue: the follow-up task is the wake mechanism, and
+  `parentId`/`originId` already link it back to the conversation.
 - One reminder per finished issue: the plugin records state after the first follow-up.
 - The check never changes issue status, so dependency auto-release is unaffected.
 - Intermediate runs are not checked; only the final `done` transition is.

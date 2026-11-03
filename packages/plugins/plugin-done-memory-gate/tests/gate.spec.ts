@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestHarness, type TestHarness } from "@paperclipai/plugin-sdk/testing";
 import manifest from "../src/manifest.js";
 import plugin from "../src/worker.js";
-import { AGENT_ID, COMPANY_ID, doneEvent, makeIssue } from "./helpers.js";
+import { AGENT_ID, COMPANY_ID, doneEvent, makeComment, makeIssue } from "./helpers.js";
 
 async function setupHarness(): Promise<TestHarness> {
   const harness = createTestHarness({ manifest });
@@ -37,14 +37,12 @@ describe("done memory gate", () => {
       status: "todo",
       assigneeAgentId: AGENT_ID,
       originKind: `plugin:${manifest.id}`,
+      originId: issue.id,
     });
     expect(followUps[0].title).toContain("记录任务记忆");
     expect(followUps[0].description).toContain("memory-capture: argo:");
 
-    const comments = await harness.ctx.issues.listComments(issue.id, COMPANY_ID);
-    expect(comments).toHaveLength(1);
-    expect(comments[0].body).toContain("[done-memory-gate]");
-    expect(comments[0].body).toContain(followUps[0].id);
+    expect(await harness.ctx.issues.listComments(issue.id, COMPANY_ID)).toHaveLength(0);
   });
 
   it("does not create a second follow-up for the same ended conversation", async () => {
@@ -63,11 +61,12 @@ describe("done memory gate", () => {
     const harness = await setupHarness();
     const issue = makeIssue({ id: "issue-3" });
     harness.seed({ issues: [issue] });
-    await harness.ctx.issues.createComment(
-      issue.id,
-      "Finished.\nmemory-capture: argo:design/KG/SystemArchitecture.json#memory-123",
-      COMPANY_ID,
-    );
+    harness.seed({
+      issueComments: [makeComment(
+        issue,
+        "Finished.\nmemory-capture: argo:design/KG/SystemArchitecture.json#memory-123",
+      )],
+    });
     const event = doneEvent({ issue });
 
     await harness.emit("issue.updated", event.payload, event.base);
@@ -80,11 +79,9 @@ describe("done memory gate", () => {
     const harness = await setupHarness();
     const issue = makeIssue({ id: "issue-4" });
     harness.seed({ issues: [issue] });
-    await harness.ctx.issues.createComment(
-      issue.id,
-      "Finished.\nmemory-capture: doc:memory",
-      COMPANY_ID,
-    );
+    harness.seed({
+      issueComments: [makeComment(issue, "Finished.\nmemory-capture: doc:memory")],
+    });
     const event = doneEvent({ issue });
 
     await harness.emit("issue.updated", event.payload, event.base);

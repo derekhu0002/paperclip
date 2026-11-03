@@ -18,7 +18,6 @@ const manifest: PaperclipPluginManifestV1 = {
     "issues.read",
     "issues.create",
     "issue.comments.read",
-    "issue.comments.create",
     "issue.documents.read",
     "plugin.state.read",
     "plugin.state.write",

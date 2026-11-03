@@ -6,7 +6,6 @@ import {
   isGraphMemoryReference,
 } from "../src/memory-evidence.js";
 import { MEMORY_DOCUMENT_MIN_CHARS } from "../src/constants.js";
-
 const LONG_MEMORY = "Lessons and key decisions. ".repeat(12);
 
 describe("memory evidence parsing", () => {
