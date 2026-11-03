@@ -15025,6 +15025,7 @@ export function issueRoutes(
           db,
           issue: existing,
           actorAgentId: actor.agentId ?? null,
+          actorRunId: actor.runId ?? null,
           requestCommentBody: commentBody ?? null,
         });
       }
@@ -19238,6 +19239,7 @@ export function issueRoutes(
             db,
             issue: currentIssue,
             actorAgentId: actor.agentId ?? null,
+            actorRunId: actor.runId ?? null,
             requestCommentBody: req.body.body ?? null,
           });
         }

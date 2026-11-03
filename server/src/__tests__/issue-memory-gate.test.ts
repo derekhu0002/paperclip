@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { agents, companies, createDb, issueComments, issues } from "@paperclipai/db";
+import { activityLog, agents, companies, createDb, issueComments, issues } from "@paperclipai/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -11,40 +11,24 @@ import {
   DONE_MEMORY_GATE_CODE,
   findMemoryCaptureMarker,
   isDoneMemoryGateEnabled,
-  isGraphMemoryReference,
+  parseMemoryCaptureMarker,
 } from "../services/issue-memory-gate.js";
 
-function fakeDb(rows: Array<{ body: string | null }>) {
-  return {
-    select: () => ({
-      from: () => ({
-        where: () => ({
-          orderBy: () => ({
-            limit: async () => rows,
-          }),
-        }),
-      }),
-    }),
-  } as never;
-}
+describe("task memory protocol v2 parsing", () => {
+  it("parses a graph reference and an explicit exemption", () => {
+    expect(parseMemoryCaptureMarker("argo:design/KG/SystemArchitecture.json#memory-1"))
+      .toEqual({ kind: "graph", graphKey: "design/KG/SystemArchitecture.json", elementId: "memory-1" });
+    expect(parseMemoryCaptureMarker("none: ARGO MCP unavailable in this harness"))
+      .toEqual({ kind: "exempt", reason: "ARGO MCP unavailable in this harness" });
+    expect(parseMemoryCaptureMarker("none:")).toBeNull();
+    expect(parseMemoryCaptureMarker("doc:memory")).toBeNull();
+    expect(parseMemoryCaptureMarker("argo:no-element")).toBeNull();
+    expect(parseMemoryCaptureMarker(null)).toBeNull();
+  });
 
-const baseIssue = {
-  id: "issue-1",
-  companyId: "company-1",
-  identifier: "GATE-1",
-  status: "in_progress",
-  assigneeAgentId: "agent-1",
-};
-
-process.env.PAPERCLIP_DONE_MEMORY_GATE = "on";
-
-describe("done memory gate evidence", () => {
-  it("parses a graph-qualified memory marker", () => {
+  it("keeps the memory-capture prefix case-sensitive", () => {
     expect(findMemoryCaptureMarker("done\nmemory-capture: argo:g#e")).toBe("argo:g#e");
-    expect(isGraphMemoryReference("argo:design/KG/SystemArchitecture.json#memory-1")).toBe(true);
-    expect(isGraphMemoryReference("doc:memory")).toBe(false);
-    expect(isGraphMemoryReference("argo:no-element")).toBe(false);
-    expect(isGraphMemoryReference(null)).toBe(false);
+    expect(findMemoryCaptureMarker("done\nMemory-Capture: argo:g#e")).toBeNull();
   });
 
   it("honors the kill switch", () => {
@@ -56,58 +40,10 @@ describe("done memory gate evidence", () => {
   });
 });
 
-describe("assertAgentMemoryCaptureBeforeDone", () => {
-  it("rejects an agent done without any memory reference", async () => {
-    await expect(assertAgentMemoryCaptureBeforeDone({
-      db: fakeDb([]),
-      issue: baseIssue,
-      actorAgentId: "agent-1",
-    })).rejects.toMatchObject({
-      status: 409,
-      details: { code: DONE_MEMORY_GATE_CODE },
-    });
-  });
-
-  it("accepts a reference in the same request comment", async () => {
-    await expect(assertAgentMemoryCaptureBeforeDone({
-      db: fakeDb([]),
-      issue: baseIssue,
-      actorAgentId: "agent-1",
-      requestCommentBody: "Done.\nmemory-capture: argo:design/KG/SystemArchitecture.json#memory-9",
-    })).resolves.toBeUndefined();
-  });
-
-  it("accepts a reference from an earlier comment", async () => {
-    await expect(assertAgentMemoryCaptureBeforeDone({
-      db: fakeDb([{ body: "notes\nmemory-capture: argo:g#e" }]),
-      issue: baseIssue,
-      actorAgentId: "agent-1",
-    })).resolves.toBeUndefined();
-  });
-
-  it("skips non-agent, unassigned, and already-done issues", async () => {
-    await expect(assertAgentMemoryCaptureBeforeDone({
-      db: fakeDb([]),
-      issue: baseIssue,
-      actorAgentId: null,
-    })).resolves.toBeUndefined();
-    await expect(assertAgentMemoryCaptureBeforeDone({
-      db: fakeDb([]),
-      issue: { ...baseIssue, assigneeAgentId: null },
-      actorAgentId: "agent-1",
-    })).resolves.toBeUndefined();
-    await expect(assertAgentMemoryCaptureBeforeDone({
-      db: fakeDb([]),
-      issue: { ...baseIssue, status: "done" },
-      actorAgentId: "agent-1",
-    })).resolves.toBeUndefined();
-  });
-});
-
 const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
 const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
 
-describeEmbeddedPostgres("done memory gate database reads", () => {
+describeEmbeddedPostgres("task memory gate on a real database", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
   let db!: ReturnType<typeof createDb>;
 
@@ -116,11 +52,12 @@ describeEmbeddedPostgres("done memory gate database reads", () => {
     tempDb = await startEmbeddedPostgresTestDatabase("paperclip-memory-gate-");
     db = createDb(tempDb.connectionString);
   }, 30_000);
+
   afterAll(async () => {
     await tempDb?.cleanup();
   });
 
-  async function seedIssue() {
+  async function seedIssue(status = "in_progress") {
     const companyId = randomUUID();
     const agentId = randomUUID();
     const issueId = randomUUID();
@@ -141,7 +78,7 @@ describeEmbeddedPostgres("done memory gate database reads", () => {
       id: issueId,
       companyId,
       title: "Gate task",
-      status: "in_progress",
+      status,
       priority: "medium",
       assigneeAgentId: agentId,
     });
@@ -152,7 +89,14 @@ describeEmbeddedPostgres("done memory gate database reads", () => {
     return (await db.select().from(issues).where(eq(issues.id, issueId)))[0]!;
   }
 
-  it("rejects an agent done without graph memory", async () => {
+  async function activities(issueId: string, action: string) {
+    return db.select().from(activityLog).where(and(
+      eq(activityLog.entityId, issueId),
+      eq(activityLog.action, action),
+    ));
+  }
+
+  it("blocks the first miss with actionable feedback and records the block", async () => {
     const { agentId, issueId } = await seedIssue();
 
     await expect(assertAgentMemoryCaptureBeforeDone({
@@ -161,11 +105,35 @@ describeEmbeddedPostgres("done memory gate database reads", () => {
       actorAgentId: agentId,
     })).rejects.toMatchObject({
       status: 409,
-      details: { code: DONE_MEMORY_GATE_CODE },
+      details: {
+        code: DONE_MEMORY_GATE_CODE,
+        attempt: 1,
+        maxAttempts: 2,
+        accepts: "memory-capture: argo:<graphKey>#<elementId>",
+        exempt: "memory-capture: none: <reason>",
+      },
     });
+    expect(await activities(issueId, "issue.memory_gate_blocked")).toHaveLength(1);
   });
 
-  it("accepts when the request comment carries a graph reference", async () => {
+  it("allows the transition after two blocks and records memory-capture missed", async () => {
+    const { agentId, issueId } = await seedIssue();
+
+    await expect(assertAgentMemoryCaptureBeforeDone({
+      db, issue: await readIssue(issueId), actorAgentId: agentId,
+    })).rejects.toMatchObject({ status: 409 });
+    await expect(assertAgentMemoryCaptureBeforeDone({
+      db, issue: await readIssue(issueId), actorAgentId: agentId,
+    })).rejects.toMatchObject({ status: 409 });
+    await expect(assertAgentMemoryCaptureBeforeDone({
+      db, issue: await readIssue(issueId), actorAgentId: agentId,
+    })).resolves.toBeUndefined();
+
+    expect(await activities(issueId, "issue.memory_gate_blocked")).toHaveLength(2);
+    expect(await activities(issueId, "issue.memory_gate_missed")).toHaveLength(1);
+  });
+
+  it("accepts a graph reference in the request comment", async () => {
     const { agentId, issueId } = await seedIssue();
 
     await expect(assertAgentMemoryCaptureBeforeDone({
@@ -174,9 +142,10 @@ describeEmbeddedPostgres("done memory gate database reads", () => {
       actorAgentId: agentId,
       requestCommentBody: "Finished.\nmemory-capture: argo:design/KG/SystemArchitecture.json#memory-1",
     })).resolves.toBeUndefined();
+    expect(await activities(issueId, "issue.memory_gate_blocked")).toHaveLength(0);
   });
 
-  it("accepts when an earlier comment carries a graph reference", async () => {
+  it("accepts a graph reference from an earlier comment", async () => {
     const { companyId, agentId, issueId } = await seedIssue();
     await db.insert(issueComments).values({
       id: randomUUID(),
@@ -191,9 +160,47 @@ describeEmbeddedPostgres("done memory gate database reads", () => {
     });
 
     await expect(assertAgentMemoryCaptureBeforeDone({
+      db, issue: await readIssue(issueId), actorAgentId: agentId,
+    })).resolves.toBeUndefined();
+  });
+
+  it("allows an explicit none: exemption and records the reason", async () => {
+    const { agentId, issueId } = await seedIssue();
+
+    await expect(assertAgentMemoryCaptureBeforeDone({
       db,
       issue: await readIssue(issueId),
       actorAgentId: agentId,
+      requestCommentBody: "Finished.\nmemory-capture: none: ARGO MCP unavailable in this harness",
+    })).resolves.toBeUndefined();
+
+    const [exempted] = await activities(issueId, "issue.memory_gate_exempted");
+    expect(exempted?.details).toMatchObject({ reason: "ARGO MCP unavailable in this harness" });
+  });
+
+  it("treats an uppercase prefix as missing", async () => {
+    const { agentId, issueId } = await seedIssue();
+
+    await expect(assertAgentMemoryCaptureBeforeDone({
+      db,
+      issue: await readIssue(issueId),
+      actorAgentId: agentId,
+      requestCommentBody: "Finished.\nMemory-Capture: argo:g#e",
+    })).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("skips non-agent, unassigned, and already-done issues", async () => {
+    const { agentId, issueId } = await seedIssue();
+    const done = await seedIssue("done");
+
+    await expect(assertAgentMemoryCaptureBeforeDone({
+      db, issue: await readIssue(issueId), actorAgentId: null,
+    })).resolves.toBeUndefined();
+    await expect(assertAgentMemoryCaptureBeforeDone({
+      db, issue: { ...(await readIssue(issueId)), assigneeAgentId: null }, actorAgentId: agentId,
+    })).resolves.toBeUndefined();
+    await expect(assertAgentMemoryCaptureBeforeDone({
+      db, issue: await readIssue(done.issueId), actorAgentId: done.agentId,
     })).resolves.toBeUndefined();
   });
 });

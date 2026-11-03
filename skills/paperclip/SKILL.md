@@ -261,18 +261,23 @@ Status values: `backlog`, `todo`, `in_progress`, `in_review`, `done`, `blocked`,
 
 ### Finish With Graph Memory
 
-Before you set an agent-assigned task to `done`, write the task memory into the project's
-ARGO/ArchGraph intent graph and leave a reference to it:
+Write one task summary to the Actor's T2 memory when a task ends — once per task, not once per run —
+then finish with a machine-readable marker.
 
 1. Write a Tier 2 memory element with the ARGO MCP tools (`addArchitectureElement` or
-   `updateArchitectureElement`). Keep the returned element id.
-2. Add one comment line in the closing comment:
-   `memory-capture: argo:<graphKey>#<elementId>`
-   (for example `memory-capture: argo:design/KG/SystemArchitecture.json#paperclip-session-2026-11-03`).
+   `updateArchitectureElement`) in the project's `design/KG` graph. Keep the returned element id.
+2. Put these in the summary: result and evidence; key decisions and rejected alternatives; pitfalls
+   with symptom, cause, and fix; the target T2 element id.
+3. End the final comment with exactly one marker line (the `memory-capture:` prefix is
+   case-sensitive):
+   - written: `memory-capture: argo:<graphKey>#<elementId>`
+     (for example `memory-capture: argo:design/KG/SystemArchitecture.json#paperclip-session-2026-11-03`)
+   - voluntary exemption when you cannot write the graph: `memory-capture: none: <reason>`
 
-The `PATCH /issues/{id}` call is rejected with `409 task_memory_required` when that reference is
-missing. The task is not modified, so you stay in the same run: write the memory element, add the
-comment line, and retry the update. Board/human closes are not gated.
+`PATCH /issues/{id}` returns `409 task_memory_required` when the marker is missing. The task is not
+modified, so you stay in the same run: write the element, add the marker, and retry. The control
+plane blocks at most twice, then allows the transition and records `memory-capture missed`. An
+explicit `none:` exemption is allowed immediately. Board/human closes are not gated.
 
 ### Monitors and Watchers (say only what you actually scheduled)
 

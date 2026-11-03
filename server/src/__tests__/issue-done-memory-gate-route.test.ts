@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import express from "express";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { agents, companies, createDb, heartbeatRuns, issues } from "@paperclipai/db";
+import { activityLog, agents, companies, createDb, heartbeatRuns, issues } from "@paperclipai/db";
 import {
   getEmbeddedPostgresTestSupport,
   startEmbeddedPostgresTestDatabase,
@@ -15,7 +15,7 @@ import { DONE_MEMORY_GATE_CODE } from "../services/issue-memory-gate.js";
 const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
 const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
 
-describeEmbeddedPostgres("issue route done memory gate", () => {
+describeEmbeddedPostgres("issue route task memory gate", () => {
   let tempDb: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | null = null;
   let db!: ReturnType<typeof createDb>;
   let companyId!: string;
@@ -90,31 +90,57 @@ describeEmbeddedPostgres("issue route done memory gate", () => {
     return app;
   }
 
-  it("returns 409 task_memory_required for an agent done without graph memory", async () => {
-    const { runId, issueId } = await seedCheckedOutIssue("Gate route blocked task");
-
-    const res = await request(appFor(runId))
+  function markDone(issueId: string, runId: string, body: Record<string, unknown> = {}) {
+    return request(appFor(runId))
       .patch(`/api/issues/${issueId}`)
-      .send({ status: "done" });
+      .send({ status: "done", ...body });
+  }
 
-    expect(res.status, JSON.stringify(res.body)).toBe(409);
-    expect(res.body.code).toBe(DONE_MEMORY_GATE_CODE);
-    expect(res.body.remediation).toContain("memory-capture: argo:");
-    expect((await db.select().from(issues).where(eq(issues.id, issueId)))[0]?.status)
-      .toBe("in_progress");
+  it("blocks twice with task_memory_required, then allows and records missed", async () => {
+    const { runId, issueId } = await seedCheckedOutIssue("Gate route capped task");
+
+    const first = await markDone(issueId, runId);
+    expect(first.status, JSON.stringify(first.body)).toBe(409);
+    expect(first.body.code).toBe(DONE_MEMORY_GATE_CODE);
+    expect(first.body.remediation).toContain("memory-capture: argo:");
+
+    const second = await markDone(issueId, runId);
+    expect(second.status, JSON.stringify(second.body)).toBe(409);
+
+    const third = await markDone(issueId, runId);
+    expect(third.status, JSON.stringify(third.body)).toBe(200);
+    expect(third.body.status).toBe("done");
+
+    const missed = await db.select().from(activityLog).where(and(
+      eq(activityLog.entityId, issueId),
+      eq(activityLog.action, "issue.memory_gate_missed"),
+    ));
+    expect(missed).toHaveLength(1);
   });
 
-  it("accepts an agent done that carries the graph reference in its closing comment", async () => {
+  it("accepts a done that ends its closing comment with a graph reference", async () => {
     const { runId, issueId } = await seedCheckedOutIssue("Gate route pass task");
 
-    const res = await request(appFor(runId))
-      .patch(`/api/issues/${issueId}`)
-      .send({
-        status: "done",
-        comment: "Finished.\nmemory-capture: argo:design/KG/SystemArchitecture.json#memory-route-1",
-      });
+    const res = await markDone(issueId, runId, {
+      comment: "Finished.\nmemory-capture: argo:design/KG/SystemArchitecture.json#memory-route-1",
+    });
 
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.status).toBe("done");
+  });
+
+  it("accepts an explicit none: exemption", async () => {
+    const { runId, issueId } = await seedCheckedOutIssue("Gate route exempt task");
+
+    const res = await markDone(issueId, runId, {
+      comment: "Finished.\nmemory-capture: none: ARGO MCP unavailable in this harness",
+    });
+
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    const exempted = await db.select().from(activityLog).where(and(
+      eq(activityLog.entityId, issueId),
+      eq(activityLog.action, "issue.memory_gate_exempted"),
+    ));
+    expect(exempted).toHaveLength(1);
   });
 });
