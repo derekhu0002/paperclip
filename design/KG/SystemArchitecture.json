@@ -3058,7 +3058,7 @@
         },
         {
           "name": "deliveryStatus",
-          "value": "implemented (plugin package; opt-in install, not in self-hosted auto-install list)"
+          "value": "implemented (strict graph mode; opt-in install)"
         },
         {
           "name": "footprint",
@@ -3066,7 +3066,12 @@
         },
         {
           "name": "verification",
-          "value": "pnpm --filter @paperclipai/plugin-done-memory-gate test (16 passed); typecheck; build; validateSystemArchitecture passed"
+          "value": "pnpm --filter @paperclipai/plugin-done-memory-gate test (22 passed); typecheck; build; validateSystemArchitecture passed"
+        },
+        {
+          "name": "commit",
+          "value": "a90b84e2d1c9d039c342443466dc3659cbfbe0c1",
+          "description": "fix(plugins): require graph memory references for done"
         }
       ]
     },
@@ -3103,8 +3108,8 @@
         },
         {
           "name": "commit",
-          "value": "pending-strict-graph",
-          "description": "strict graph mode follow-up commit"
+          "value": "a90b84e2d1c9d039c342443466dc3659cbfbe0c1",
+          "description": "fix(plugins): require graph memory references for done — strict argo:<graphKey>#<elementId>, document fallback opt-in"
         }
       ]
     }
