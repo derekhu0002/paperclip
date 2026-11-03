@@ -3049,6 +3049,25 @@
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/manifest.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/manifest.spec.ts"
         }
+      ],
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "2932fa775d0b32eea53669d623009c52737bf7ed",
+          "description": "feat(plugins): gate done transitions on memory capture — packages/plugins/plugin-done-memory-gate, skills/paperclip/SKILL.md, pnpm-lock.yaml, design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "deliveryStatus",
+          "value": "implemented (plugin package; opt-in install, not in self-hosted auto-install list)"
+        },
+        {
+          "name": "footprint",
+          "value": "registration: new plugin package + skill text; no server/core route changes"
+        },
+        {
+          "name": "verification",
+          "value": "pnpm --filter @paperclipai/plugin-done-memory-gate test (16 passed); typecheck; build; validateSystemArchitecture passed"
+        }
       ]
     }
   ],
