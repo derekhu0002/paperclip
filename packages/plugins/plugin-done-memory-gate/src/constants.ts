@@ -13,10 +13,8 @@ export const MEMORY_MARKER_PATTERN = /(?:^|\n)[ \t]*(?:[-*][ \t]+)?memory-captur
  */
 export const GRAPH_MEMORY_REFERENCE_PATTERN = /^argo:\S+#\S+$/;
 
-export const MAX_GATE_ATTEMPTS = 3;
 export const STATE_NAMESPACE = "done-memory-gate";
-export const STATE_KEY_ATTEMPTS = "attempts";
-export const STATE_KEY_EXHAUSTED_NOTIFIED = "exhausted-notified";
+/** Set once a reminder follow-up issue was created for a finished conversation. */
+export const STATE_KEY_REMINDED = "reminded";
 
-export const MEMORY_CAPTURE_SKILL_KEY = "task-memory-capture";
 export const CONTRACT_COMMENT_PREFIX = "[done-memory-gate]";

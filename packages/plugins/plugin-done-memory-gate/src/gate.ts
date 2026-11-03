@@ -1,11 +1,9 @@
 import type { Issue, PluginContext, PluginEvent } from "@paperclipai/plugin-sdk";
 import {
   CONTRACT_COMMENT_PREFIX,
-  MAX_GATE_ATTEMPTS,
-  MEMORY_CAPTURE_SKILL_KEY,
   MEMORY_DOCUMENT_KEY,
-  STATE_KEY_ATTEMPTS,
-  STATE_KEY_EXHAUSTED_NOTIFIED,
+  PLUGIN_ID,
+  STATE_KEY_REMINDED,
   STATE_NAMESPACE,
 } from "./constants.js";
 import { isDoneTransition, isPluginOperationIssue } from "./done-transition.js";
@@ -17,69 +15,58 @@ import {
 export type GateOutcome =
   | { action: "ignored"; reason: string }
   | { action: "passed"; evidence: MemoryEvidence }
-  | { action: "reverted"; attempts: number }
-  | { action: "soft-reminder"; dependents: number }
-  | { action: "attempt-cap"; notified: boolean };
+  | { action: "reminded"; followUpIssueId: string };
 
-function attemptKey(issueId: string) {
+function remindedKey(issueId: string) {
   return {
     scopeKind: "issue" as const,
     scopeId: issueId,
     namespace: STATE_NAMESPACE,
-    stateKey: STATE_KEY_ATTEMPTS,
+    stateKey: STATE_KEY_REMINDED,
   };
-}
-
-function exhaustedKey(issueId: string) {
-  return {
-    scopeKind: "issue" as const,
-    scopeId: issueId,
-    namespace: STATE_NAMESPACE,
-    stateKey: STATE_KEY_EXHAUSTED_NOTIFIED,
-  };
-}
-
-function readAttempts(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? Math.floor(value)
-    : 0;
 }
 
 function issueLabel(issue: Issue): string {
   return issue.identifier ?? issue.id;
 }
 
-function contractBody(issue: Issue, attemptsLeft: number, documentFallback: boolean): string {
+function followUpDescription(issue: Issue, documentFallback: boolean): string {
   return [
-    `${CONTRACT_COMMENT_PREFIX} This task was marked \`done\` without a memory element in the knowledge graph, so it is back in \`in_progress\`.`,
+    `这是 done-memory-gate 自动创建的收尾任务：${issueLabel(issue)} 已完成，但未检测到图谱记忆。`,
     "",
-    "Write the lessons, key decisions, and pitfalls into the project's ARGO/ArchGraph memory graph before marking it done again:",
+    "请在这个任务里完成记忆捕获，然后把它置为 done：",
     "",
-    "1. Use the ARGO/ArchGraph MCP tools (`addArchitectureElement` or `updateArchitectureElement`) to write a Tier 2 memory element.",
-    "2. Leave one closing-comment line naming the element: `memory-capture: argo:<graphKey>#<elementId>`.",
+    `1. 读原任务 ${issueLabel(issue)}（父任务）的最终 comment、文档和结果。`,
+    "2. 把经验教训、关键决策（含被否决方案与原因）、坑与修复，写入项目 ARGO/ArchGraph 记忆图（T2 长期记忆）：",
+    "   使用 addArchitectureElement（或 updateArchitectureElement），拿到返回的元素 id。",
+    `3. 在本任务留一行引用：\`memory-capture: argo:<graphKey>#<elementId>\`（例如 argo:design/KG/SystemArchitecture.json#memory-xxx）。`,
     ...(documentFallback
-      ? ["", `Operator fallback is enabled: a \`${MEMORY_DOCUMENT_KEY}\` issue document with 200+ characters also satisfies the gate.`]
+      ? ["", `本实例允许兜底：保存 ${MEMORY_DOCUMENT_KEY} 文档（200+ 字符）也可以。`]
       : []),
-    "",
-    `The plugin-managed skill \`${MEMORY_CAPTURE_SKILL_KEY}\` describes the full contract. Gate attempts left for ${issueLabel(issue)}: ${attemptsLeft}.`,
   ].join("\n");
 }
 
-function softReminderBody(dependents: number): string {
+function reminderComment(followUpIssueId: string): string {
   return [
-    `${CONTRACT_COMMENT_PREFIX} This task is staying \`done\` because ${dependents} dependent task(s) already depend on it, and reverting it could release them prematurely.`,
+    `${CONTRACT_COMMENT_PREFIX} 本任务已结束，但未检测到图谱记忆。`,
     "",
-    "The graph memory capture is still missing. For the next task, write the lessons, key decisions, and pitfalls into the project's ARGO/ArchGraph memory graph before marking it done.",
-    "Then add one closing-comment line: `memory-capture: argo:<graphKey>#<elementId>`.",
+    `已创建收尾任务 ${followUpIssueId} 并指派给同一 Agent；完成后把记忆元素引用写在那条任务的 comment 中。`,
   ].join("\n");
 }
 
-function exhaustedBody(): string {
-  return [
-    `${CONTRACT_COMMENT_PREFIX} Graph memory capture is still missing, but this task reached the gate attempt cap.`,
-    "",
-    "Marking it `done` anyway to avoid a done/revert loop. Write the memory element into the project graph and add a `memory-capture: argo:<graphKey>#<elementId>` comment when you can.",
-  ].join("\n");
+async function readDocumentFallbackConfig(
+  ctx: PluginContext,
+  companyId: string,
+): Promise<boolean> {
+  try {
+    const config = await ctx.config.get(companyId);
+    return config?.allowIssueDocumentFallback === true;
+  } catch (error) {
+    ctx.logger.warn("done-memory-gate could not read its config; using strict graph mode", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
 }
 
 async function collectEvidence(
@@ -99,31 +86,6 @@ async function collectEvidence(
     memoryDocumentBody: document?.body,
     allowIssueDocumentFallback,
   });
-}
-
-async function ensureCaptureSkill(ctx: PluginContext, companyId: string): Promise<void> {
-  try {
-    await ctx.skills.managed.reconcile(MEMORY_CAPTURE_SKILL_KEY, companyId);
-  } catch (error) {
-    ctx.logger.warn("done-memory-gate could not reconcile its managed skill", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
-}
-
-async function readDocumentFallbackConfig(
-  ctx: PluginContext,
-  companyId: string,
-): Promise<boolean> {
-  try {
-    const config = await ctx.config.get(companyId);
-    return config?.allowIssueDocumentFallback === true;
-  } catch (error) {
-    ctx.logger.warn("done-memory-gate could not read its config; using strict graph mode", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return false;
-  }
 }
 
 export async function handleIssueUpdated(
@@ -158,43 +120,31 @@ export async function handleIssueUpdated(
   }
 
   const allowIssueDocumentFallback = await readDocumentFallbackConfig(ctx, companyId);
-
   const evidence = await collectEvidence(ctx, issue, allowIssueDocumentFallback);
   if (evidence) return { action: "passed", evidence };
 
-  const attempts = readAttempts(await ctx.state.get(attemptKey(issue.id)));
-  if (attempts >= MAX_GATE_ATTEMPTS) {
-    const alreadyNotified = (await ctx.state.get(exhaustedKey(issue.id))) === true;
-    if (!alreadyNotified) {
-      await ctx.state.set(exhaustedKey(issue.id), true);
-      await ctx.issues.createComment(issue.id, exhaustedBody(), companyId);
-    }
-    return { action: "attempt-cap", notified: !alreadyNotified };
+  if ((await ctx.state.get(remindedKey(issue.id))) === true) {
+    return { action: "ignored", reason: "already reminded" };
   }
+  await ctx.state.set(remindedKey(issue.id), true);
 
-  const relations = await ctx.issues.relations.get(issue.id, companyId);
-  const dependents = relations.blocks?.length ?? 0;
-  await ctx.state.set(attemptKey(issue.id), attempts + 1);
-  await ensureCaptureSkill(ctx, companyId);
-
-  if (dependents > 0) {
-    await ctx.issues.createComment(issue.id, softReminderBody(dependents), companyId);
-    return { action: "soft-reminder", dependents };
-  }
-
-  await ctx.issues.update(issue.id, { status: "in_progress" }, companyId);
-  await ctx.issues.createComment(
-    issue.id,
-    contractBody(issue, MAX_GATE_ATTEMPTS - (attempts + 1), allowIssueDocumentFallback),
-    companyId,
-  );
   try {
-    await ctx.issues.requestWakeup(issue.id, companyId);
-  } catch (error) {
-    ctx.logger.warn("done-memory-gate reverted the issue but could not wake its assignee", {
-      issueId: issue.id,
-      error: error instanceof Error ? error.message : String(error),
+    const followUp = await ctx.issues.create({
+      companyId,
+      projectId: issue.projectId ?? undefined,
+      parentId: issue.id,
+      title: `记录任务记忆：${issueLabel(issue)}`,
+      description: followUpDescription(issue, allowIssueDocumentFallback),
+      status: "todo",
+      priority: "low",
+      assigneeAgentId: issue.assigneeAgentId,
+      originKind: `plugin:${PLUGIN_ID}`,
+      originId: issue.id,
     });
+    await ctx.issues.createComment(issue.id, reminderComment(followUp.id), companyId);
+    return { action: "reminded", followUpIssueId: followUp.id };
+  } catch (error) {
+    await ctx.state.set(remindedKey(issue.id), false);
+    throw error;
   }
-  return { action: "reverted", attempts: attempts + 1 };
 }

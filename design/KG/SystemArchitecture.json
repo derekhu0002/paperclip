@@ -3003,49 +3003,35 @@
     },
     {
       "id": "fork-cap-done-memory-gate",
-      "name": "任务完成前记忆捕获门禁（done memory gate）",
+      "name": "任务结束记忆检查与提醒（done memory gate）",
       "type": "Application Service",
-      "description": "Agent 把任务置为 done 时，必须先在项目 ARGO/ArchGraph 记忆图写入元素，并在 done comment 留 `memory-capture: argo:<graphKey>#<elementId>`。插件 `@paperclipai/plugin-done-memory-gate` 订阅 `issue.updated`；默认 strict 只接受图谱元素引用，issue document 必须由 operator 显式开启 `allowIssueDocumentFallback` 才可作为旁路。证据缺失且该 issue 没有任何依赖者时，回退 `in_progress` 并唤醒 assignee；存在依赖者时保留 done 并评论提醒，避免依赖被提前释放的竞态。仅约束 agent actor 且 assigneeAgentId 非空的 issue，人类关闭与插件操作 issue 不拦截；每 issue 最多回退 3 次。局限：插件强制 `argo:<graphKey>#<elementId>` 引用格式，但在未配置 ARGO 端点时无法验证元素真实存在。",
+      "description": "Agent 把任务置为 done（对话最终结束）时，检查本次对话是否已在项目 ARGO/ArchGraph 记忆图留下元素：comment 行 `memory-capture: argo:<graphKey>#<elementId>`；默认 strict，issue document 仅在 operator 开启 `allowIssueDocumentFallback` 时算。缺失时不改状态、不唤醒原任务，而是发一条提醒评论并创建一个子任务「记录任务记忆：<identifier>」，指派给同一 Agent（originKind=plugin，后续不再被本检查拦截）。同一 issue 只提醒一次（plugin state）。中间 run 不检查。仅约束 agent actor 且 assigneeAgentId 非空的 issue；人类关闭与插件操作 issue 不拦截。局限：只强制图谱引用格式，不验证元素真实存在。",
       "testcases": [
-        {
-          "name": "Agent done without memory evidence is sent back",
-          "type": "Acceptance Test",
-          "description": "GIVEN an agent-assigned issue with no dependents and no memory evidence, WHEN an agent marks it done, THEN the issue returns to in_progress, a contract comment is posted, and the assignee is woken.",
-          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/gate.spec.ts",
-          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/gate.spec.ts"
-        },
         {
           "name": "Memory evidence satisfies the gate",
           "type": "Acceptance Test",
-          "description": "GIVEN a done transition whose issue has a `memory-capture: argo:<graphKey>#<elementId>` comment, WHEN the gate runs, THEN the done status is preserved; a plain marker or issue document alone does not pass in strict mode.",
+          "description": "GIVEN a done transition whose issue has a `memory-capture: argo:<graphKey>#<elementId>` comment, WHEN the check runs, THEN no follow-up is created; a plain marker or issue document alone does not pass in strict mode.",
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/memory-evidence.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/memory-evidence.spec.ts"
         },
         {
-          "name": "Issues with dependents are not reverted",
-          "type": "Acceptance Test",
-          "description": "GIVEN an issue that blocks another issue, WHEN its done transition lacks memory evidence, THEN the status stays done and only a reminder comment is posted.",
-          "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/dependency-safety.spec.ts",
-          "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/dependency-safety.spec.ts"
-        },
-        {
           "name": "Human and unassigned closes are not gated",
           "type": "Acceptance Test",
-          "description": "GIVEN a done transition by a human actor or an issue without an agent assignee, WHEN the gate runs, THEN nothing is reverted or commented.",
+          "description": "GIVEN a done transition by a human actor or an issue without an agent assignee, WHEN the check runs, THEN no comment and no follow-up task are created.",
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/gate.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/gate.spec.ts"
         },
         {
-          "name": "Attempt cap stops the done/revert loop",
+          "name": "Missing memory creates one follow-up task",
           "type": "Acceptance Test",
-          "description": "GIVEN an issue whose memory gate already reached the attempt cap, WHEN it is marked done without evidence, THEN the status stays done and the gate stops reverting.",
+          "description": "GIVEN an agent-assigned issue with a done transition and no graph memory reference, WHEN the check runs, THEN the issue stays done, one reminder comment is posted, and exactly one todo follow-up task is created for the same agent under the finished issue.",
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/gate.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/gate.spec.ts"
         },
         {
-          "name": "Manifest declares capabilities and managed skill",
+          "name": "Manifest declares capabilities and strict default",
           "type": "Acceptance Test",
-          "description": "GIVEN the plugin manifest, WHEN it is inspected, THEN it declares the issue/event/skill/state capabilities, the task-memory-capture skill, and defaults `allowIssueDocumentFallback` to false.",
+          "description": "GIVEN the plugin manifest, WHEN it is inspected, THEN it declares events/issue/comment/document/state capabilities, no update or wakeup capability, and defaults `allowIssueDocumentFallback` to false.",
           "Input": "pnpm --filter @paperclipai/plugin-done-memory-gate test -- tests/manifest.spec.ts",
           "acceptanceCriteria": "packages/plugins/plugin-done-memory-gate/tests/manifest.spec.ts"
         }
@@ -3079,7 +3065,7 @@
       "id": "paperclip-done-memory-gate-2026-11-03",
       "name": "Paperclip done 前记忆捕获门禁（plugin-done-memory-gate，2026-11-03）",
       "type": "Requirement",
-      "description": "【目标】让 agent 执行的任务在转为 done 前，把经验教训、关键决策写入记忆知识图谱。\n\n【现状结论】Paperclip 平台层原本没有该机制：done 转换只写状态/activity/依赖释放（server/src/routes/issues.ts:16097、19730），DB 无 memory 概念。所谓“写记忆”全靠 agent 全局 AGENTS.md 自觉，不绑定 done。\n\n【方案决策】不做 core 改动，新增插件 @paperclipai/plugin-done-memory-gate：events.subscribe 监听 issue.updated；仅拦截 agent actor 且 assigneeAgentId 非空的 issue。**严格模式（默认）只接受图谱元素引用 `memory-capture: argo:<graphKey>#<elementId>`**；issue document `memory` 仅在 operator 显式开启 `allowIssueDocumentFallback` 时才算。缺失时：无任何依赖者 → 回退 in_progress + 评论 + 唤醒；有依赖者 → 保留 done 只评论（避开依赖自动释放竞态）。每 issue 最多回退 3 次。ship 托管 skill task-memory-capture，并在 paperclip skill 加 “Memory Capture Before Done”。\n\n【关键坑】① 插件面 API 是 ctx.issues.relations.get；② 门禁自己的提示评论包含 marker 文本，扫证据时必须过滤 CONTRACT_COMMENT_PREFIX；③ marker 必须行首锚定且必须是 argo:<graph>#<element>；④ 插件无法验证元素真实存在，未配置 ARGO 端点时只是强制引用格式。\n\n【验证】pnpm --filter @paperclipai/plugin-done-memory-gate test（22 passed）、typecheck、build、validateSystemArchitecture 均通过。\n\n【落地状态】2026-11-03 首版 2932fa775；随后收紧为 strict graph 并追加提交。插件 opt-in，需 operator 安装。ArchGraph 元素 fork-cap-done-memory-gate 含可执行验收用例。\n\n【遗留】未在 47/本地实例实际安装启用；未接 ARGO 端点做元素存在性验证；托管 skill 未自动分配。",
+      "description": "【目标】每个 agent 对话在最终结束（issue 置 done）时，能识别需要记住的内容并写入项目 ARGO/ArchGraph 记忆图；中间 run 不要求。\n\n【人类裁决】不再改 Paperclip skill（全局 AGENTS.md 已含记忆触发规则）；不做事后回退（避免依赖自动释放竞态）；只做一次结束检查和提醒。\n\n【实现】插件 @paperclipai/plugin-done-memory-gate（packages/plugins/plugin-done-memory-gate）：订阅 issue.updated；仅在 agent actor、assigneeAgentId 非空、真实 done 转换、非插件操作 issue 时检查。默认 strict：只接受 comment 行 `memory-capture: argo:<graphKey>#<elementId>`；issue document `memory` 需 operator 开 allowIssueDocumentFallback。缺失时保持 done，发一条提醒评论，并创建一个子任务「记录任务记忆：<identifier>」指派给同一 Agent（originKind=plugin），同一 issue 只提醒一次（plugin state）。不改状态、不唤醒原任务，因此无依赖竞态；中间 run 不检查。\n\n【关键坑】① 插件面 API 是 ctx.issues.relations.get（本版已不再使用关系）；② 门禁自己的提醒评论会包含 marker 文本，扫证据时过滤 CONTRACT_COMMENT_PREFIX；③ marker 行首锚定且必须 argo:<graph>#<element>；④ 无法验证元素真实存在，只强制引用格式。\n\n【验证】pnpm --filter @paperclipai/plugin-done-memory-gate test（17 passed）、typecheck、build、validateSystemArchitecture 均通过。\n\n【落地状态】2026-11-03 首版 2932fa775；strict 图引用 a90b84e2d；本版改为结束检查+收尾任务。插件 opt-in，未装实例。\n\n【遗留】未在 47/本地安装启用；未接 ARGO 端点做存在性验证；follow-up 任务若被忽略不会重复提醒（设计如此）。",
       "attributes": [
         {
           "name": "memoryTier",
