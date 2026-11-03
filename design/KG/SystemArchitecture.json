@@ -3044,7 +3044,7 @@
         },
         {
           "name": "deliveryStatus",
-          "value": "implemented (strict graph mode; opt-in install)"
+          "value": "implemented (end-of-conversation check + follow-up reminder; opt-in install)"
         },
         {
           "name": "footprint",
@@ -3052,12 +3052,17 @@
         },
         {
           "name": "verification",
-          "value": "pnpm --filter @paperclipai/plugin-done-memory-gate test (22 passed); typecheck; build; validateSystemArchitecture passed"
+          "value": "pnpm --filter @paperclipai/plugin-done-memory-gate test (17 passed); typecheck; build; validateSystemArchitecture passed"
         },
         {
           "name": "commit",
           "value": "a90b84e2d1c9d039c342443466dc3659cbfbe0c1",
           "description": "fix(plugins): require graph memory references for done"
+        },
+        {
+          "name": "commit",
+          "value": "0e34d600d9d609b3d8640374e390760697eb6c0d",
+          "description": "refactor(plugins): check graph memory at conversation end — no revert, one reminder follow-up task, skill edits reverted"
         }
       ]
     },
@@ -3096,6 +3101,11 @@
           "name": "commit",
           "value": "a90b84e2d1c9d039c342443466dc3659cbfbe0c1",
           "description": "fix(plugins): require graph memory references for done — strict argo:<graphKey>#<elementId>, document fallback opt-in"
+        },
+        {
+          "name": "commit",
+          "value": "0e34d600d9d609b3d8640374e390760697eb6c0d",
+          "description": "refactor(plugins): check graph memory at conversation end"
         }
       ]
     }
