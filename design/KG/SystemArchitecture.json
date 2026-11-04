@@ -3334,6 +3334,11 @@
         {
           "name": "remediation3",
           "value": "2026-11-04 后续：vsoc 公司剩余 5 个迁移时手动暂停的旧 agent（情报负责人 94cfe6f7、取证分析师 920abbf9、威胁情报洞察 544ce22f、恶意样本分析师 b4c75c4b、情报分析师 82a91f92）全部 operator 收尾为 status=idle/lifecycle_state=ready、holds=[]、pause/error/operation 清空、version+1。复核：实例 128 agents 中 paused/pausing=0、lifecycle_pending=0；vsoc 20 agents 均 idle/ready。注意：这些是旧 vsoc 副本，与「威胁情报中心」内同名新副本并存。"
+        },
+        {
+          "name": "commit",
+          "value": "69e2a3ce20760cca0c8f628c0fb9e7e11282bf62",
+          "description": "chore(argo): record 2026-11-04 CTI Grok Bot onboarding and DFIR resume memory — design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     },
@@ -3382,6 +3387,11 @@
         {
           "name": "repoChange",
           "value": "none (runtime onboarding on 47)"
+        },
+        {
+          "name": "commit",
+          "value": "69e2a3ce20760cca0c8f628c0fb9e7e11282bf62",
+          "description": "chore(argo): record 2026-11-04 CTI Grok Bot onboarding and DFIR resume memory — design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
