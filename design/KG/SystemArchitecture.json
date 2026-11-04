@@ -209,7 +209,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-11-01"
+          "value": "2026-11-03"
         },
         {
           "name": "memoryTier",
@@ -221,7 +221,7 @@
         },
         {
           "name": "handoff",
-          "value": "下一步：合并上游 127 个提交（优先远端文件不落磁盘 / run log 入 S3 / Stop 后 native workspace 恢复）；合并前按 10 个差异域核对；backlog 规则后续可开关化/抽模块；插件暂缓。47 运行 294f9f085，回滚镜像 c345924201ce。"
+          "value": "CTI-24/CTI-25 待 agent 完成；47 运行 50fb2810c（记忆门禁 v2 已生效）；ACR 50fb2810c+latest 已发布；下载 http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar；后续仅图谱提交 c9c237300 未部署。上会话细节见 T2 threat-intel-center-migration-2026-11-01 / paperclip-upstream-merge-assessment-2026-10-21。"
         },
         {
           "name": "agentChatFinding",
@@ -486,7 +486,7 @@
         },
         {
           "name": "sessionDate",
-          "value": "2026-11-01"
+          "value": "2026-11-03"
         },
         {
           "name": "vsocOrgV2",
@@ -590,9 +590,9 @@
           "value": "paperclip-upstream-merge-assessment-2026-10-21（本次事实属性）, threat-intel-center-migration-2026-11-01（上一会话）"
         }
       ],
-      "description": "【T1 会话总结 · 2026-11-01（上游同步 / watchdog / backlog / 47 部署）】\n\n【目标】对齐上游主干、清理 fork 侵入、实现 backlog 需求篮并部署到 47。\n\n【完成】\n1) 合并上游 013d01f08（381 commits），15 处冲突全部手工解决；迁移 0378_peaceful_synch 重编为 0417（snapshot 链 0416、journal idx 417、SQL 幂等）。\n2) 修 fork 的 agent 指派规则与上游 Coordinator chat-bound 默认的冲突（c34592420）：先认上游默认，规则后移到项目 404 / 指派 403 之后。\n3) 移除 idle watchdog（04be015e8，−221 行含文档）：heartbeat/scheduling.ts、heartbeat.ts、server/index.ts、scheduling.test.ts 与上游 0 diff。\n4) 实现 backlog 需求篮（294f9f085）：agent 创建任务在有效状态为 backlog 时可无负责人（省略 status 即 backlog）；todo/in_progress 等可执行状态仍必须有 agent；backlog→todo/in_progress/in_review 的 PATCH 必须带 agent 否则 422。\n5) 验证：Linux 全量 28,474 通过 / 0 断言失败（3 个仅缺 cargo）；定向 11/11 + 25/25 + 54/54 + 64/64。\n6) 部署 paperclip-fork:294f9f085 到 47：health ok、commit=294f9f085、插件 1/1、路由 200；checkout 用 git bundle 同步到 8d6fe004e。\n\n【关键事实】最近合入上游节点 = 2badf8a4a（2026-10-29，merge 013d01f08）；该节点及全部祖先已合入。上游 tip = 1d348bbef（2026-11-01），其后 127 commits 未合。fork 差异 = 128 文件 +10,466/−155（新增 54 +8,444；改上游 74 +2,022/−155；ARGO 数据 +3,603）。依赖自动释放是上游原生，不是 fork。\n\n【决策】跨项目知识图谱 schema 插件暂缓；定位=跨项目交付的“共同语言台账”（声明/继承/使用三层 + 关系签名 + 类型×项目矩阵），详见 T2 属性。\n\n【遗留】合并上游 127 提交（优先远端文件离盘 / S3 日志 / 恢复类）；B 域规则抽模块；J 域 SSH 重试提上游；LTM 视图已达 15 元素上限，下次新增 T2 前先拆子视图。\n\n【关联】上一 T1（威胁情报中心搬迁 + 47 容器误删恢复）细节见 T2 threat-intel-center-migration-2026-11-01；本次事实写入 paperclip-upstream-merge-assessment-2026-10-21 的属性。",
+      "description": "【T1 会话总结 · 2026-11-03（记忆门禁 v2 / 47 部署 / CTI-24 恢复）】\n\n【目标】确认并实现“任务 done 前写记忆图谱”；按 ArchGraph 协议发布；部署 47 并开放下载；处理威胁情报中心卡住任务。\n\n【完成】\n1) 记忆门禁：插件方案（事后）→ core 写前 409（PATCH done 前检查）→ ArchGraph 协议 v2（argo 或 none: 豁免；大小写敏感；最多阻断 2 次，第 3 次放行并记录 missed）；插件删除；skill 契约置于末尾无标题块，避免 capability inventory 166 行基线漂移。\n2) ArchGraph #18 已提/已关；框架 0.29.31 发布协议 v2。\n3) 47 部署 50fb2810c：health ok、公网/UI 200、插件 1/1；ACR 50fb2810c+latest（digest ed1cf61e…）；下载已开放（sha256 489723ef…）。\n4) CTI-24：旧 run/stale wake/active recovery action/agent 卡 running 导致 comment wake 全 deferred；重置 agent、取消 stale wake、recovery action 结算 false_positive，并用 CTI-25 子任务重新唤醒（run c37e0d15）。\n\n【关键决策】\n- 不回退 done（避免依赖释放竞态），用写前 409；仅 agent actor + assignee，人类/board 不拦；PAPERCLIP_DONE_MEMORY_GATE=off 可关。\n- 部署先切容器验证，再做慢的 ACR/下载。\n- 卡住任务：legacy 执行状态持续 defer 时，用新子任务作唤醒载体。\n\n【坑】新增 skill 标题会改 capability 基线；Windows 脚本入口判断失效；docker rename 不停容器；nginx reload 首请求 502；recovery backstop 不清 agent/wake；legacy wake 可能长期 deferred。\n\n【遗留】CTI-24/25 待完成；47 只到 50fb2810c（图谱提交未部署）。\n\n【衔接】T2：paperclip-done-memory-gate-2026-11-03、2026-11-03-47-deploy-50fb2810c、threat-intel-cti24-stuck-recovery-2026-11-03、project-manager-session-2026-11-03。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#project-manager-session-2026-11-03",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-11-01：上游同步 / watchdog 移除 / backlog 需求篮 / 47 部署）",
+      "name": "T1 会话总结（2026-11-03：记忆门禁 v2 / 47 部署 / CTI-24 恢复）",
       "type": "Requirement"
     },
     {
@@ -3264,6 +3264,34 @@
       "id": "threat-intel-cti24-stuck-recovery-2026-11-03",
       "name": "威胁情报中心 CTI-24 卡死恢复（2026-11-03）",
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-03"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-11-03"
+        },
+        {
+          "name": "relatedElements",
+          "value": "paperclip-done-memory-gate-2026-11-03, 2026-11-03-47-deploy-50fb2810c, threat-intel-cti24-stuck-recovery-2026-11-03, threat-intel-center-migration-2026-11-01"
+        }
+      ],
+      "description": "【会话 2026-11-03 · 记忆门禁 v2 / 47 部署 / CTI-24 恢复】\n\n【目标】①确认并实现“任务 done 前写记忆图谱”；②按 ArchGraph 协议发布；③部署到 47 并开放镜像下载；④处理威胁情报中心卡住任务。\n\n【完成】\n1) 记忆门禁演进：插件（事件事后/子任务/agents.invoke）→ core 写前门禁（PATCH done 前 409 task_memory_required）→ ArchGraph 协议 v2（argo 引用或 none: 豁免；前缀大小写敏感；最多阻断 2 次，第 3 次放行并记 issue.memory_gate_missed）。插件已删除；skill 契约放在 SKILL.md 末尾无标题块，避免 capability inventory 166 行基线漂移。\n2) ArchGraph issue #18 已提、已留言并关闭；框架 0.29.31 发布协议 v2，明确“框架定协议、控制面执行”。\n3) 47 部署：镜像 paperclip-fork:50fb2810c（commit 50fb2810cf582b0893334cd4454e553dfd336a1c）；health ok、公网 https 200、UI 200、plugin-loader 1/1；旧容器/镜像保留回滚；47 checkout 同步。\n4) ACR：paperclip/paperclip-fork:50fb2810c + latest，digest sha256:ed1cf61e…，拉回验证 gate/skill 内容。\n5) 下载：http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar，sha256=489723ef…，nginx /downloads/ 已开放，外部 200。\n6) 威胁情报中心 CTI-24：根因是旧 run ed8f55d4 被 recovery backstop 终止后留下 stale claimed wake + active recovery action + agent 卡 running，comment wake 全 deferred；已重置 agent、取消 stale wake、把 recovery action 结算为 false_positive，并用 CTI-25 子任务重新唤醒（run c37e0d15 running）。恢复细节见 threat-intel-cti24-stuck-recovery-2026-11-03。\n\n【关键决策】\n- 不在控制面回退 done（会与依赖自动释放竞态）；用写前 409，同 run 可补救。\n- 门禁只在 agent actor + assigneeAgentId 非空时生效；人类/board 不拦；PAPERCLIP_DONE_MEMORY_GATE=off 可关。\n- 部署顺序：先切容器验证，再做慢的 ACR/下载（人类提醒）。\n- 恢复卡住任务：旧 issue 的 legacy 执行状态持续 defer 时，用新子任务作恢复载体最稳。\n\n【坑】① 新增 skill 标题会改变 capability contract/inventory 固定基线；② Windows 下 generate-capability-contract 直接入口判断失效，需 import main；③ docker rename 不停容器；④ nginx reload 首请求可能 502；⑤ recovery backstop 终止 run 不会自动清 agent.status/wake；⑥ legacy 执行状态的 comment wake 可能长期 deferred，resolve recovery action 也不一定解除。\n\n【遗留】CTI-24/CTI-25 待 agent 完成；ACR 已发布；记忆门禁已随镜像生效；47 与 origin HEAD=50fb2810c（后续 KGs c9c237300 未部署，仅图谱）。\n\n【衔接】细节见 T2：paperclip-done-memory-gate-2026-11-03（门禁）、2026-11-03-47-deploy-50fb2810c（部署/下载）、threat-intel-cti24-stuck-recovery-2026-11-03（恢复）。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#project-manager-session-2026-11-03",
+      "id": "project-manager-session-2026-11-03",
+      "name": "T2 会话总结 2026-11-03：记忆门禁 v2 / 47 部署 / CTI-24 恢复",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -3440,7 +3468,8 @@
         "2026-10-27-47-deploy-opencode-permissions",
         "paperclip-skills-repo-portability-2026-10-29",
         "opencode-skill-isolation-home-fix-2026-10-30",
-        "2026-11-03-47-deploy-50fb2810c"
+        "2026-11-03-47-deploy-50fb2810c",
+        "project-manager-session-2026-11-03"
       ],
       "included_relationships": []
     },
