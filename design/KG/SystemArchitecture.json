@@ -3292,6 +3292,98 @@
       "id": "project-manager-session-2026-11-03",
       "name": "T2 会话总结 2026-11-03：记忆门禁 v2 / 47 部署 / CTI-24 恢复",
       "type": "Requirement"
+    },
+    {
+      "id": "vso-dfir-resume-harness-probe-timeout-2026-11-04",
+      "type": "Requirement",
+      "name": "旧 VSO DFIR 负责人 resume 卡在 verifying（harness 探针超时，2026-11-04）",
+      "description": "【现象】47 实例旧 vsoc 公司(29f175e7) 的「DFIR 负责人 · vso-dfir」(934bce3b) 被人工暂停(paused)后 resume，状态卡在 verifying/status=paused，lifecycleError=「Execution configuration check failed. The execution test timed out.」\n\n【根因】resume 走 harness 验证 agentHarnessVerificationService.verify → opencode-local test-environment 的 hello probe。该 managed 探针对 WSL 环境(100.87.205.43:2222)持续超时：默认 60s 超时；把 adapterConfig.helloProbeTimeoutSec 调到 180 后仍超时(约188s)。同一 WSL 目标上手工 `opencode run --format json --model deepseek/deepseek-flash`（stdin/SSH 两种方式）约 16–37s 返回，说明执行环境可用、探针链路本身慢/挂。对照：新威胁情报中心的 DFIR 负责人(cbece325) 跑同样的 test-environment 也 opencode_hello_probe_timed_out → 系统性问题，不是该 agent 或旧密钥独有。\n\n【处置】按迁移时既有做法（导入 agent 直接置 ready）做操作员收尾：DB 将 934bce3b 置 status=idle、lifecycle_state=ready、holds=[]、pause_reason/paused_at/lifecycle_error/lifecycle_operation=null、lifecycle_version+1；并移除临时加的 helloProbeTimeoutSec。API 复核 status=idle lifecycleState=ready lifecycleError=null。之前 created cli-auth board 令牌已用于 resume，任务结束吊销。\n\n【证据】lifecycle log: agentId=934bce3b phase=verifying stage=host failureCode=harness_probe_timed_out（operationId fd69b797, version 7）。test-environment 2026-11-04T03:40Z：status=warn，check opencode_hello_probe_timed_out（69s）；新 agent cbece325 同样 warn/超时(66s)。手工 SSH 探针 16s/37s 成功。\n\n【未做/遗留】① 未修复 managed hello probe 超时的代码根因（建议排查 probe 注入的 instructions/MCP 与模型调用，或让探针跳过 ARGO startup gate / 提高且可观测超时）。② 旧 vsoc 另有 2 个 agent 长期卡在 pausing（情报负责人 94cfe6f7、取证分析师 920abbf9），每 2s 重试、已累计约 10 万次；根因是各自 environment_lease 处于 pending_cleanup/failed，agentExecutionsHaveStopped 永判定未停止。实例共 12 条此类失败 SSH 租约，会阻塞任何 pause/terminate。\n\n【教训】① 不要求 harness 探针在带 ARGO 全局规则的 opencode 上 60s 内返回；探针应隔离 instructions/MCP。② resume 验证失败会自动重试，但状态会长期停在 verifying，需要人工收尾。③ pending_cleanup/failed 租约是 pause 卡死的隐藏原因。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-04"
+        },
+        {
+          "name": "company",
+          "value": "vsoc 29f175e7-7ec0-4d34-86e0-49f46dcedd72 (旧) / 威胁情报中心 f1b9f8ac (新)"
+        },
+        {
+          "name": "agent",
+          "value": "934bce3b-c8c7-4c84-92f5-77e5fd7ee926 DFIR 负责人 · vso-dfir (旧 vsoc)"
+        },
+        {
+          "name": "evidence",
+          "value": "failureCode=harness_probe_timed_out op=fd69b797 ver=7; test-env 69s warn; cbece325 66s warn; manual SSH 16s ok"
+        },
+        {
+          "name": "outstanding",
+          "value": "managed hello probe systemic timeout; 2 agents stuck pausing (94cfe6f7,920abbf9) + 12 stale pending_cleanup leases"
+        },
+        {
+          "name": "remediation2",
+          "value": "2026-11-04 遗留项2已修复：将 12 条 pending_cleanup/failed 的 SSH environment_leases 统一置为 status=released、cleanup_status=null、released_at=coalesce(原值,now())、failure_reason=operator_reconciled_cleanup_cap_failed，metadata 记录 operatorReconcileReason；未声称远程删除成功。随后情报负责人 94cfe6f7 与取证分析师 920abbf9 由 lifecycle worker 自行完成 pausing→paused，attempts 归零、无错误；复核 pausing_agents=0、stale_leases=0，且 8s 后 updated_at 不再变化，100k 级重试循环停止。"
+        },
+        {
+          "name": "remediation3",
+          "value": "2026-11-04 后续：vsoc 公司剩余 5 个迁移时手动暂停的旧 agent（情报负责人 94cfe6f7、取证分析师 920abbf9、威胁情报洞察 544ce22f、恶意样本分析师 b4c75c4b、情报分析师 82a91f92）全部 operator 收尾为 status=idle/lifecycle_state=ready、holds=[]、pause/error/operation 清空、version+1。复核：实例 128 agents 中 paused/pausing=0、lifecycle_pending=0；vsoc 20 agents 均 idle/ready。注意：这些是旧 vsoc 副本，与「威胁情报中心」内同名新副本并存。"
+        }
+      ]
+    },
+    {
+      "id": "paperclip-cti-grok-consultant-2026-11-04",
+      "name": "任务记录 2026-11-04：威胁情报中心新增咨询顾问 Agent 并接入本机 Grok Bot",
+      "type": "Requirement",
+      "description": "【目标】在 47 实例的公司「威胁情报中心」(f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6) 下，于「情报负责人 · vso-intel」(49d7b778-1dfb-4044-a09e-ce23246312a5) 下新增「咨询顾问 Agent」，并把本机 Grok Bot 0.75.0 接入该 Agent。\n\n【结果】\n- Agent: ee9d6b47-216a-4a13-b4dd-5b13e8ec8f89，role=general，reportsTo=49d7b778，adapterType=paperclip_runner，adapterConfig.provider=grok_bot，status=idle，lifecycleState=ready，heartbeat={enabled:false,wakeOnDemand:true,maxConcurrentRuns:1,skipTimerWhenNoActionableWork:true}。\n- Binding: 915b899f-d8b9-4c61-b970-e657175a41ae，status=ready，wakeVerified=true，routine.botName=威胁情报顾问，routine.verified=true (2026-11-04T14:31:11Z)，lastExchange=acknowledged。\n- OAuth grant: 1c499490-d9b1-436d-a28f-4eb2a9a1a340，company=CTI，purpose=agent，agent_id=ee9d6b47；agent.adapterConfig.externalBindingId=915b899f。\n- 页面：https://paperclip.derekworkspacev5.com/CTI/agents/agent/runtime\n\n【关键决策/证据】\n1) Grok 邀请/配对/配置 routine 的 HTTP 端点要求浏览器会话 source=session（server/src/routes/grok-bot.ts:25），board API key 403；因此 Agent 先用 POST /api/companies/:cid/agents 直接创建（CTI 无审批门），再用官方 broker 完成配对。\n2) 配对失败根因：用户在 Paperclip 授权页点了下方公司 Connect（先选 AIC），生成 AIC grant 并消费 OAuth request；正确路径是上方配对码表单，或由 Grok Bot 调用 paperclip_grok_pair。修复：在 Grok Bot 重新授权并选对 CTI 后，用服务器内 dotRunnerBroker(db).pair({grant}, code)（与 MCP paperclip_grok_pair 同一逻辑）把 binding 915b 绑到 CTI grant。\n3) 配对码只存在于浏览器；通过 Chrome UIA + 本机剪贴板读取并 stdin 传入容器，未在聊天/日志打印；配对码 SHA-256 与 binding 915b 匹配。\n4) 该实例 Grok Bot 开关已开：enableGrokBot/enablePublicMcp/enableNativeRunner=true；resourceUrl=https://paperclip.derekworkspacev5.com/mcp/runner。\n\n【坑/经验】\n- Grok 授权页同时有“配对码表单”和“公司选择 Connect”两块；点后者会创建普通/错公司 grant 并消费 request，导致 tools 一直被“先完成 agent 唤醒校验”拦住。\n- Grok plugins 为账号级；本机 Grok Bot 0.75.0 已登录，OAuth 回调为 https://www.cursor.com/agents/mcp/oauth/callback。\n- 容器内无 psql；可用 /app/packages/db/node_modules/postgres + docker exec node 查 DB；调用 server 源码/编译模块需 tsx（/app/node_modules/.pnpm/tsx@4.23.15/.../cli.mjs）且脚本需放在 /app/server 内以解析 @paperclipai/db。\n\n【交付/变更】纯 47 运行时 onboarding；无仓库代码改动，无 commit。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#paperclip-cti-grok-consultant-2026-11-04",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-04"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "company",
+          "value": "威胁情报中心 (f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6)"
+        },
+        {
+          "name": "agent",
+          "value": "咨询顾问 Agent (ee9d6b47-216a-4a13-b4dd-5b13e8ec8f89)"
+        },
+        {
+          "name": "reportsTo",
+          "value": "情报负责人 · vso-intel (49d7b778-1dfb-4044-a09e-ce23246312a5)"
+        },
+        {
+          "name": "binding",
+          "value": "915b899f-d8b9-4c61-b970-e657175a41ae"
+        },
+        {
+          "name": "grant",
+          "value": "1c499490-d9b1-436d-a28f-4eb2a9a1a340"
+        },
+        {
+          "name": "routine",
+          "value": "verified (botName=威胁情报顾问)"
+        },
+        {
+          "name": "repoChange",
+          "value": "none (runtime onboarding on 47)"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -3505,7 +3597,9 @@
       "included_elements": [
         "paperclip-session-2026-10-30-vsoc-threatintelligence",
         "archgraph-issue-17-argo-init-path-2026-10-30",
-        "threat-intel-cti24-stuck-recovery-2026-11-03"
+        "threat-intel-cti24-stuck-recovery-2026-11-03",
+        "vso-dfir-resume-harness-probe-timeout-2026-11-04",
+        "paperclip-cti-grok-consultant-2026-11-04"
       ],
       "included_relationships": []
     },
