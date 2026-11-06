@@ -3405,7 +3405,7 @@
       "id": "paperclip-single-machine-ubuntu-deployment-guide-2026-11-06",
       "type": "Requirement",
       "name": "Paperclip 单机部署指南（镜像部署 · 两步 · SSH 标准 · 2026-11-06）",
-      "description": "为内网单台 PC 重写的 Paperclip 单机部署指南（doc/DEPLOYMENT-SINGLE-MACHINE.md），采用“Paperclip 镜像部署 + Windows 仓库 + WSL 执行体 + SSH 标准通道”，人类只做两步。\n\n第一步 准备环境（人类）：a) 安装 Docker + WSL Ubuntu；b) clone dev/local-install 到 Windows；c) 安装 aGraph（npm i -g archgraph-argo + argo-deploy）；d) 初始化 aGraph（argo-init，单独一步）；e) 在仓库根目录打开 OpenCode TUI（opencode）新建会话，发送“拉取 Paperclip 镜像并启动控制台”。\n\n第二步 在 Paperclip 里下指令：打开镜像启动的控制台，新建任务指派给 Paperclip 执行 Agent，指令为“部署 Paperclip 执行器：准备 WSL 执行体与 SSH 标准通道，接入当前仓库，跑通 aGraph/ARGO MCP，完成端到端验收并汇报”。\n\nAgent 手册：Phase A 拉取/运行 Paperclip 镜像（docker pull + docker run + /api/health）；Phase B 准备 WSL 执行体（systemd、Node、pnpm、git、ripgrep、OpenCode、pwsh、sshd）；Phase C WSL aGraph（argo-deploy 与 argo-init 分开，Neo4j 反向隧道或 WSL Docker，/etc/opencode）；Phase D SSH 标准通道（root@127.0.0.1:2222，remoteWorkspacePath=/mnt/d/Projects/paperclip）；Phase E 公司/Agent/项目（opencode_local、directRemoteWorkspace=true、defaultEnvironmentId=SSH、ARGO_REPO_ROOT=/mnt/d/Projects/paperclip）；Phase F 执行器部署任务与验收。\n\n标准/决策：1) 控制台必须镜像部署，不在主机跑源码；2) argo-deploy 与 argo-init 分开；3) 所有执行体 Agent 走 SSH + directRemoteWorkspace；4) 仓库只有 Windows 一份，WSL 用 /mnt/d/...；5) 人类只做两步，其余自动完成。\n\n邮件：2026-11-06 已通过 126 SMTP（hdhscu@126.com）发送至 hudonghua@huawei.com，HTML 正文内联（multipart/alternative，无附件），HTML SHA256 8C9B68AECDC0709E9FE055FD4A83455526990B62F505C43E7502D71042E88884；邮件只保留人类两步，Agent 细节在仓库指南；授权码未写入仓库/日志。",
+      "description": "为内网单台 PC 重写的 Paperclip 单机部署指南（doc/DEPLOYMENT-SINGLE-MACHINE.md），采用“Paperclip 镜像部署 + Windows 仓库 + WSL 执行体 + SSH 标准通道”，人类只做两步。\n\n第一步 准备环境（人类）：a) 安装 Docker + WSL Ubuntu；b) clone dev/local-install 到本地任意目录（不同环境路径不同，用 <你的目录>）；c) 安装 aGraph（npm i -g archgraph-argo + argo-deploy）；d) 在项目目录中初始化 aGraph（cd <你的目录> + argo-init，与 argo-deploy 分开）；e) 在项目目录打开 OpenCode TUI（opencode）新建会话，发送“联系 Derek 获取 Paperclip 镜像私有地址，下载并启动控制台”。\n\n第二步 在 Paperclip 里下指令：打开镜像启动的控制台，新建任务指派给 Paperclip 执行 Agent，指令为“部署 Paperclip 执行器：准备 WSL 执行体与 SSH 标准通道，接入当前仓库，跑通 aGraph/ARGO MCP，完成端到端验收并汇报”。\n\nAgent 手册：Phase A 镜像（私有地址联系 Derek，不写入文档；docker pull 或 docker load；docker run；/api/health）；Phase B WSL 执行体；Phase C WSL aGraph（argo-deploy 与 argo-init 分开，Neo4j 反向隧道或 WSL Docker）；Phase D SSH 标准通道；Phase E 公司/Agent/项目（opencode_local、directRemoteWorkspace=true、defaultEnvironmentId=SSH、ARGO_REPO_ROOT）；Phase F 执行器部署任务与验收。目标目录用 $WinRepo / $WslRepo 变量，示例路径按环境替换。\n\n邮件：2026-11-06 已通过 126 SMTP（hdhscu@126.com）发送至 hudonghua@huawei.com，HTML 正文内联（multipart/alternative，无附件），HTML SHA256 870ED024335BE90B8860694C858BF9C780274824D8E147E2E7303045B58FDDD8；邮件为白色简洁风（无深色/花哨背景），只保留人类两步；镜像私有地址不写入邮件，只提示联系 Derek；授权码未写入仓库/日志。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -3441,7 +3441,7 @@
         },
         {
           "name": "emailStatus",
-          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); two-step image-deploy human email"
+          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); white clean two-step human email"
         },
         {
           "name": "emailNote",
@@ -3457,11 +3457,11 @@
         },
         {
           "name": "emailHtmlSha256",
-          "value": "8C9B68AECDC0709E9FE055FD4A83455526990B62F505C43E7502D71042E88884"
+          "value": "870ED024335BE90B8860694C858BF9C780274824D8E147E2E7303045B58FDDD8"
         },
         {
           "name": "guideVersion",
-          "value": "Image deploy / two-step / SSH standard (2026-11-06)"
+          "value": "Image deploy / two-step / SSH standard / init-in-project (2026-11-06)"
         },
         {
           "name": "humanSteps",
@@ -3479,11 +3479,11 @@
         },
         {
           "name": "emailContent",
-          "value": "human-only two steps; image pull/run, SSH and agent details stay in doc/DEPLOYMENT-SINGLE-MACHINE.md"
+          "value": "human-only two steps; image address = contact Derek; agent manual stays in doc/DEPLOYMENT-SINGLE-MACHINE.md"
         },
         {
           "name": "emailStyle",
-          "value": "dark tech theme; cyan/purple/green accents; no agent phases or API details"
+          "value": "plain white, clean, no dark/flashy backgrounds"
         },
         {
           "name": "commit",

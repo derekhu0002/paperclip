@@ -58,8 +58,9 @@ wsl.exe -l -v
 #### b. 下载当前分支代码到 Windows
 
 ```powershell
-git clone -b dev/local-install https://github.com/derekhu0002/paperclip.git D:\Projects\paperclip
-cd D:\Projects\paperclip
+# 目标目录按你的环境选择；下文示例用 D:\Projects\paperclip
+git clone -b dev/local-install https://github.com/derekhu0002/paperclip.git <你的目录>
+cd <你的目录>
 ```
 
 仓库只放 Windows，不要复制进 WSL。
@@ -71,19 +72,20 @@ npm install -g archgraph-argo
 argo-deploy
 ```
 
-#### d. 初始化 aGraph（单独一步）
+#### d. 在项目目录中初始化 aGraph
 
 ```powershell
+cd <你的目录>
 argo-init
 ```
 
-> `argo-deploy` 和 `argo-init` 必须分开执行：前者安装工具链，后者初始化当前仓库。
+> `argo-deploy` 和 `argo-init` 必须分开执行：前者安装工具链，后者**在项目目录中**初始化当前仓库。
 > 如果 `argo-init` 因 Neo4j 或 embedding 未就绪报错，不用处理，继续 e；Agent 会补齐。
 
 #### e. 打开 OpenCode TUI，新建会话
 
 ```powershell
-cd D:\Projects\paperclip
+cd <你的目录>
 opencode
 ```
 
@@ -126,9 +128,10 @@ opencode
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$WinRepo = 'D:\Projects\paperclip'
+# 实际项目目录按你的环境填写；下文示例路径都按这两个变量替换
+$WinRepo = '<你的项目目录>'          # 例：D:\Projects\paperclip
 $WslDistro = 'ocpc'
-$WslRepo = '/mnt/d/Projects/paperclip'
+$WslRepo = (wsl.exe -d $WslDistro -- wslpath -u "$WinRepo").Trim()   # 例：/mnt/d/Projects/paperclip
 $Api = 'http://127.0.0.1:3100/api'
 $HealthUrl = 'http://127.0.0.1:3100/api/health'
 ```
@@ -139,18 +142,14 @@ $HealthUrl = 'http://127.0.0.1:3100/api/health'
 
 ### 3.1 获取镜像
 
-向部署负责人要当前分支的镜像地址，例如：
-
-```text
-crpi-33yedsa348aqgw1p.cn-shenzhen.personal.cr.aliyuncs.com/paperclip/paperclip-fork:<tag>
-```
+Paperclip 镜像使用**私有地址**下载；地址请联系 **Derek** 索取，不要写入仓库或邮件。
 
 ```powershell
-$Image = '<由部署负责人提供>'
+$Image = '<联系 Derek 获取私有地址或镜像文件>'
+# 按 Derek 提供的方式二选一：
 docker pull $Image
+# 或：docker load -i <镜像文件>.tar
 ```
-
-离线环境用 `docker load -i paperclip-fork-<tag>.tar`。
 
 ### 3.2 启动控制台
 
@@ -526,7 +525,7 @@ ARGO MCP 工具可调用；`validateSystemArchitecture` passed。
 |---|---|
 | Windows 仓库 | `D:\Projects\paperclip` |
 | WSL 仓库 | `/mnt/d/Projects/paperclip` |
-| Paperclip 镜像 | 由部署负责人提供 |
+| Paperclip 镜像 | 联系 Derek 索取私有地址（不写入文档） |
 | Paperclip 控制台 | `http://127.0.0.1:3100` |
 | Paperclip 容器数据 | Docker volume `paperclip-data` |
 | ARGO（WSL） | `/root/.argo` |
