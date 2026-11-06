@@ -3484,6 +3484,11 @@
         {
           "name": "emailStyle",
           "value": "dark tech theme; cyan/purple/green accents; no agent phases or API details"
+        },
+        {
+          "name": "commit",
+          "value": "b2fb6f24de7e28d63634bcc2ec9fde0fa14cdd09",
+          "description": "chore(argo): record human-facing deployment email redesign; files: design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
