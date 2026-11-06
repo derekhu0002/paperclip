@@ -3471,6 +3471,11 @@
           "name": "commit",
           "value": "9e68cb46769b1da70b0be62dc8ede40b94092ebd",
           "description": "docs(deploy): add Windows 3-step single-machine deployment guide; files: doc/DEPLOYMENT-SINGLE-MACHINE.md, design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "commit",
+          "value": "9cf8567c0d4b26afb0cccf87cc19abb2e4533c0b",
+          "description": "docs(deploy): restore SSH execution standard for single-machine guide; files: doc/DEPLOYMENT-SINGLE-MACHINE.md, design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
