@@ -3494,6 +3494,11 @@
           "name": "commit",
           "value": "b45ccdc16f343beaedde6efd2708e10ff75b2385",
           "description": "docs(deploy): switch guide to image deployment and two-step flow; files: doc/DEPLOYMENT-SINGLE-MACHINE.md, design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "commit",
+          "value": "7b3fec2d8cc0c3f45aa1ecc927e4a5108e143a89",
+          "description": "docs(deploy): white human email, private image via Derek, project-local argo-init; files: doc/DEPLOYMENT-SINGLE-MACHINE.md, design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
