@@ -3404,8 +3404,8 @@
     {
       "id": "paperclip-single-machine-ubuntu-deployment-guide-2026-11-06",
       "type": "Requirement",
-      "name": "Paperclip 单机部署指南（SSH 标准 · Windows 仓库 + WSL 执行体 · 2026-11-06）",
-      "description": "为内网单台 PC 重写的 Paperclip 单机部署指南（doc/DEPLOYMENT-SINGLE-MACHINE.md），采用“Windows 仓库 + WSL 执行体 + SSH 标准通道”。仓库只在 Windows（D:\\Projects\\paperclip，dev/local-install），WSL 通过 /mnt/d/Projects/paperclip 访问同一份仓库，不复制。\n\n人类只需 3 步（都在 Windows）：1) 克隆分支；2) npm i -g archgraph-argo + argo-deploy + argo-init；3) 在仓库运行 opencode run \"读取并执行 doc\\DEPLOYMENT-SINGLE-MACHINE.md 的 Agent 执行手册...\"。其余由 Agent 自动完成：Windows 前置检查/安装；准备 WSL 执行体（systemd、Node、pnpm、git、ripgrep、OpenCode、pwsh、sshd）；WSL 安装/校验 aGraph 与 Neo4j（复用 Windows 反向隧道或 WSL Docker），运行 argo-init；在 WSL 托管安装 Paperclip 控制台；建立 SSH 执行环境（root@127.0.0.1:2222，remoteWorkspacePath=/mnt/d/Projects/paperclip）；创建公司 + opencode_local Agent（directRemoteWorkspace=true、defaultEnvironmentId=SSH 环境、ARGO_REPO_ROOT=/mnt/d/Projects/paperclip、command=WSL 内 opencode 绝对路径）；创建项目并绑定 leadAgentId；按需接入公司 AI connection；只读验证 issue 验收 queryNeo4jGraph/memory_search/validateSystemArchitecture。\n\n关键决策/标准：1) 执行体 Agent 必须走 Paperclip SSH 环境 + Direct remote workspace，不用 local；本 fork 的 server/src/fork/project-execution-binding.ts 会强制检查；2) 仓库只有 Windows 一份，WSL 用 /mnt/d/...，不复制；3) Paperclip 控制台在 WSL 托管安装（避免在 WSL 再 clone 项目）；4) aGraph 为强制前置，语义检索依赖 OpenAI 兼容 embedding，缺失则标注降级；5) 人类步骤失败（如 Windows argo-init 因 Neo4j/embedding 未就绪）不阻塞，Agent 补齐。\n\n邮件：2026-11-06 已通过 126 SMTP（hdhscu@126.com）发送至 hudonghua@huawei.com，HTML 正文内联（multipart/alternative，无附件），HTML SHA256 9D9EB1FF5E171C6B12F86A5FDE569B949C06BEC78E2C03AA7956EC234FA7720B；授权码未写入仓库/日志。",
+      "name": "Paperclip 单机部署指南（镜像部署 · 两步 · SSH 标准 · 2026-11-06）",
+      "description": "为内网单台 PC 重写的 Paperclip 单机部署指南（doc/DEPLOYMENT-SINGLE-MACHINE.md），采用“Paperclip 镜像部署 + Windows 仓库 + WSL 执行体 + SSH 标准通道”，人类只做两步。\n\n第一步 准备环境（人类）：a) 安装 Docker + WSL Ubuntu；b) clone dev/local-install 到 Windows；c) 安装 aGraph（npm i -g archgraph-argo + argo-deploy）；d) 初始化 aGraph（argo-init，单独一步）；e) 在仓库根目录打开 OpenCode TUI（opencode）新建会话，发送“拉取 Paperclip 镜像并启动控制台”。\n\n第二步 在 Paperclip 里下指令：打开镜像启动的控制台，新建任务指派给 Paperclip 执行 Agent，指令为“部署 Paperclip 执行器：准备 WSL 执行体与 SSH 标准通道，接入当前仓库，跑通 aGraph/ARGO MCP，完成端到端验收并汇报”。\n\nAgent 手册：Phase A 拉取/运行 Paperclip 镜像（docker pull + docker run + /api/health）；Phase B 准备 WSL 执行体（systemd、Node、pnpm、git、ripgrep、OpenCode、pwsh、sshd）；Phase C WSL aGraph（argo-deploy 与 argo-init 分开，Neo4j 反向隧道或 WSL Docker，/etc/opencode）；Phase D SSH 标准通道（root@127.0.0.1:2222，remoteWorkspacePath=/mnt/d/Projects/paperclip）；Phase E 公司/Agent/项目（opencode_local、directRemoteWorkspace=true、defaultEnvironmentId=SSH、ARGO_REPO_ROOT=/mnt/d/Projects/paperclip）；Phase F 执行器部署任务与验收。\n\n标准/决策：1) 控制台必须镜像部署，不在主机跑源码；2) argo-deploy 与 argo-init 分开；3) 所有执行体 Agent 走 SSH + directRemoteWorkspace；4) 仓库只有 Windows 一份，WSL 用 /mnt/d/...；5) 人类只做两步，其余自动完成。\n\n邮件：2026-11-06 已通过 126 SMTP（hdhscu@126.com）发送至 hudonghua@huawei.com，HTML 正文内联（multipart/alternative，无附件），HTML SHA256 8C9B68AECDC0709E9FE055FD4A83455526990B62F505C43E7502D71042E88884；邮件只保留人类两步，Agent 细节在仓库指南；授权码未写入仓库/日志。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -3425,7 +3425,7 @@
         },
         {
           "name": "scope",
-          "value": "Windows repo + WSL executor; all execution agents via Paperclip SSH environment + directRemoteWorkspace"
+          "value": "Image-deployed Paperclip control plane + Windows repo + WSL executor; SSH standard + directRemoteWorkspace"
         },
         {
           "name": "emailSentAt",
@@ -3441,7 +3441,7 @@
         },
         {
           "name": "emailStatus",
-          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); human-facing 3-step tech-themed HTML"
+          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); two-step image-deploy human email"
         },
         {
           "name": "emailNote",
@@ -3457,15 +3457,15 @@
         },
         {
           "name": "emailHtmlSha256",
-          "value": "7CDC76C6CD00609D66889BF01919A8EB0DA18A97DE42310263611D23A6781960"
+          "value": "8C9B68AECDC0709E9FE055FD4A83455526990B62F505C43E7502D71042E88884"
         },
         {
           "name": "guideVersion",
-          "value": "SSH standard / Windows repo + WSL executor (2026-11-06)"
+          "value": "Image deploy / two-step / SSH standard (2026-11-06)"
         },
         {
           "name": "humanSteps",
-          "value": "3 on Windows: clone -> install aGraph/argo-init -> opencode run agent manual"
+          "value": "2: prepare environment (Docker/WSL/clone/argo-deploy/argo-init/OpenCode TUI) -> instruct Paperclip agent"
         },
         {
           "name": "commit",
@@ -3479,7 +3479,7 @@
         },
         {
           "name": "emailContent",
-          "value": "human-only: 3 steps + architecture + prepare + agent brief; agent manual stays in doc/DEPLOYMENT-SINGLE-MACHINE.md"
+          "value": "human-only two steps; image pull/run, SSH and agent details stay in doc/DEPLOYMENT-SINGLE-MACHINE.md"
         },
         {
           "name": "emailStyle",
