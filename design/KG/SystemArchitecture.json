@@ -3575,6 +3575,10 @@
         {
           "name": "repoChange",
           "value": "none (47 runtime onboarding)"
+        },
+        {
+          "name": "commit",
+          "value": "paperclip@943934410 (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ],
       "description": "【目标】把本机 Grok Bot 接入 47 实例的新组织「AI security研究组织」，作为一个 Agent（Grok顾问）挂在「总负责人」下。\n\n【结果】\n- Agent: d1cfe9df-065f-4550-9877-c67415ab4986，name=Grok顾问，role=general，reportsTo=总负责人(665f6b13)，adapterType=paperclip_runner，provider=grok_bot，per_turn，allowUnmeteredProvider=true；最终 status=idle、lifecycleState=ready。\n- Binding: afa478e6-2390-4492-8d46-9056bc44ae77，status=ready，readyAt=2026-11-06T19:12:26.629Z，grant=e2b5516e-17cc-4f92-8432-18af0c7d1480。\n- Routine: bot_name=dereck.hu@gmail.com，revision=1，verified_at=2026-11-06T19:12:26.627Z（verify wake 已被 Grok Bot ack，证明 webhook + MCP 双向通路）。\n- Agent.adapterConfig.externalBindingId=afa478e6；grant.agent_id 已指向该 agent。\n\n【关键决策/做法】\n1) Agent 用官方 invitation：dotInvitationService(db,'grok_bot').create(companyId, operatorId, {name, botName, reportsTo})（需 enableGrokBot+enablePublicMcp+enableNativeRunner）。\n2) 配对：createPairing(replaceBindingId) 拿到新码；但 UI「Connect」会在 OAuth 开始后再生成新 binding，把码作废。最终做法：用已授权的 OAuth grant e2b5516e 作为 principal，用 broker.pair({grant}, code) 直接完成配对（脚本内 createPairing + pair），不依赖 UI 的码。\n3) readiness 硬条件（agent-harness-verification）：binding.status=ready 且 wakeVerified=true；routine configure 把 binding 置 connected，verify wake 的 ack 才置 ready。\n4) 清错：用户曾空手动 invoke heartbeat，native runner 回报 'Paperclip Runner requires a standard, planning, or ask task' 并把 agent 置 error；用 agentService(db).clearError() 恢复 idle（lifecycle 已 ready）。\n\n【坑/经验】\n- 47 为 authenticated/private，grok 的写接口要求 actor.source=session；board key 403。因此邀请/配对/routine/verify 均通过容器内 tsx 脚本直调服务（/app/server + @paperclipai/db）。\n- dot_agent_bindings 一次只能一个未撤消 binding；createPairing 必须带 replaceBindingId 否则报 'This invitation changed'。\n- 不要空手动心跳唤醒 native/external runner；用 issue 指派触发。\n- bot_name 本次落成账号邮箱，如需要可重配 routine 为「AI security顾问」并重新 verify。\n\n【交付】纯 47 运行时 onboarding；无仓库代码改动，无 commit。",
