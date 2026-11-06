@@ -3441,7 +3441,7 @@
         },
         {
           "name": "emailStatus",
-          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); SSH standard version"
+          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); human-facing 3-step tech-themed HTML"
         },
         {
           "name": "emailNote",
@@ -3453,11 +3453,11 @@
         },
         {
           "name": "emailBodyMode",
-          "value": "inline HTML rendered from Markdown via marked; multipart/alternative, no attachment"
+          "value": "inline HTML, multipart/alternative, no attachment"
         },
         {
           "name": "emailHtmlSha256",
-          "value": "9D9EB1FF5E171C6B12F86A5FDE569B949C06BEC78E2C03AA7956EC234FA7720B"
+          "value": "7CDC76C6CD00609D66889BF01919A8EB0DA18A97DE42310263611D23A6781960"
         },
         {
           "name": "guideVersion",
@@ -3476,6 +3476,14 @@
           "name": "commit",
           "value": "9cf8567c0d4b26afb0cccf87cc19abb2e4533c0b",
           "description": "docs(deploy): restore SSH execution standard for single-machine guide; files: doc/DEPLOYMENT-SINGLE-MACHINE.md, design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "emailContent",
+          "value": "human-only: 3 steps + architecture + prepare + agent brief; agent manual stays in doc/DEPLOYMENT-SINGLE-MACHINE.md"
+        },
+        {
+          "name": "emailStyle",
+          "value": "dark tech theme; cyan/purple/green accents; no agent phases or API details"
         }
       ]
     }
