@@ -79,6 +79,10 @@
         {
           "view_id": "project-manager-argo-economy-001",
           "view_name": "项目经理 · Argo economy 公司与能力开通记忆"
+        },
+        {
+          "view_id": "project-manager-ai-security-org-001",
+          "view_name": "项目经理 · AI security 组织上线记忆"
         }
       ],
       "attributes": [
@@ -3501,6 +3505,34 @@
           "description": "docs(deploy): white human email, private image via Derek, project-local argo-init; files: doc/DEPLOYMENT-SINGLE-MACHINE.md, design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "ai-security-research@8348540 (design/KG/SystemArchitecture.json, ai-security-research.qea); ai-security-research@b8bad5a (README.md, .gitignore)"
+        },
+        {
+          "name": "paperclipCompany",
+          "value": "d56a6bbb-48d3-4f9b-a7ff-e2367b0f780b | AI security研究组织 | prefix AIS"
+        },
+        {
+          "name": "paperclipProject",
+          "value": "5bb27564-fe71-4ccd-8b4c-607cd91d2913 | AI security 研究 | lead=总负责人 | workspace=/mnt/d/Projects/ai-security-research"
+        },
+        {
+          "name": "paperclipEnvironment",
+          "value": "b337b3df-0cdc-4347-abf9-76958c27439a | WSL2 · ai-security-research"
+        },
+        {
+          "name": "paperclipAgents",
+          "value": "665f6b13-e28b-45a1-b5cc-46400b6b13b9 | 总负责人 (ceo); b5ab997e-8297-498a-9e21-486effe07232 | AI security 技术洞察 (researcher, reportsTo=总负责人)"
+        }
+      ],
+      "description": "【目标】在 47 Paperclip 新建组织「AI security研究组织」，并 onboard 两个 Agent：总负责人、AI security 技术洞察；两者共用一个部署在本机 WSL 的项目。为该项目新建 git 目录并完成 ARGO 初始化。\n\n【结果】\n- 公司: AI security研究组织 d56a6bbb-48d3-4f9b-a7ff-e2367b0f780b，issue prefix AIS（由名称派生 AISECURITY→AIS），requireBoardApprovalForNewAgents=false。\n- WSL 仓库: /mnt/d/Projects/ai-security-research（git init -b main）。commit b8bad5a 初始化 README/.gitignore；commit 8348540 提交 argo-init 生成的 design/KG + ai-security-research.qea。\n- ARGO 初始化: ~/.argo/bin/argo-init 全绿；Neo4j db=ai-security-research（repo match yes）、canonical 3 el / 1 rel / 7 views、qea target 本仓库 .qea、semanticLifecycle=Aligned、ontologyValidation=passed。\n- 环境: WSL2 · ai-security-research b337b3df-0cdc-4347-abf9-76958c27439a（SSH root@100.87.205.43:2222，remoteWorkspacePath 同上），probe ok。\n- 密钥: 从既有公司复制两条 company secret 到新公司（SSH 私钥 672b1080-f906-4c7b-88fd-7cdffcacdc87、DEEPSEEK_API_KEY 04dbe994-7632-409d-a7f0-497ad55de591），未落明文。\n- Agent1 总负责人 665f6b13-e28b-45a1-b5cc-46400b6b13b9（role=ceo，reportsTo=null，permissions canCreateAgents/canCreateSkills=true）；Agent2 AI security 技术洞察 b5ab997e-8297-498a-9e21-486effe07232（role=researcher，reportsTo=总负责人）。两者均 adapterType=opencode_local、runner=legacy、directRemoteWorkspace=true、model=deepseek/deepseek-flash、env 含 ARGO_REPO_ROOT/ARGO_ENV_FILE/DEEPSEEK_API_KEY、heartbeat 300s、lifecycle ready/idle。\n- 项目: AI security 研究 5bb27564-fe71-4ccd-8b4c-607cd91d2913，leadAgentId=总负责人，status=in_progress，remote_path workspace=/mnt/d/Projects/ai-security-research；技术洞察 Agent 加入项目 access member。\n- 验收: AIS-1（指派技术洞察 Agent）run 4d5b6443 succeeded 并 done。证据：pwd 正确、branch main、单 worktree、git status 干净；queryNeo4jGraph database=ai-security-research；语义检索 invoked；memory_search 不超时；validate passed；graph_list 6 资产；组织/项目/汇报对象正确。\n\n【关键决策】\n1) 新建独立 WSL 目录并完整 argo-init（而非复用别的仓库），满足“项目部署在本机 WSL + 新 git 目录 + Argo 初始化”。\n2) 两个 Agent 共用一个项目：leadAgentId 只能一个（总负责人），技术洞察以 project access member + issue 分派方式共用项目。\n3) 新公司 AI 能力沿用本实例既有做法：复制 DEEPSEEK_API_KEY 公司级 secret 并在 adapterConfig.env 引用，不依赖跨公司 aiConnection。\n4) 显式传 runner=legacy + adapterType=opencode_local，规避 native runner 在 SSH 环境缺少 provider-pack 的已知问题。\n\n【坑/注意】\n- 47 为 authenticated/private，无本地隐式 board；本次临时在 board_api_keys 插入 6h key（id 0f3b9ff4-aa5a-4a69-9a76-ee4c4968639d）操作，完成后 revoked。\n- 服务端 host 校验：经 172.18.2.191:3100 调用必须带 Host: paperclip.derekworkspacev5.com。\n- 环境为实例级；SSH privateKeySecretRef 的 secret 必须是运行公司自己的 company secret，故先复制 secret 再建环境。\n- 新公司 issue prefix 由名称字母派生，中文不影响；本次自然得到 AIS。\n- 新图仍是初始化态：principleIndex declared-missing、Actor=项目经理；未在本次写入新图（只读验收要求）。\n\n【遗留/下一步】可在新图 design/KG 中为两个 Agent 建 Business Actor 并对齐 principleIndex；为总负责人单独跑一次只读验收（本环境已由技术洞察 Agent 验证）。",
+      "id": "paperclip-ai-security-org-onboarding-2026-11-06",
+      "name": "AI security研究组织上线（2026-11-06，47 实例）",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -3756,6 +3788,16 @@
       "included_elements": [
         "paperclip-single-machine-ubuntu-deployment-guide-2026-11-06"
       ]
+    },
+    {
+      "description": "T2 长期记忆子视图：47 实例新建「AI security研究组织」、共用 WSL 项目与两个 Agent 的上线记录。",
+      "included_elements": [
+        "paperclip-ai-security-org-onboarding-2026-11-06"
+      ],
+      "included_relationships": [],
+      "parent_element_id": "project-manager-001",
+      "view_id": "project-manager-ai-security-org-001",
+      "view_name": "项目经理 · AI security 组织上线记忆"
     }
   ]
 }
