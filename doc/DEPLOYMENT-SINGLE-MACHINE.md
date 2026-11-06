@@ -1,23 +1,50 @@
-# Paperclip 单机部署指南（Windows 3 步版）
+# Paperclip 单机部署指南（Windows 仓库 + WSL 执行体 · SSH 标准）
 
 Status: runbook
 Date: 2026-11-06
 Audience: 人类执行者（只看第 1 节）+ 被唤起的 OpenCode Agent（读全文）
 
-> **一句话**：仓库只放在 Windows，用你已经装好的 OpenCode；人类做 3 步，剩下由 Agent 自动完成。
-> 不需要把仓库放进 WSL/Ubuntu，不需要手工装 Paperclip、Node、Neo4j 或 SSH。
+> **标准**：所有执行体 Agent 统一通过 Paperclip 的 **SSH 环境**连接；项目绑定的
+> `opencode_local` Agent 必须开启 **Direct remote workspace**。不要用 `local`
+> 环境跑项目 Agent。
+>
+> **人类只做 3 步**（都在 Windows 上）：克隆仓库 → 安装 aGraph 并初始化 →
+> 一条命令唤起 Agent。仓库只在 Windows；WSL 通过 `/mnt/d/Projects/paperclip`
+> 访问同一份仓库，不复制。其余由 Agent 自动完成。
 
 ---
 
-## 0. 怎么用这份指南
+## 0. 架构与标准
 
-- **人类**：只读第 1 节，照着做 3 步。看不懂的细节全部跳过。
-- **Agent**：读全文，按第 2 节执行。人类没做全的，你补齐；缺依赖自动装；需要人类提供 Key、管理员权限或做取舍时，一次性列清楚再问。
-- 所有命令默认在仓库根目录执行；路径不同就替换 `$Repo`。
+```text
+Windows
+├── 仓库 D:\Projects\paperclip（唯一一份，不复制进 WSL）
+├── OpenCode（人类已有，用于唤起部署 Agent）
+└── aGraph / Neo4j（人类第 2 步安装，供部署 Agent 使用）
+
+WSL Ubuntu（执行体，例如 ocpc）
+├── Paperclip 控制台 :3100
+├── Paperclip 执行 Agent（OpenCode）
+├── aGraph / ARGO（Agent 在 Phase D 安装/校验）
+├── Neo4j（复用 Windows 反向隧道，或 WSL Docker）
+├── sshd :2222（Paperclip 的 SSH 执行通道）
+└── /mnt/d/Projects/paperclip（挂载 Windows 仓库）
+```
+
+标准通道：
+
+```text
+Paperclip (WSL) --SSH--> 执行体 (WSL/其它机器) --opencode--> 仓库 /mnt/d/Projects/paperclip
+```
+
+- Paperclip 侧：SSH 环境 + `remoteWorkspacePath`。
+- Agent 侧：`adapterType=opencode_local`、`directRemoteWorkspace=true`、
+  `defaultEnvironmentId=<SSH 环境>`。
+- 不使用 `local` 环境跑项目绑定的 Agent。
 
 ---
 
-## 1. 人类只需 3 步
+## 1. 人类只需 3 步（都在 Windows 上）
 
 ### 第 1 步：把分支克隆到 Windows
 
@@ -35,7 +62,7 @@ design\KG\SystemArchitecture.json
 paperclip.qea
 ```
 
-### 第 2 步：安装 aGraph 并初始化这个仓库
+### 第 2 步：在 Windows 安装 aGraph 并初始化这个仓库
 
 ```powershell
 npm install -g archgraph-argo
@@ -45,25 +72,28 @@ argo-init
 
 说明：
 
-- `argo-deploy` 会把工具链写到 `%USERPROFILE%\.argo`，并给 OpenCode 注册 `argo` MCP。
-- **如果 `argo-init` 因为 Neo4j 或 embedding 未就绪而报错，不用处理**，直接做第 3 步。Agent 会检查并补齐。
+- 这一步是给“部署 Agent”用的 aGraph；WSL 执行体用的 aGraph 由 Agent 在 Phase D
+  自动安装/校验。
+- **如果 `argo-init` 因为 Neo4j 或 embedding 未就绪而报错，不用处理**，直接做
+  第 3 步。Agent 会检查并补齐。
 - 如果本机已有 Neo4j（`127.0.0.1:7687` 能连），保持它运行即可。
 
 ### 第 3 步：一条命令唤起 Agent
 
-在仓库根目录执行：
+在 Windows 的仓库根目录执行：
 
 ```powershell
-opencode run "读取并执行 doc\DEPLOYMENT-SINGLE-MACHINE.md 的 Agent 执行手册：自动检查并安装前置依赖，完成 Paperclip 单机部署、公司/Agent 创建、模型接入和端到端验收；需要我做决定或提供 Key 时，一次性列给我。"
+opencode run "读取并执行 doc\DEPLOYMENT-SINGLE-MACHINE.md 的 Agent 执行手册：自动检查并安装前置依赖，准备 WSL 执行体，按 SSH 标准完成 Paperclip 控制台、SSH 环境、项目/Agent 创建和端到端验收；需要我做决定或提供 Key 时，一次性列给我。"
 ```
 
-然后等 Agent 汇报。它会自己装缺的东西、自己启动 Paperclip、自己验收；只有需要 Key、管理员权限或你确认取舍时才问你。
+然后等 Agent 汇报。它会自己装缺的东西、自己准备 WSL、自己启动 Paperclip、自己验收；
+只有需要 Key、管理员权限或你确认取舍时才问你。
 
 ### 人类不需要做的事
 
-- 不需要把仓库放进 WSL/Ubuntu。
-- 不需要手工装 Node、pnpm、Paperclip、PostgreSQL、Neo4j（Agent 会检查并安装）。
-- 不需要手工建 SSH 环境（默认不建 Paperclip 项目，见第 5 节）。
+- 不需要把仓库复制进 WSL/Ubuntu；WSL 直接用 `/mnt/d/Projects/paperclip`。
+- 不需要手工装 Node、pnpm、Paperclip、PostgreSQL、OpenCode（WSL 侧由 Agent 装）。
+- 不需要手工建 SSH 环境（Agent 会建；只有开启 OpenSSH/管理员权限时可能需要你点一下）。
 - 不需要手工改配置；Agent 会写 `~/.argo/.env`、`~/.paperclip` 和 Paperclip 配置。
 
 ---
@@ -73,18 +103,24 @@ opencode run "读取并执行 doc\DEPLOYMENT-SINGLE-MACHINE.md 的 Agent 执行�
 ### 2.0 执行原则
 
 1. **先检查、再安装**；缺什么装什么，不要假设已存在。
-2. **只在必要时找人类**：凭据、管理员权限、重启、产品取舍。一次列清，不要反复打断。
-3. **不把密钥写入仓库、issue、评论或日志**；只写 `~/.argo/.env`、`~/.paperclip` 或 Paperclip secret。
-4. **每阶段有验收**；不通过就修，不要跳到下一阶段。
-5. **默认不创建 Paperclip 项目**：用公司级 Agent + 本地执行，直接复用 Windows 上已有的 OpenCode。原因见 5.1。
+2. **SSH 是标准通道**：项目绑定 Agent 必须 `directRemoteWorkspace=true` +
+   SSH 环境；不要用 `local` 绕过。
+3. **只在必要时找人类**：凭据、管理员权限、重启、产品取舍。一次列清。
+4. **不把密钥写入仓库、issue、评论或日志**；只写 `~/.argo/.env`、`~/.paperclip`
+   或 Paperclip secret。
+5. **每阶段有验收**；不通过就修，不要跳到下一阶段。
+6. **仓库只有一份**：Windows 的 `D:\Projects\paperclip`，WSL 用
+   `/mnt/d/Projects/paperclip`，不要在 WSL 再 clone 一份项目仓库。
 
 ### 2.1 约定
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-$Repo = (Get-Location).Path
-$HealthUrl = 'http://127.0.0.1:3100/api/health'
+$WinRepo = 'D:\Projects\paperclip'
+$WslDistro = 'ocpc'          # 没有就换成已有的 Ubuntu 发行版
+$WslRepo = '/mnt/d/Projects/paperclip'
 $Api = 'http://127.0.0.1:3100/api'
+$HealthUrl = 'http://127.0.0.1:3100/api/health'
 
 function Have($name) { return $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
 function Refresh-Path {
@@ -95,7 +131,7 @@ function Refresh-Path {
 
 ---
 
-## 3. Phase A — 前置检查与自动安装
+## 3. Phase A — Windows 侧前置检查与自动安装
 
 ### 3.1 检查
 
@@ -106,54 +142,43 @@ pnpm -v
 git --version
 rg --version
 opencode --version
-Test-NetConnection 127.0.0.1 -Port 7687 -InformationLevel Quiet
 Get-Command argo-init -ErrorAction SilentlyContinue
 ```
 
-验收：
+要求：
 
 | 项 | 要求 |
 |---|---|
 | Node | `>= v24.11.0` |
 | pnpm | `9.x` |
 | git / ripgrep / opencode | 命令存在 |
-| Neo4j | 7687 可连（不可连也继续，Phase B 处理） |
-| aGraph | `argo-init` 存在（不存在则 Phase B 安装） |
+| aGraph | `argo-init` 存在（人类第 2 步应已完成） |
 
 ### 3.2 自动安装（Windows）
 
 ```powershell
-# Node（缺少或版本过低时）
 winget install --id OpenJS.NodeJS -e --accept-package-agreements --accept-source-agreements
 Refresh-Path
-
-# pnpm
 npm install -g pnpm@9.15.4
-
-# git / ripgrep（缺少时）
 winget install --id Git.Git -e --accept-package-agreements --accept-source-agreements
 winget install --id BurntSushi.ripgrep.MSVC -e --accept-package-agreements --accept-source-agreements
 Refresh-Path
-
-# OpenCode（缺少时；已有就跳过）
 npm install -g opencode-ai
 ```
 
-安装后重新检查一遍。若 `winget` 不存在，改用官方安装包下载；把下载链接和需要人类点的按钮一次性列给人类。
+没有 `winget` 就下载官方安装包；把需要人类点的按钮和链接一次性列出。
 
-### 3.3 模型可用性
+### 3.3 模型可用性（Windows 部署 Agent）
 
 ```powershell
 opencode models
 ```
 
-能列出模型即可。后续 Paperclip Agent 的 `adapterConfig.model` 从这个列表里选；优先选你当前 OpenCode 已验证能用的模型。
+能列出模型即可；部署 Agent 用它做本机判断。
 
 ---
 
-## 4. Phase B — 校验 / 补齐 aGraph
-
-### 4.1 检查安装
+## 4. Phase B — 校验 Windows 侧 aGraph
 
 ```powershell
 Test-Path "$env:USERPROFILE\.argo\scripts\argo-mcp-server.js"
@@ -161,46 +186,147 @@ Test-Path "$env:USERPROFILE\.argo\.env"
 Get-Command argo-init -ErrorAction SilentlyContinue
 ```
 
-缺任何一项就补装：
+缺就补：
 
 ```powershell
 npm install -g archgraph-argo
 argo-deploy
 ```
 
-> 人类第 2 步通常已经做过。你只做校验和补齐，不要重复初始化图。
+人类第 2 步可能已经跑过 `argo-init`；你只校验，不要重复建图。Windows 侧 aGraph
+只服务于“部署 Agent”，真正执行体的 aGraph 在 Phase D 处理。
 
-### 4.2 确保 Neo4j 可连
+---
 
-```powershell
-Test-NetConnection 127.0.0.1 -Port 7687 -InformationLevel Quiet
-```
+## 5. Phase C — 准备 WSL 执行体
 
-不可连时按顺序尝试：
-
-1. 复用已有 Neo4j（Neo4j Desktop / 本机服务）——让人类启动它。
-2. 有 Docker Desktop 时：
+### 5.1 选择发行版
 
 ```powershell
-$Neo4jPass = '<让人类提供或生成一个强密码>'
-docker run -d --name argo-neo4j --restart unless-stopped `
-  -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 `
-  -e "NEO4J_AUTH=neo4j/$Neo4jPass" `
-  -v argo_neo4j_data:/data neo4j:5
+wsl.exe -l -v
 ```
 
-3. 都没有时：向人类要一次安装授权（Neo4j Desktop 或 Docker Desktop），或让他手工启动现有 Neo4j。
+优先复用已有的 Ubuntu（例如 `ocpc`）。没有就：
 
-### 4.3 补齐 `%USERPROFILE%\.argo\.env`
+```powershell
+wsl.exe --install -d Ubuntu
+```
 
-只写这些键（其余保持默认；不要把密钥写进仓库）：
+设置 `$WslDistro` 为实际名称。确认 systemd：
 
-```dotenv
+```powershell
+wsl.exe -d $WslDistro -- bash -lc 'systemctl is-system-running || true'
+```
+
+不是 `running` 时，在 WSL 内写 `/etc/wsl.conf`：
+
+```ini
+[boot]
+systemd=true
+```
+
+然后 `wsl.exe --shutdown`，重新进入。
+
+### 5.2 安装执行体依赖（WSL）
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc @'
+set -e
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y build-essential git curl ca-certificates wget ripgrep \
+  openssh-server python3 python3-venv
+# Node 24 + pnpm（已有可跳过）
+if ! command -v node >/dev/null 2>&1; then
+  curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+  apt-get install -y nodejs
+fi
+node -v
+npm install -g pnpm@9.15.4
+# OpenCode（已有可跳过）
+if ! command -v opencode >/dev/null 2>&1; then
+  npm install -g opencode-ai
+fi
+opencode --version
+# PowerShell 7（argo-deploy 在 Linux 需要）
+if ! command -v pwsh >/dev/null 2>&1; then
+  wget -q https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb \
+    -O /tmp/packages-microsoft-prod.deb
+  dpkg -i /tmp/packages-microsoft-prod.deb
+  apt-get update
+  apt-get install -y powershell
+fi
+pwsh -v
+systemctl enable --now ssh || systemctl enable --now sshd
+'@
+```
+
+> Ubuntu 22.04 把 `24.04` 换成 `22.04`。
+
+### 5.3 确认仓库挂载
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc 'ls -l /mnt/d/Projects/paperclip/AGENTS.md'
+wsl.exe -d $WslDistro -- bash -lc 'cd /mnt/d/Projects/paperclip && git rev-parse --abbrev-ref HEAD'
+```
+
+预期：文件存在，分支 `dev/local-install`。**不要**在 WSL 里再 clone 一份。
+
+---
+
+## 6. Phase D — WSL 侧 aGraph / ARGO / Neo4j
+
+### 6.1 安装 ARGO 工具链（WSL）
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc @'
+set -e
+npm install -g archgraph-argo
+export PATH="$(npm prefix -g)/bin:$PATH"
+argo-deploy
+command -v argo-init || echo "argo-init not on PATH; use ~/.argo/bin/argo-init.js"
+'@
+```
+
+`argo-deploy` 会写 `~/.argo` 和 `~/.config/opencode`。安装后重启 OpenCode。
+
+### 6.2 确保 WSL 内 Neo4j 可连
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc 'ss -lntp | grep -E ":(7687)\b" || true'
+wsl.exe -d $WslDistro -- bash -lc 'timeout 3 bash -c "</dev/tcp/127.0.0.1/7687" && echo neo4j-ok || echo neo4j-down'
+```
+
+按顺序处理：
+
+1. **复用 Windows Neo4j 的反向隧道**（已知可用）：WSL 的 `127.0.0.1:7687` 由 sshd
+   转发到 Windows Neo4j。没有就建立：
+   - WSL 内确保 sshd 在 2222（Phase F 会建）。
+   - Windows 侧后台运行：
+     ```powershell
+     Start-Process ssh.exe -ArgumentList @(
+       '-N','-R','7687:127.0.0.1:7687','-p','2222','root@127.0.0.1'
+     ) -WindowStyle Hidden
+     ```
+     前提是 Windows 能用免密 key 登录 WSL 的 2222。
+2. **WSL Docker**：如果 `docker info` 可用：
+   ```bash
+   docker run -d --name argo-neo4j --restart unless-stopped \
+     -p 127.0.0.1:7474:7474 -p 127.0.0.1:7687:7687 \
+     -e "NEO4J_AUTH=neo4j/<强密码>" \
+     -v argo_neo4j_data:/data neo4j:5
+   ```
+3. 都不行：向人类要一次 Neo4j 安装/启动协助。
+
+### 6.3 写 WSL 的 `~/.argo/.env`
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc @'
+cat > /root/.argo/.env <<"EOF"
 ARGO_NEO4J_DATABASE_URL=neo4j://127.0.0.1:7687
 ARGO_NEO4J_DATABASE_USERNAME=neo4j
-ARGO_NEO4J_DATABASE_PASSWORD=<Neo4j 密码>
+ARGO_NEO4J_DATABASE_PASSWORD=<密码>
 
-# 语义检索需要；没有 embedding 端点就留空，并在最终报告里标注“语义检索未启用”
 ARGO_EMBEDDING_PROFILE=openai-compatible
 ARGO_EMBEDDING_BASE_URL=<OpenAI 兼容 base URL>
 ARGO_EMBEDDING_MODEL=<模型名>
@@ -208,135 +334,204 @@ ARGO_EMBEDDING_PROVIDER=<provider 标签>
 ARGO_EMBEDDING_MODEL_VERSION=<版本标签>
 ARGO_EMBEDDING_DIMENSIONS=1536
 QWEN_KEY=<embedding API Key>
+EOF
+chmod 600 /root/.argo/.env
+'@
 ```
 
-Embedding 端点可以复用人类现有的模型网关；没有就问一次。没有它时 ARGO 的结构/写入/MCP 仍可用，但 `memory_search` 语义召回会降级。
+没有 embedding 端点就留空对应键，并在最终报告里标注“语义检索降级”。
 
-### 4.4 运行并校验 `argo-init`
+### 6.4 运行 `argo-init`（WSL，操作 Windows 仓库）
 
 ```powershell
-cd $Repo
-argo-init
+wsl.exe -d $WslDistro -- bash -lc @'
+cd /mnt/d/Projects/paperclip
+export PATH="$(npm prefix -g)/bin:$PATH"
+if command -v argo-init >/dev/null 2>&1; then
+  argo-init
+else
+  node /root/.argo/bin/argo-init.js
+fi
+'@
 ```
 
-读取 `.argo\temp\argo-harness-init-report.json`，验收：
+读取 `/mnt/d/Projects/paperclip/.argo/temp/argo-harness-init-report.json`，验收：
 
 - 整体 `status: ok`。
-- `neo4j.database == paperclip`（仓库目录名；不是就设 `ARGO_NEO4J_DATABASE=paperclip` 后重跑）。
-- `qeaFullProjection.qea` 指向 `$Repo\paperclip.qea`（不是就设 `ARGO_EA_QEA=$Repo\paperclip.qea` 后重跑）。
+- `neo4j.database == paperclip`（仓库目录名）。
+- `qeaFullProjection.qea == /mnt/d/Projects/paperclip/paperclip.qea`。
 - `semanticLifecycle` 为 `ok`，或明确记录 `skipped/disabled`。
 
-失败就按报告里的 section 修，不要跳过。
-
-### 4.5 确认 OpenCode 能加载 ARGO MCP
+### 6.5 让执行体 OpenCode 加载 ARGO MCP
 
 ```powershell
-$cfg = "$env:USERPROFILE\.config\opencode\opencode.json"
-Test-Path $cfg
-Get-Content $cfg -Raw
+wsl.exe -d $WslDistro -- bash -lc @'
+mkdir -p /etc/opencode
+cp /root/.config/opencode/opencode.json /etc/opencode/opencode.json 2>/dev/null || true
+cp /root/.config/opencode/AGENTS.md /etc/opencode/AGENTS.md 2>/dev/null || true
+grep -n '"argo"' /etc/opencode/opencode.json || true
+'@
 ```
 
-确认 `mcp.argo` 存在，命令指向 `%USERPROFILE%\.argo\scripts\argo-mcp-server.js`。改过配置后要重启 OpenCode / Paperclip 服务。
+确认 `mcp.argo` 指向 `/root/.argo/scripts/argo-mcp-server.js`。改完重启 OpenCode/Paperclip。
 
 ---
 
-## 5. Phase C — 安装并启动 Paperclip
+## 7. Phase E — 在 WSL 安装并启动 Paperclip 控制台
 
-### 5.1 安装依赖
+### 7.1 安装（托管安装，避免在 WSL 再 clone 项目仓库）
 
 ```powershell
-cd $Repo
-pnpm install
+wsl.exe -d $WslDistro -- bash -lc @'
+set -e
+export PATH="$(npm prefix -g)/bin:$PATH"
+npx --registry https://registry.npmjs.org paperclipai install \
+  --repo derekhu0002/paperclip --ref dev/local-install
+paperclipai onboard --yes --bind loopback --install-service
+paperclipai doctor || true
+'@
 ```
 
-### 5.2 生成实例配置
+- `--bind loopback`：只本机访问，Windows 通过 WSL 端口转发访问
+  `http://127.0.0.1:3100`。
+- 如果 `--install-service` 失败（无 systemd/权限），改用 `paperclipai run` 后台运行，
+  并记录日志。
+- 私有仓库需要 Git 凭据；失败时让人类提供一次，或改用源码路径。
+
+### 7.2 健康检查
 
 ```powershell
-pnpm paperclipai onboard --yes --no-install-service
-```
-
-- 默认 `loopback` + `local_trusted`，本机访问无需登录。
-- 如果这个命令在 Windows 上不接受某个参数，去掉它重试；只要求生成配置，不要求安装系统服务。
-
-### 5.3 后台启动
-
-```powershell
-$Log = Join-Path $Repo '.paperclip-dev.log'
-Start-Process powershell.exe -ArgumentList @(
-  '-NoProfile','-Command',"cd '$Repo'; pnpm dev *> '$Log'"
-) -WindowStyle Hidden
-```
-
-等待健康检查：
-
-```powershell
-$deadline = (Get-Date).AddMinutes(5)
-do {
-  try {
-    $h = Invoke-RestMethod $HealthUrl -TimeoutSec 3
-    if ($h.status -eq 'ok') { break }
-  } catch {}
-  Start-Sleep 3
-} while ((Get-Date) -lt $deadline)
-
 Invoke-RestMethod $HealthUrl
 ```
 
-验收：`status: ok`，且 `http://127.0.0.1:3100` 能打开。失败时读 `$Log`，常见原因是 Node 版本、端口 3100 被占用、`pnpm install` 未完成。
+验收：`status: ok`。UI 打开 `http://127.0.0.1:3100`。
 
 ---
 
-## 6. Phase D — 创建公司 + Agent
+## 8. Phase F — 建立 SSH 执行环境（标准通道）
 
-### 6.1 创建公司
+### 8.1 WSL sshd 与密钥
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc @'
+set -e
+systemctl enable --now ssh || systemctl enable --now sshd
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+[ -f /root/.ssh/paperclip_env ] || ssh-keygen -t ed25519 -N "" -f /root/.ssh/paperclip_env -C paperclip-exec
+grep -qxF "$(cat /root/.ssh/paperclip_env.pub)" /root/.ssh/authorized_keys 2>/dev/null || \
+  cat /root/.ssh/paperclip_env.pub >> /root/.ssh/authorized_keys
+chmod 600 /root/.ssh/authorized_keys
+ss -lntp | grep -E ":22|:2222" || true
+'@
+```
+
+如果 22 被占用，用 2222（与现有环境一致）：
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc @'
+sed -i "s/^#*Port .*/Port 2222/" /etc/ssh/sshd_config
+systemctl restart ssh || systemctl restart sshd
+ss -lntp | grep 2222
+'@
+```
+
+### 8.2 从 WSL 自连验证
+
+```powershell
+wsl.exe -d $WslDistro -- bash -lc @'
+ssh -i /root/.ssh/paperclip_env -o StrictHostKeyChecking=no \
+  -o UserKnownHostsFile=/dev/null -p 2222 root@127.0.0.1 \
+  "cd /mnt/d/Projects/paperclip && pwd && git rev-parse --abbrev-ref HEAD"
+'@
+```
+
+预期：输出 `/mnt/d/Projects/paperclip` 和 `dev/local-install`。
+
+### 8.3 在 Paperclip 创建 SSH 环境
+
+UI：**Company Settings → Instance → Environments → New Environment → SSH**
+
+| 字段 | 值 |
+|---|---|
+| Name | `WSL Exec · paperclip` |
+| Host | `127.0.0.1` |
+| Port | `2222`（或实际端口） |
+| Username | `root` |
+| Remote workspace path | `/mnt/d/Projects/paperclip` |
+| Private key | secret，内容为 `/root/.ssh/paperclip_env` |
+| Known hosts | 留空 |
+| Strict host key checking | 关闭（与现有环境一致） |
+
+点 **Probe**，必须 `ok: true`，`remoteCwd == /mnt/d/Projects/paperclip`。
+
+API 形态：
+
+```http
+POST /api/companies/<COMPANY_ID>/environments
+Content-Type: application/json
+
+{
+  "name": "WSL Exec · paperclip",
+  "driver": "ssh",
+  "config": {
+    "host": "127.0.0.1",
+    "port": 2222,
+    "username": "root",
+    "remoteWorkspacePath": "/mnt/d/Projects/paperclip",
+    "privateKey": null,
+    "privateKeySecretRef": {
+      "type": "secret_ref",
+      "secretId": "<company-accessible-secret-id>",
+      "version": "latest"
+    },
+    "knownHosts": null,
+    "strictHostKeyChecking": false
+  }
+}
+
+POST /api/environments/<ENVIRONMENT_ID>/probe
+```
+
+---
+
+## 9. Phase G — 创建公司、Agent、项目
+
+### 9.1 公司
 
 ```powershell
 $Company = Invoke-RestMethod -Method Post -Uri "$Api/companies" -ContentType 'application/json' -Body (@{
   name = 'Paperclip Single Machine'
-  description = 'Windows single-machine deployment'
+  description = 'Windows repo + WSL execution (SSH standard)'
   budgetMonthlyCents = 0
 } | ConvertTo-Json)
-
 $CompanyId = $Company.id
-$CompanyId
 ```
 
-### 6.2 解析 OpenCode 可执行文件
+### 9.2 模型与 OpenCode 路径（WSL）
 
 ```powershell
-$OpenCodeExe = Join-Path $env:APPDATA 'npm\node_modules\opencode-ai\bin\opencode.exe'
-if (-not (Test-Path $OpenCodeExe)) { $OpenCodeExe = (Get-Command opencode).Source }
-$OpenCodeExe
+wsl.exe -d $WslDistro -- bash -lc 'export PATH="$(npm prefix -g)/bin:$PATH"; opencode models | head -n 30'
+wsl.exe -d $WslDistro -- bash -lc 'export PATH="$(npm prefix -g)/bin:$PATH"; command -v opencode'
 ```
 
-优先用 `.exe` 绝对路径，避免 Windows 上 `opencode` shim 解析不到。
+选一个可用模型，记为 `$Model`；记下 `opencode` 绝对路径，记为 `$OpenCodeCmd`。
 
-### 6.3 选模型
-
-```powershell
-opencode models
-```
-
-从输出里选一个可用模型，例如 `opencode/deepseek-v4.1-flash-free`（不存在就换列表里的其他项）：
-
-```powershell
-$Model = 'opencode/deepseek-v4.1-flash-free'
-```
-
-### 6.4 创建 Agent
+### 9.3 创建 Agent（SSH 标准）
 
 ```powershell
 $AgentBody = @{
-  name = 'Paperclip Deployer'
+  name = 'Paperclip Executor'
   role = 'general'
   adapterType = 'opencode_local'
   adapterConfig = @{
-    command = $OpenCodeExe
-    cwd = $Repo
+    command = $OpenCodeCmd
     model = $Model
+    directRemoteWorkspace = $true
     dangerouslySkipPermissions = $true
-    env = @{ ARGO_REPO_ROOT = $Repo }
+    env = @{ ARGO_REPO_ROOT = '/mnt/d/Projects/paperclip' }
   }
+  defaultEnvironmentId = $EnvironmentId
   runtimeConfig = @{
     heartbeat = @{ enabled = $true; maxConcurrentRuns = 1 }
   }
@@ -348,39 +543,33 @@ $Agent = Invoke-RestMethod -Method Post -Uri "$Api/companies/$CompanyId/agents" 
 $Agent.id
 ```
 
-如果 API 要求 AI connection（返回 `ai_connection_validation_failed` 或类似错误），先做 Phase E，再带上 `runtimeConfig.aiConnection` 重试。
+如果 API 要求 AI connection，先做 9.4，再带上 `runtimeConfig.aiConnection` 重试。
 
-> **不要创建 Paperclip 项目**（默认路径）。本 fork 对项目绑定 Agent 强制要求 SSH 远程环境；公司级 Agent + 本地执行已经够用，而且最省事。若人类明确要项目，见 8.1。
+### 9.4 接入模型（按需）
 
----
-
-## 7. Phase E — 接入模型
-
-优先复用 OpenCode 已有的 provider/auth：
+优先复用 OpenCode 已有 provider/auth：
 
 ```powershell
-opencode run "只回复 OK，不要调用工具。"
+wsl.exe -d $WslDistro -- bash -lc 'export PATH="$(npm prefix -g)/bin:$PATH"; opencode run "只回复 OK，不要调用工具。"'
 ```
 
-能正常回复就说明 OpenCode 侧可用。Paperclip 仍可能需要一份公司级 AI connection；需要时向人类要一次 Key，然后：
+Paperclip 需要公司级连接时，向人类要一次 Key：
 
 ```powershell
-$Key = '<人类提供>'
 $ConnBody = @{
   provider = 'openai'
   method = 'api_key'
   name = 'Paperclip OpenAI'
   ownership = 'shared'
-  apiKey = $Key
+  apiKey = '<人类提供>'
   allAgents = $true
 } | ConvertTo-Json
 
 $Conn = Invoke-RestMethod -Method Post -Uri "$Api/companies/$CompanyId/ai-connections" `
   -ContentType 'application/json' -Body $ConnBody
-$Conn
 ```
 
-拿到 `connectionId` / `grantId` 后，在 Agent 的 `runtimeConfig.aiConnection` 里使用：
+然后把 `runtimeConfig.aiConnection` 设为：
 
 ```json
 {
@@ -392,27 +581,39 @@ $Conn
 }
 ```
 
-不要猜字段；以创建接口返回和错误提示为准。实在拿不准就让人类在 UI 里点一次 **Agents → New Agent → Connect a model**。
+### 9.5 创建项目并绑定 Agent
+
+```powershell
+$Project = Invoke-RestMethod -Method Post -Uri "$Api/companies/$CompanyId/projects" `
+  -ContentType 'application/json' -Body (@{
+    name = 'paperclip'
+    leadAgentId = $Agent.id
+    status = 'planned'
+  } | ConvertTo-Json)
+$Project.id
+```
+
+一个 Agent 只能绑定一个项目。项目绑定后，fork 会强制检查
+`directRemoteWorkspace=true` + 非 `local` 环境；本流程已满足。
 
 ---
 
-## 8. Phase F — 端到端验收（只读）
-
-### 8.1 创建只读验证 issue
+## 10. Phase H — 端到端验收（只读）
 
 ```powershell
 $IssueBody = @{
-  title = 'Verify Windows single-machine deployment'
+  title = 'Verify WSL execution and ARGO MCP via SSH'
   description = @'
 Read-only. Do not modify files. Report:
-1. Get-Location and whether D:\Projects\paperclip is accessible.
-2. opencode --version.
-3. git rev-parse --abbrev-ref HEAD.
-4. Call queryNeo4jGraph {schema:true} and report schemaKind + counts.
-5. Call memory_search with "Paperclip deployment" and report whether hits return.
-6. Call validateSystemArchitecture and report passed.
+1. pwd and git rev-parse --abbrev-ref HEAD.
+2. git worktree list --porcelain.
+3. opencode --version.
+4. Call queryNeo4jGraph {schema:true}; report schemaKind and counts.
+5. Call memory_search with "Paperclip deployment"; report whether hits return.
+6. Call validateSystemArchitecture; report passed.
 Then mark this issue done.
 '@
+  projectId = $Project.id
   assigneeAgentId = $Agent.id
   status = 'todo'
 } | ConvertTo-Json -Depth 6
@@ -422,37 +623,36 @@ $Issue = Invoke-RestMethod -Method Post -Uri "$Api/companies/$CompanyId/issues" 
 $Issue.id
 ```
 
-### 8.2 验收标准
-
-在 issue 评论或 run 元数据中只接受：
+只接受：
 
 | 检查 | 期望 |
 |---|---|
-| 工作目录 | `$Repo`（至少能访问；`adapterConfig.cwd` 生效更佳） |
-| OpenCode | `opencode --version` 成功 |
-| git 分支 | `dev/local-install` |
-| `queryNeo4jGraph {schema:true}` | 返回 schema 与元素/关系/视图计数 |
-| `memory_search` | 返回命中；若 embedding 未启用，明确记录“降级” |
+| `pwd` | `/mnt/d/Projects/paperclip` |
+| 分支 | `dev/local-install` |
+| worktree | 只有真实 checkout |
+| 执行路径 | 通过 SSH 环境执行，非 `runs/<id>/workspace` staging |
+| `queryNeo4jGraph {schema:true}` | 返回 schema 与计数 |
+| `memory_search` | 返回命中；无 embedding 则明确标注降级 |
 | `validateSystemArchitecture` | `passed` / `exitCode 0` |
 
-不通过时按顺序排查：
+失败排查顺序：
 
-1. `%USERPROFILE%\.config\opencode\opencode.json` 是否有 `mcp.argo`。
-2. 手工运行 `node %USERPROFILE%\.argo\scripts\argo-mcp-server.js` 是否报错。
-3. Agent 的 `ARGO_REPO_ROOT` 是否等于 `$Repo`。
-4. 改完配置后是否重启了 Paperclip 服务。
-5. `adapterConfig.command` 是否指向真实的 `opencode.exe`。
+1. SSH Probe 是否 `ok`，`remoteCwd` 是否正确。
+2. Agent 是否 `directRemoteWorkspace=true`，`defaultEnvironmentId` 是否 SSH 环境。
+3. `/etc/opencode/opencode.json` 是否有 `mcp.argo`。
+4. `ARGO_REPO_ROOT` 是否 `/mnt/d/Projects/paperclip`。
+5. 改配置后是否重启 Paperclip。
 
 ---
 
-## 9. Phase G — 交付
-
-向人类输出一页摘要：
+## 11. Phase I — 交付
 
 ```
-Paperclip 已启动：http://127.0.0.1:3100
+Paperclip：http://127.0.0.1:3100
 公司：<name> / <CompanyId>
-Agent：<name> / <AgentId>
+SSH 环境：WSL Exec · paperclip / <EnvironmentId>（Probe ok）
+Agent：<name> / <AgentId>（opencode_local, directRemoteWorkspace=true）
+项目：paperclip / <ProjectId>
 模型：<Model>
 aGraph：argo-init status=<ok/其他>；Neo4j=<host:7687>；语义检索=<启用/降级>
 验证 issue：<IssueId>，结果=<通过/失败+原因>
@@ -461,80 +661,64 @@ aGraph：argo-init status=<ok/其他>；Neo4j=<host:7687>；语义检索=<启用
 
 ---
 
-## 10. 验收清单（Agent 完成前逐条确认）
+## 12. 验收清单
 
-- [ ] Node `>= 24.11`，pnpm `9.x`，git / ripgrep / opencode 可用。
-- [ ] `%USERPROFILE%\.argo\scripts\argo-mcp-server.js` 存在。
-- [ ] Neo4j `127.0.0.1:7687` 可连。
-- [ ] `argo-init` 报告 `status: ok`（或明确记录语义降级原因）。
-- [ ] `%USERPROFILE%\.config\opencode\opencode.json` 含 `argo` MCP。
-- [ ] `pnpm install` 完成；`/api/health` 返回 `ok`。
-- [ ] 公司、Agent 创建成功；Agent 使用 `opencode_local` + 本地执行 + `cwd=$Repo`。
+- [ ] Windows：Node `>=24.11`、pnpm、git、ripgrep、opencode 可用。
+- [ ] Windows：`~/.argo/scripts/argo-mcp-server.js` 存在。
+- [ ] WSL：systemd running，Node/pnpm/git/rg/opencode/pwsh 可用。
+- [ ] WSL：`/mnt/d/Projects/paperclip` 可访问，分支 `dev/local-install`。
+- [ ] WSL：Neo4j `127.0.0.1:7687` 可连。
+- [ ] WSL：`argo-init` 报告 `status: ok`（或明确语义降级）。
+- [ ] WSL：`/etc/opencode/opencode.json` 含 `argo` MCP。
+- [ ] Paperclip `/api/health` = ok。
+- [ ] SSH 环境 Probe ok，`remoteCwd=/mnt/d/Projects/paperclip`。
+- [ ] Agent：`opencode_local` + `directRemoteWorkspace=true` + SSH 环境。
+- [ ] 项目已绑定 `leadAgentId`。
 - [ ] 只读验证 issue 通过，ARGO MCP 工具可调用。
-- [ ] 交付摘要已给人类。
 
 ---
 
-## 11. 常见问题
+## 13. 常见问题
 
 | 现象 | 处理 |
 |---|---|
-| `argo-init` 报 Neo4j 连接失败 | 确认 7687；填 `~/.argo/.env`；必要时启动/安装 Neo4j |
+| WSL 里 `argo-init` 找不到 | `export PATH="$(npm prefix -g)/bin:$PATH"`，或 `node /root/.argo/bin/argo-init.js` |
+| `argo-init` 报 Neo4j 连接失败 | 检查 WSL `127.0.0.1:7687`；建反向隧道或用 WSL Docker 起 Neo4j |
 | `argo-init` 报数据库名不一致 | 仓库目录名应为 `paperclip`，或设 `ARGO_NEO4J_DATABASE=paperclip` |
-| `argo-init` 报 `.qea` 目标不对 | 设 `ARGO_EA_QEA=<Repo>\paperclip.qea` 后重跑 |
-| `memory_search` 无结果/超时 | embedding 未配置或维度不对；查 `.env` 与报告；无端点就标注降级 |
-| `pnpm dev` 起不来 | 读 `.paperclip-dev.log`；检查 Node 版本、端口 3100、`pnpm install` |
-| Paperclip Agent 找不到 opencode | `adapterConfig.command` 改成 `opencode.exe` 绝对路径，重启服务 |
-| Paperclip Agent 没有 ARGO 工具 | 检查 `%USERPROFILE%\.config\opencode\opencode.json`；重启 Paperclip |
-| `winget` 安装后命令仍找不到 | `Refresh-Path` 或重开终端；仍未生效就直接用安装目录的绝对路径 |
-| npm 安装慢/失败 | 配置内网 registry 或代理；把需要人类处理的网络问题一次列出 |
-| 端口 3100 被占用 | `Get-NetTCPConnection -LocalPort 3100`；停掉占用进程或换端口 |
+| `argo-init` 报 `.qea` 目标不对 | 设 `ARGO_EA_QEA=/mnt/d/Projects/paperclip/paperclip.qea` |
+| `memory_search` 无结果/超时 | embedding 未配置或维度不对；查 `.env` 与报告 |
+| Paperclip 起不来 | `paperclipai doctor` / `paperclipai service logs -f`；检查 Node 版本与端口 |
+| SSH Probe 失败 | 检查 2222、root key、`authorized_keys`、`/mnt/d/...` 路径 |
+| `project_agent_direct_workspace_required` | 打开 `directRemoteWorkspace` |
+| `project_agent_remote_environment_required` | `defaultEnvironmentId` 改 SSH 环境 |
+| Agent 没有 ARGO 工具 | 检查 `/etc/opencode/opencode.json` 与 `ARGO_REPO_ROOT`；重启 Paperclip |
+| `opencode` 找不到 | Agent 的 `adapterConfig.command` 设为 WSL 内绝对路径 |
 
 ---
 
-## 12. 已知限制与取舍
+## 14. 标准与红线
 
-### 12.1 为什么默认不建 Paperclip 项目
-
-本 fork 的 `server/src/fork/project-execution-binding.ts` 规定：**项目绑定的
-`opencode_local` Agent 必须开启 `directRemoteWorkspace`，并且执行环境不能是
-`local`**。在单机 Windows 上，这会强制你额外搭一套 SSH 执行环境（Windows
-OpenSSH + 兼容 POSIX 的 shell），明显增加复杂度。
-
-所以默认采用**公司级 Agent + 本地执行**：不建项目，直接复用 Windows 上已有的
-OpenCode，`adapterConfig.cwd` 指向仓库。功能足够跑任务，且人类零额外操作。
-
-如果人类明确需要 Paperclip 项目，再按 12.2 处理。
-
-### 12.2 如果一定要用项目（进阶，Agent 自行判断是否值得）
-
-需要额外满足：
-
-1. 启用 Windows OpenSSH Server（管理员）。
-2. 让 SSH 会话落在 POSIX 兼容 shell（Git Bash 或 WSL），否则 Paperclip 的
-   `cd` / 路径处理会失败。
-3. 创建一个 SSH 环境，`remoteWorkspacePath` 指向仓库（Git Bash 用
-   `/d/Projects/paperclip`，WSL 用 `/mnt/d/Projects/paperclip`）。
-4. Agent 设置 `directRemoteWorkspace=true`、`defaultEnvironmentId=<SSH 环境>`。
-5. 再创建项目并设置 `leadAgentId`。
-
-这套路径可行但步骤多；只有在人类明确要求“必须用项目”时才做，并在做之前把额外
-工作量和风险告诉人类。
+1. **SSH 是唯一执行通道**：项目绑定 Agent 必须走 SSH 环境 + Direct remote workspace。
+2. **仓库只有一份**：Windows 的 `D:\Projects\paperclip`；WSL 用 `/mnt/d/...`，不复制。
+3. **密钥不进仓库**：只写 `~/.argo/.env`、`~/.paperclip`、Paperclip secret。
+4. **每阶段验收**：不通过不进入下一阶段；不伪造 `memory_search` 结果。
+5. **不碰外部图**：只用本机/本机 WSL 的 Neo4j，不连 47 共享图。
 
 ---
 
-## 13. 附录：关键路径
+## 15. 附录：关键路径
 
-| 内容 | Windows 路径 |
+| 内容 | 路径 |
 |---|---|
-| 仓库 | `D:\Projects\paperclip`（示例） |
-| Paperclip 实例数据 | `%USERPROFILE%\.paperclip\instances\default` |
+| Windows 仓库 | `D:\Projects\paperclip` |
+| WSL 仓库 | `/mnt/d/Projects/paperclip` |
+| Paperclip 实例数据（WSL） | `/root/.paperclip/instances/default` |
 | Paperclip 健康检查 | `http://127.0.0.1:3100/api/health` |
-| Paperclip 日志 | `<Repo>\.paperclip-dev.log` |
-| ARGO 根目录 | `%USERPROFILE%\.argo` |
-| ARGO 配置 | `%USERPROFILE%\.argo\.env` |
-| ARGO MCP | `%USERPROFILE%\.argo\scripts\argo-mcp-server.js` |
-| OpenCode 全局配置 | `%USERPROFILE%\.config\opencode\opencode.json` |
-| 项目图谱 | `<Repo>\design\KG\SystemArchitecture.json` |
-| EA 模型 | `<Repo>\paperclip.qea` |
-| argo-init 报告 | `<Repo>\.argo\temp\argo-harness-init-report.json` |
+| ARGO（WSL） | `/root/.argo` |
+| ARGO 配置（WSL） | `/root/.argo/.env` |
+| ARGO MCP（WSL） | `/root/.argo/scripts/argo-mcp-server.js` |
+| OpenCode 配置（WSL） | `/root/.config/opencode/opencode.json` |
+| OpenCode 系统配置（WSL） | `/etc/opencode/opencode.json` |
+| 项目图谱 | `/mnt/d/Projects/paperclip/design/KG/SystemArchitecture.json` |
+| EA 模型 | `/mnt/d/Projects/paperclip/paperclip.qea` |
+| argo-init 报告 | `/mnt/d/Projects/paperclip/.argo/temp/argo-harness-init-report.json` |

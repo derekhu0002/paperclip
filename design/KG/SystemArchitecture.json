@@ -3404,8 +3404,8 @@
     {
       "id": "paperclip-single-machine-ubuntu-deployment-guide-2026-11-06",
       "type": "Requirement",
-      "name": "Paperclip 单机部署指南（Windows 3 步版 · 2026-11-06）",
-      "description": "为内网单台 Windows PC 重写的 Paperclip 单机部署指南（doc/DEPLOYMENT-SINGLE-MACHINE.md），采用 Windows 原生、复用用户已安装的 OpenCode。仓库只克隆到 Windows（dev/local-install），不进入 WSL/Ubuntu。\n\n人类只需 3 步：1) 克隆分支；2) npm i -g archgraph-argo + argo-deploy + argo-init；3) 在仓库运行 opencode run \"读取并执行 doc\\DEPLOYMENT-SINGLE-MACHINE.md 的 Agent 执行手册...\"。其余由 Agent 自动完成：检查/安装 Node>=24.11、pnpm、git、ripgrep、opencode、Neo4j；补齐 ~/.argo/.env；校验 argo-init（status ok、Neo4j DB=paperclip、qea=repo/paperclip.qea）；pnpm install；pnpm paperclipai onboard --yes --no-install-service；后台 pnpm dev；创建公司 + 公司级 opencode_local Agent（command=opencode.exe 绝对路径、cwd=repo、model 从 opencode models 选、env ARGO_REPO_ROOT=repo）；按需创建公司 AI connection；创建只读验证 issue 并验收 queryNeo4jGraph/memory_search/validateSystemArchitecture。\n\n关键决策：1) Paperclip 用源码 pnpm dev 在 Windows 运行（托管安装不支持原生 Windows；源码 dev 已在当前环境验证）；2) 默认不建 Paperclip 项目，改用公司级 Agent + 本地执行，绕过本 fork 对 project-bound opencode_local 的 SSH/directRemoteWorkspace 硬性要求；若必须用项目，需启用 Windows OpenSSH + POSIX shell（Git Bash/WSL）并建 SSH 环境；3) aGraph 仍为强制前置（archgraph-argo + argo-init），语义检索依赖 OpenAI 兼容 embedding 端点，缺失则标注降级；4) 人类步骤失败时（如 argo-init 因 Neo4j/embedding 未就绪）不阻塞，Agent 补齐。\n\n邮件：2026-11-06 已通过 126 SMTP（hdhscu@126.com）发送至 hudonghua@huawei.com，HTML 正文内联（multipart/alternative，无附件），HTML SHA256 31D21BAF56F07D44AED1D4F7D3D9B7D9D566EC497103F69A1F6589E87720CB46；授权码未写入仓库/日志。",
+      "name": "Paperclip 单机部署指南（SSH 标准 · Windows 仓库 + WSL 执行体 · 2026-11-06）",
+      "description": "为内网单台 PC 重写的 Paperclip 单机部署指南（doc/DEPLOYMENT-SINGLE-MACHINE.md），采用“Windows 仓库 + WSL 执行体 + SSH 标准通道”。仓库只在 Windows（D:\\Projects\\paperclip，dev/local-install），WSL 通过 /mnt/d/Projects/paperclip 访问同一份仓库，不复制。\n\n人类只需 3 步（都在 Windows）：1) 克隆分支；2) npm i -g archgraph-argo + argo-deploy + argo-init；3) 在仓库运行 opencode run \"读取并执行 doc\\DEPLOYMENT-SINGLE-MACHINE.md 的 Agent 执行手册...\"。其余由 Agent 自动完成：Windows 前置检查/安装；准备 WSL 执行体（systemd、Node、pnpm、git、ripgrep、OpenCode、pwsh、sshd）；WSL 安装/校验 aGraph 与 Neo4j（复用 Windows 反向隧道或 WSL Docker），运行 argo-init；在 WSL 托管安装 Paperclip 控制台；建立 SSH 执行环境（root@127.0.0.1:2222，remoteWorkspacePath=/mnt/d/Projects/paperclip）；创建公司 + opencode_local Agent（directRemoteWorkspace=true、defaultEnvironmentId=SSH 环境、ARGO_REPO_ROOT=/mnt/d/Projects/paperclip、command=WSL 内 opencode 绝对路径）；创建项目并绑定 leadAgentId；按需接入公司 AI connection；只读验证 issue 验收 queryNeo4jGraph/memory_search/validateSystemArchitecture。\n\n关键决策/标准：1) 执行体 Agent 必须走 Paperclip SSH 环境 + Direct remote workspace，不用 local；本 fork 的 server/src/fork/project-execution-binding.ts 会强制检查；2) 仓库只有 Windows 一份，WSL 用 /mnt/d/...，不复制；3) Paperclip 控制台在 WSL 托管安装（避免在 WSL 再 clone 项目）；4) aGraph 为强制前置，语义检索依赖 OpenAI 兼容 embedding，缺失则标注降级；5) 人类步骤失败（如 Windows argo-init 因 Neo4j/embedding 未就绪）不阻塞，Agent 补齐。\n\n邮件：2026-11-06 已通过 126 SMTP（hdhscu@126.com）发送至 hudonghua@huawei.com，HTML 正文内联（multipart/alternative，无附件），HTML SHA256 9D9EB1FF5E171C6B12F86A5FDE569B949C06BEC78E2C03AA7956EC234FA7720B；授权码未写入仓库/日志。",
       "attributes": [
         {
           "name": "memoryTier",
@@ -3425,7 +3425,7 @@
         },
         {
           "name": "scope",
-          "value": "Windows native single machine; reuse existing OpenCode; ArchGraph/ARGO; no WSL required"
+          "value": "Windows repo + WSL executor; all execution agents via Paperclip SSH environment + directRemoteWorkspace"
         },
         {
           "name": "emailSentAt",
@@ -3441,7 +3441,7 @@
         },
         {
           "name": "emailStatus",
-          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); Windows 3-step version"
+          "value": "2026-11-06 accepted-by-SMTP smtp.126.com:465 (curl exit 0); SSH standard version"
         },
         {
           "name": "emailNote",
@@ -3457,15 +3457,15 @@
         },
         {
           "name": "emailHtmlSha256",
-          "value": "31D21BAF56F07D44AED1D4F7D3D9B7D9D566EC497103F69A1F6589E87720CB46"
+          "value": "9D9EB1FF5E171C6B12F86A5FDE569B949C06BEC78E2C03AA7956EC234FA7720B"
         },
         {
           "name": "guideVersion",
-          "value": "Windows 3-step simplified (2026-11-06)"
+          "value": "SSH standard / Windows repo + WSL executor (2026-11-06)"
         },
         {
           "name": "humanSteps",
-          "value": "3: clone -> install aGraph/argo-init -> opencode run agent manual"
+          "value": "3 on Windows: clone -> install aGraph/argo-init -> opencode run agent manual"
         },
         {
           "name": "commit",
