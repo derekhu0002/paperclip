@@ -3806,6 +3806,10 @@
         {
           "name": "deployReference",
           "value": "argo.derekworkspacev5.com -> aliyun-relay 100.84.136.126 nginx; /insight/ -> 127.0.0.1:8765 (agentic-insight.service, /opt/agentic-8theme-insight); new path /qwenpaw/"
+        },
+        {
+          "name": "commit",
+          "value": "paperclip@635eb71d9 (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
