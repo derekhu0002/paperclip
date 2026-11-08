@@ -3877,7 +3877,7 @@
       "id": "paperclip-ai-security-website-onboarding-2026-11-08",
       "name": "AI security 研究组织：宣传网站项目与 Lead Agent 上线（2026-11-08）",
       "type": "Requirement",
-      "description": "【目标】在 47 Paperclip 的 AI security 研究组织（AIS，公司 d56a6bbb-48d3-4f9b-a7ff-e2367b0f780b）下新增「宣传网站」项目与对应 Lead Agent：作为总负责项目「AI security 研究」（5bb27564-fe71-4ccd-8b4c-607cd91d2913）下的一级子项目，Lead Agent 挂在总负责人（665f6b13）下；项目负责开发和维护该组织的对外网站。\n\n【结果与证据】\n- 项目：7122dce3-eda8-4de8-b6eb-b846d8ff8dcc「宣传网站」，status=planned，parentProjectId=5bb27564（一级子项目），leadAgentId=0d499bc5。\n- Agent：0d499bc5-a4fd-40b3-a59e-ebb5a840e490「宣传网站负责人 · ai-security-website-lead」，role=pm，title=宣传网站负责人，reportsTo=665f6b13（总负责人）；adapterType=opencode_local、runner=legacy、directRemoteWorkspace=true、dangerouslySkipPermissions=true、model=deepseek/deepseek-flash、helloProbeTimeoutSec=420；env 含 ARGO_ENV_FILE=/root/.argo/.env、ARGO_REPO_ROOT=/mnt/d/Projects/ai-security-research、DEEPSEEK_API_KEY=secret 04dbe994；heartbeat 300s/maxConcurrentRuns=1/skipTimerWhenNoActionableWork=true；最终 idle/ready。\n- 执行环境：复用组织 WSL 环境 b337b3df-0cdc-4347-abf9-76958c27439a（root@100.87.205.43:2222，remoteWorkspacePath=/mnt/d/Projects/ai-security-research）；test-environment pass（cwd 正确、opencode 可执行）。\n- Workspace：a07a20c9-9adf-4f5f-b0ed-adf07abc1654（remote_path，同一 AIS 真实 checkout）；网站代码后续建议落在该仓库 website/ 目录。\n- 端到端验收：AIS-10（issue f8f781dc，run 5673e37f）done；证据：pwd=/mnt/d/Projects/ai-security-research、branch main、单 worktree；queryNeo4jGraph schema passed（9 el/1 rel/10 views）；getSystemArchitecture semanticRetrieval=invoked（命中 ai-security-insight-001 等）；memory_search 6 命中；validateSystemArchitecture passed/exitCode 0；design/KG/SystemArchitecture.json 已 tracked；website/ 尚不存在。\n\n【关键决策】按用户“一级项目挂到总负责项目下面”原话，parentProjectId 设为总负责项目而非 null；Lead Agent reportsTo=总负责人；不新建独立仓库/环境，复用组织共用 WSL 工作区，降低重复（用户本次未要求独立仓库）；项目名严格用“宣传网站”。\n\n【坑/注意】1) AIS requireBoardApprovalForNewAgents=false，直接创建 Agent 可用。2) 新 Agent 先 paused/preparing，约 1–2 分钟自动 ready；test-environment 可佐证。3) 共用仓库存在跨任务未提交改动（AIS-9 相关），验收时未擅自清理。4) Agent 按全局规则在 AIS 意图图中新建了自己的 Actor + 三层记忆并提交（0f27a99 / 登记 8854475）。5) principleIndex 仍 declared-missing。\n\n【目标 T2】project-manager-ai-security-org-001 / paperclip-ai-security-website-onboarding-2026-11-08。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#paperclip-ai-security-website-onboarding-2026-11-08",
+      "description": "【目标】在 47 Paperclip 的 AI security 研究组织（AIS，公司 d56a6bbb-48d3-4f9b-a7ff-e2367b0f780b）下新增「宣传网站」项目与对应 Lead Agent：作为总负责项目「AI security 研究」（5bb27564-fe71-4ccd-8b4c-607cd91d2913）下的一级子项目，Lead Agent 挂在总负责人（665f6b13）下；项目负责开发和维护该组织的对外网站。\n\n【结果与证据】\n- 项目：7122dce3-eda8-4de8-b6eb-b846d8ff8dcc「宣传网站」，status=planned，parentProjectId=5bb27564（一级子项目），leadAgentId=0d499bc5。\n- Agent：0d499bc5-a4fd-40b3-a59e-ebb5a840e490「宣传网站负责人 · ai-security-website-lead」，role=pm，title=宣传网站负责人，reportsTo=665f6b13（总负责人）；adapterType=opencode_local、runner=legacy、directRemoteWorkspace=true、dangerouslySkipPermissions=true、model=deepseek/deepseek-flash、helloProbeTimeoutSec=420；env 含 ARGO_ENV_FILE=/root/.argo/.env、ARGO_REPO_ROOT=/mnt/d/Projects/ai-security-research、DEEPSEEK_API_KEY=secret 04dbe994；heartbeat 300s/maxConcurrentRuns=1/skipTimerWhenNoActionableWork=true；最终 idle/ready。\n- 执行环境：复用组织 WSL 环境 b337b3df-0cdc-4347-abf9-76958c27439a（root@100.87.205.43:2222，remoteWorkspacePath=/mnt/d/Projects/ai-security-research）；test-environment pass（cwd 正确、opencode 可执行）。\n- Workspace：a07a20c9-9adf-4f5f-b0ed-adf07abc1654（remote_path，同一 AIS 真实 checkout）；网站代码后续建议落在该仓库 website/ 目录。\n- 端到端验收：AIS-10（issue f8f781dc，run 5673e37f）done；证据：pwd=/mnt/d/Projects/ai-security-research、branch main、单 worktree；queryNeo4jGraph schema passed（9 el/1 rel/10 views）；getSystemArchitecture semanticRetrieval=invoked（命中 ai-security-insight-001 等）；memory_search 6 命中；validateSystemArchitecture passed/exitCode 0；design/KG/SystemArchitecture.json 已 tracked；website/ 尚不存在。\n\n【关键决策】按用户“一级项目挂到总负责项目下面”原话，parentProjectId 设为总负责项目而非 null；Lead Agent reportsTo=总负责人；不新建独立仓库/环境，复用组织共用 WSL 工作区，降低重复（用户本次未要求独立仓库）；项目名严格用“宣传网站”。\n\n【坑/注意】1) AIS requireBoardApprovalForNewAgents=false，直接创建 Agent 可用。2) 新 Agent 先 paused/preparing，约 1–2 分钟自动 ready；test-environment 可佐证。3) 共用仓库存在跨任务未提交改动（AIS-9 相关），验收时未擅自清理。4) Agent 按全局规则在 AIS 意图图中新建了自己的 Actor + 三层记忆并提交（0f27a99 / 登记 8854475）。5) principleIndex 仍 declared-missing。\n\n【目标 T2】project-manager-ai-security-org-001 / paperclip-ai-security-website-onboarding-2026-11-08。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#paperclip-ai-security-website-onboarding-2026-11-08\n\n【2026-11-08 追加：独立 workspace/仓库/环境 + GitHub private + ARGO】\n- 独立仓库：/home/repos/ai-security-website（WSL ocpc 100.87.205.43），git init -b main；commit 69df58e（初始化 README/AGENTS/.gitignore）、9490919（design/KG/SystemArchitecture.json + ai-security-website.qea）。\n- GitHub private：https://github.com/derekhu0002/ai-security-website（visibility=PRIVATE；origin=git@github.com:derekhu0002/ai-security-website.git；main 已推送并 track）。\n- ARGO init：全绿；Neo4j db=ai-security-website（repo match）、qea 指向本仓库、3el/1rel/7views、ontologyValidation=passed、semanticLifecycle=Aligned。首次 init 因 Neo4j max_databases 达 100 上限失败；已将 Desktop DBMS 的 dbms.max_databases 提升到 200 并重启后成功。\n- 独立环境：102eaac1-0ff7-465b-b1a1-2722f97a3c19「WSL2 · ai-security-website」，root@100.87.205.43:2222，remoteWorkspacePath=/home/repos/ai-security-website；probe ok、test-environment pass。\n- Agent 已改绑：defaultEnvironmentId=102eaac1，ARGO_REPO_ROOT=/home/repos/ai-security-website；其余配置不变；idle/ready。\n- Project workspace 已更新：a07a20c9（name=ai-security-website、cwd=/home/repos/ai-security-website、repoUrl=GitHub URL）。\n- 端到端验收：AIS-11（issue 76b5e360，run 7057b32a）done；证据：pwd/branch 正确、origin 指向私有仓库、git status 与 origin/main 同步、ls-remote 命中 9490919、schema 3/1/7、semantic invoked、validate passed、两文件 tracked；未认证 GitHub API 返回 404 佐证 private。\n\n【追加目标 T2】project-manager-ai-security-org-001 / paperclip-ai-security-website-onboarding-2026-11-08。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#paperclip-ai-security-website-onboarding-2026-11-08",
       "attributes": [
         {
           "name": "memoryTier",
@@ -3918,6 +3918,34 @@
         {
           "name": "commit",
           "value": "paperclip@c4fa12a16 (design/KG/SystemArchitecture.json, paperclip.qea)"
+        },
+        {
+          "name": "paperclipEnvironmentIndependent",
+          "value": "102eaac1-0ff7-465b-b1a1-2722f97a3c19 | WSL2 · ai-security-website | /home/repos/ai-security-website"
+        },
+        {
+          "name": "paperclipWorkspace",
+          "value": "a07a20c9-9adf-4f5f-b0ed-adf07abc1654 | ai-security-website | /home/repos/ai-security-website | repoUrl=https://github.com/derekhu0002/ai-security-website"
+        },
+        {
+          "name": "githubRepo",
+          "value": "https://github.com/derekhu0002/ai-security-website | PRIVATE | origin git@github.com:derekhu0002/ai-security-website.git | main tracking"
+        },
+        {
+          "name": "repoCommits",
+          "value": "ai-security-website@69df58e (init README/AGENTS/.gitignore); ai-security-website@9490919 (design/KG/SystemArchitecture.json + ai-security-website.qea) | pushed to origin/main"
+        },
+        {
+          "name": "argoInit",
+          "value": "db=ai-security-website | qea=repo own | 3el/1rel/7views | ontologyValidation=passed | semanticLifecycle=Aligned"
+        },
+        {
+          "name": "neo4jConfig",
+          "value": "Neo4j Desktop DBMS dbms-9790d21e: dbms.max_databases 100 (default) -> 200; restarted DBMS to apply"
+        },
+        {
+          "name": "verificationIndependent",
+          "value": "AIS-11 done (run 7057b32a); cwd/branch correct; origin private; status synced; ls-remote 9490919; schema 3/1/7; semantic invoked; validate passed; unauth GitHub API 404"
         }
       ]
     }
