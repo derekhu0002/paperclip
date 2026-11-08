@@ -87,6 +87,10 @@
         {
           "view_id": "qwenpaw",
           "view_name": "项目经理 · QwenPaw 宣传网站记忆"
+        },
+        {
+          "view_id": "view",
+          "view_name": "项目经理 · 威胁情报中心组织网站与漏洞情报记忆"
         }
       ],
       "attributes": [
@@ -3812,6 +3816,58 @@
           "value": "paperclip@635eb71d9 (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
+    },
+    {
+      "id": "cti-org-website-vuln-intel-onboarding-2026-11-08",
+      "name": "威胁情报中心：组织网站与漏洞情报项目 + Lead Agent 上线（2026-11-08）",
+      "type": "Requirement",
+      "description": "【目标】在 47 Paperclip 的威胁情报中心（CTI，公司 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6，prefix CTI）新增两个一级项目及其 Lead Agent：(1) 组织网站；(2) 漏洞情报负责人（漏洞情报收集/分析/分发）。两者各自拥有独立 Workspace 与独立 Git 仓库，Agent 执行体在本期 WSL（100.87.205.43），并完成 ARGO 初始化。\n\n【结果与证据】\n- 组织网站：仓库 /home/repos/threat-intel/cti-org-website（commit 2729726 初始化、34dc475 argo-init baseline）；ARGO init 全绿（Neo4j db=cti-org-website、qea 指向本仓库、3el/1rel/7views、validate passed、semanticLifecycle=Aligned）；环境 8e75dce3-392f-4177-820a-ffda8dfc0a1d；Agent b1852434-5392-4e31-85b2-0eacb786f8bf；项目 5cff6947-21b5-479c-962f-7f308f0656bd（parent=null，level-1，lead=上述 Agent）。\n- 漏洞情报负责人：仓库 /home/repos/threat-intel/cti-vuln-intel（commit faf38e1 初始化、2e7d56b argo-init baseline）；ARGO init 全绿（Neo4j db=cti-vuln-intel、qea 指向本仓库、3el/1rel/7views、validate passed、semanticLifecycle=Aligned）；环境 80c84c60-1ad1-440d-be4d-54e3fa3a92fa；Agent 43f7eab8-ab2f-4d0e-b283-bf3fc75eefca；项目 5a65a635-1518-4da0-ac3a-0c7cc36cce3a（parent=null，level-1，lead=上述 Agent）。\n- 两者 Lead Agent 均 reportsTo=情报负责人 · vso-intel（49d7b778-1dfb-4044-a09e-ce23246312a5，CTI 总负责人）；adapterType=opencode_local、runner=legacy、directRemoteWorkspace=true、model=deepseek/deepseek-flash、ARGO_ENV_FILE=/root/.argo/.env、ARGO_REPO_ROOT 指向各自仓库；heartbeat 300s/maxConcurrentRuns=1/skipTimerWhenNoActionableWork=true；最终 status=idle/lifecycle=ready。\n- 环境 probe ok（remoteCwd 一致）；test-environment pass（cwd 正确、opencode 可执行）。\n- 端到端验收：CTI-38（组织网站，issue 37a850f6，run 91e4f6a1）与 CTI-37（漏洞情报，issue fd9b659b，run 9e2213fd）均在 WSL 真实目录只读执行并 done；证据：pwd/branch main/单 worktree/git 干净；queryNeo4jGraph schema passed（3/1/7）；semanticRetrieval=invoked；validateSystemArchitecture passed/exitCode 0；两文件已 tracked。\n\n【关键决策】两个项目都按用户要求做成一级项目（parentProjectId=null），但 Lead Agent 的汇报线挂在 CTI 总负责人下；仓库统一放 /home/repos/threat-intel/<repo>（WSL 原生存储），Neo4j 库名=仓库 basename；复用 CTI 公司 SSH secret 5876c840 与 DEEPSEEK secret a014ac89，未落明文；项目名严格采用用户给定的「组织网站」与「漏洞情报负责人」。\n\n【坑/注意】1) CTI requireBoardApprovalForNewAgents=false，直接 POST /companies/:id/agents 可用，无需 hire 审批。2) 新建 Agent 会先 paused/preparing，约 30–120s 自动转 ready/idle；test-environment 可加速/佐证。3) principleIndex 仍 declared-missing（全实例缺 principle-index-001），按规则报告、不臆造。4) 只读验收任务中 Agent 会明确跳过写记忆（因写图=改文件，与只读冲突）。5) 两个仓库目前是本地独立 git 仓，未建 GitHub 远端。\n\n【目标 T2】project-manager-001-ltm-001 层级下的 view 子视图 / cti-org-website-vuln-intel-onboarding-2026-11-08。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#cti-org-website-vuln-intel-onboarding-2026-11-08",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-08"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-11-08"
+        },
+        {
+          "name": "paperclipCompany",
+          "value": "f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6 | 威胁情报中心 | prefix CTI"
+        },
+        {
+          "name": "projectOrgWebsite",
+          "value": "5cff6947-21b5-479c-962f-7f308f0656bd | 组织网站 | level-1 | lead=b1852434 | workspace=/home/repos/threat-intel/cti-org-website"
+        },
+        {
+          "name": "projectVulnIntel",
+          "value": "5a65a635-1518-4da0-ac3a-0c7cc36cce3a | 漏洞情报负责人 | level-1 | lead=43f7eab8 | workspace=/home/repos/threat-intel/cti-vuln-intel"
+        },
+        {
+          "name": "agents",
+          "value": "b1852434-5392-4e31-85b2-0eacb786f8bf | 组织网站负责人 · cti-org-website-lead; 43f7eab8-ab2f-4d0e-b283-bf3fc75eefca | 漏洞情报负责人 · cti-vuln-intel-lead (both reportsTo=49d7b778)"
+        },
+        {
+          "name": "environments",
+          "value": "8e75dce3-392f-4177-820a-ffda8dfc0a1d | WSL2 · cti-org-website; 80c84c60-1ad1-440d-be4d-54e3fa3a92fa | WSL2 · cti-vuln-intel"
+        },
+        {
+          "name": "commit",
+          "value": "cti-org-website@34dc475 (2729726 init; design/KG/SystemArchitecture.json + cti-org-website.qea); cti-vuln-intel@2e7d56b (faf38e1 init; design/KG/SystemArchitecture.json + cti-vuln-intel.qea)"
+        },
+        {
+          "name": "verification",
+          "value": "CTI-38 done (run 91e4f6a1); CTI-37 done (run 9e2213fd); argo-init all green; probe/test-environment pass; validate passed; queryNeo4jGraph 3/1/7"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -4089,6 +4145,15 @@
       "view_id": "qwenpaw",
       "included_elements": [
         "qwenpaw-website-onboarding-2026-11-08"
+      ]
+    },
+    {
+      "view_name": "项目经理 · 威胁情报中心组织网站与漏洞情报记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "威胁情报中心（CTI）新增两个一级项目：组织网站、漏洞情报负责人；各自独立 WSL 仓库/工作目录、ARGO 初始化、Lead Agent 与端到端只读验收。",
+      "view_id": "view",
+      "included_elements": [
+        "cti-org-website-vuln-intel-onboarding-2026-11-08"
       ]
     }
   ]
