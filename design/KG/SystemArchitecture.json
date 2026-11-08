@@ -3742,6 +3742,10 @@
         {
           "name": "verifiedAt",
           "value": "2026-11-08T07:53Z | git ls-remote main=f4748d0; GitHub contents docs/ ok; issue done; no active run/wake"
+        },
+        {
+          "name": "commit",
+          "value": "paperclip@ba1639e9c (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
