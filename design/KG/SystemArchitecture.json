@@ -83,6 +83,10 @@
         {
           "view_id": "project-manager-ai-security-org-001",
           "view_name": "项目经理 · AI security 组织上线记忆"
+        },
+        {
+          "view_id": "qwenpaw",
+          "view_name": "项目经理 · QwenPaw 宣传网站记忆"
         }
       ],
       "attributes": [
@@ -3752,6 +3756,58 @@
           "value": "paperclip@9f7fc52bf (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
+    },
+    {
+      "id": "qwenpaw-website-onboarding-2026-11-08",
+      "name": "QwenPaw 攻防实验室宣传网站项目与 Lead Agent 上线（2026-11-08）",
+      "type": "Requirement",
+      "description": "【目标】在 47 Paperclip 的 QwenPaw 攻防实验室（QWE，公司 1ba5e77b-d25b-42fc-8eea-7762210b1422；用户口头称『Kevin po／千万破 攻防实验室』）下新增一个 1 级项目与对应 Lead Agent：开发对外宣传整个攻防实验室工作的网站；部署参考 aic-site「洞察站点」的同域新增路径方式；项目需独立 Git 仓库、独立工作目录，并完成 ARGO 初始化。\n\n【结果与证据】\n- 仓库：WSL ocpc（100.87.205.43）`/home/repos/qwenpaw-lab/qwenpaw-website`，git init -b main；commit 6d0627f（README/AGENTS/.gitignore）、commit 4ff94a3（design/KG/SystemArchitecture.json + qwenpaw-website.qea）。\n- ARGO init：`~/.argo/bin/argo-init` 全绿；schema default/ArchiMate 3.2；Neo4j db=qwenpaw-website（repo match yes）；qea target 本仓库 .qea；canonical 3 el / 1 rel / 7 views；ontologyValidation=passed；semanticLifecycle=Aligned；subdiagramViews drift 0。\n- 环境：Paperclip SSH env `b64d9798-a097-4748-8399-0b6af525cd35`（WSL2 · qwenpaw-website，root@100.87.205.43:2222，remoteWorkspacePath 同上），复用 QwenPaw 公司 SSH secret 6eea9149；probe ok、remoteCwd 一致。\n- Agent：`0886298c-6149-4830-a42f-7d5c6dad2c71`「宣传网站负责人 · qwenpaw-website-lead」，role=pm，title=宣传网站负责人，reportsTo=千万破 Commander（f2440fd0）；adapterType=opencode_local、runner=legacy、directRemoteWorkspace=true、model=deepseek/deepseek-flash、heartbeat 300s/maxConcurrentRuns=1/skipTimerWhenNoActionableWork=true；经 hire_agent 审批 5d88d0b1 后 lifecycle ready/idle；test-environment pass（cwd 正确、opencode 可执行）。\n- 项目：`e3a3f2e5-9d9a-4b73-8e34-92213110d54b`「宣传网站 · qwenpaw-website」，parentProjectId=null（1 级），status=planned，leadAgentId=上述 Agent；primary workspace remote_path `/home/repos/qwenpaw-lab/qwenpaw-website`。\n- 端到端验收：QWE-155（issue c367cf5f）由该 Agent 在 WSL 真实目录只读执行并 done（run e6b9dcd9）：pwd 正确、branch main、单 worktree、git 干净；queryNeo4jGraph schema passed（3/1/7）；getSystemArchitecture semanticRetrieval=invoked；memory_search 0 hits（新仓预期）；validateSystemArchitecture passed/exitCode 0；两文件已 tracked。\n\n【部署方式沉淀（insight 站点实测）】argo.derekworkspacev5.com 由 Cloudflare 代理到 aliyun-relay（100.84.136.126）nginx；/insight/ 反代 127.0.0.1:8765（systemd agentic-insight.service，/opt/agentic-8theme-insight，versioned release+manifest+activate+health+rollback）。新站按同法在同域名新增 `location /qwenpaw/`，不申请二级域名。\n\n【关键决策】用户口语『Kevin po 攻防实验室』按唯一『攻防实验室』组织 QwenPaw（千万破）处理，并已在项目/Agent 描述中写明映射；『Argo elite 初始化』按标准 `argo-init` 全量确定性初始化执行（当前框架无 elite 子命令），并给出全绿证据。\n\n【坑/注意】1) QwenPaw 公司 requireBoardApprovalForNewAgents=true，直接 POST /companies/:id/agents 会 409，须走 agent-hires + approvals/:id/approve。2) 新建 Agent 审批后短暂 paused/verifying，约 30s 后转 ready/idle，无需手工干预。3) principleIndex 仍 declared-missing（全实例缺 principle-index-001），按规则报告缺口、不臆造。4) Windows 控制台编码会截断中文，JSON 解析建议以文件/DB 为准。\n\n【目标 T2】project-manager-001-ltm-001 / qwenpaw 子视图 / qwenpaw-website-onboarding-2026-11-08。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#qwenpaw-website-onboarding-2026-11-08",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-08"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-11-08"
+        },
+        {
+          "name": "paperclipCompany",
+          "value": "1ba5e77b-d25b-42fc-8eea-7762210b1422 | QwenPaw 攻防实验室（千万破） | prefix QWE"
+        },
+        {
+          "name": "paperclipProject",
+          "value": "e3a3f2e5-9d9a-4b73-8e34-92213110d54b | 宣传网站 · qwenpaw-website | level-1 (parent=null) | lead=0886298c | workspace=/home/repos/qwenpaw-lab/qwenpaw-website"
+        },
+        {
+          "name": "paperclipAgent",
+          "value": "0886298c-6149-4830-a42f-7d5c6dad2c71 | 宣传网站负责人 · qwenpaw-website-lead (pm, reportsTo=f2440fd0)"
+        },
+        {
+          "name": "paperclipEnvironment",
+          "value": "b64d9798-a097-4748-8399-0b6af525cd35 | WSL2 · qwenpaw-website | root@100.87.205.43:2222"
+        },
+        {
+          "name": "commit",
+          "value": "qwenpaw-website@4ff94a3b316e712e7495ec90b0304dacff4308d6 (design/KG/SystemArchitecture.json, qwenpaw-website.qea); qwenpaw-website@6d0627f (README.md, AGENTS.md, .gitignore)"
+        },
+        {
+          "name": "verification",
+          "value": "QWE-155 done; run e6b9dcd9; argo-init all green; validate passed; queryNeo4jGraph schema passed 3/1/7; semantic retrieval invoked"
+        },
+        {
+          "name": "deployReference",
+          "value": "argo.derekworkspacev5.com -> aliyun-relay 100.84.136.126 nginx; /insight/ -> 127.0.0.1:8765 (agentic-insight.service, /opt/agentic-8theme-insight); new path /qwenpaw/"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -4021,6 +4077,15 @@
       "parent_element_id": "project-manager-001",
       "view_id": "project-manager-ai-security-org-001",
       "view_name": "项目经理 · AI security 组织上线记忆"
+    },
+    {
+      "view_name": "项目经理 · QwenPaw 宣传网站记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "QwenPaw 攻防实验室宣传网站项目与 Lead Agent 上线（1 级项目、独立仓库/工作目录、ARGO init、同域路径部署参考）。",
+      "view_id": "qwenpaw",
+      "included_elements": [
+        "qwenpaw-website-onboarding-2026-11-08"
+      ]
     }
   ]
 }
