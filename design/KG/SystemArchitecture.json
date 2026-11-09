@@ -4002,6 +4002,10 @@
         {
           "name": "commit",
           "value": "ai-security-website@7a000cc (actor/deliverable), 17e90e4 (reproducible tarball), 675bde0 (site)"
+        },
+        {
+          "name": "commit",
+          "value": "paperclip@291585061 (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
