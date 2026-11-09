@@ -3952,6 +3952,58 @@
           "value": "paperclip@a53486426 (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
+    },
+    {
+      "id": "paperclip-ais13-stuck-recovery-2026-11-09",
+      "name": "AIS-13 卡住恢复：external_directory 权限与 disposition 修复循环（2026-11-09）",
+      "type": "Requirement",
+      "description": "【症状】AIS-13（AI security 宣传网站交付）在 2026-11-09 00:21–00:49 反复运行但不推进：每次 run 都以工具调用结束、无最终 disposition；平台判定 deliberate_wait_without_target，连续 2 次 bounded original-owner disposition repair 后把 issue 置为 blocked（recovery owner=board）。期间多次 restored→todo 重试仍循环。\n\n【根因】opencode 对工作区外目录的 external_directory 权限自动拒绝：run 日志出现 `permission requested: external_directory (/mnt/d/Projects/ai-security-research/docs/*); auto-rejecting` 与 `/root/.ssh/*`；被拒绝的工具调用使 run 直接结束、没有最终文本/状态写入，于是触发 disposition 修复循环。Agent 0d499bc5 的 adapterConfig.env 当时只有 ARGO_ENV_FILE / ARGO_REPO_ROOT / DEEPSEEK_API_KEY / PAPERCLIP_OPENCODE_SMALL_MODEL，缺 `OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}}`。任务内容源在 /mnt/d/Projects/ai-security-research/docs（工作区 /home/repos/ai-security-website 之外），所以首次读取外部文档就被拒。\n\n【修复】1) 清理/恢复流程：取消当前循环、将 exhausted recovery action 依次按 restored→todo 交还原 owner；期间也 reset 过 task session，但只改 session 不解决权限，仍循环。2) 真正修复：PATCH /api/agents/0d499bc5 adapterConfig.env 增加 `OPENCODE_CONFIG_CONTENT` plain `{\"permission\":{\"external_directory\":\"allow\"}}`（保留原 env 键与 secret_ref）。3) 再次把 active board action（9f6ba78c）resolve 为 restored→todo，新 run da99b19e 以新配置运行：run 日志 0 次 permission 拒绝。\n\n【结果】run da99b19e（00:50:52–00:57:55）成功：生成 7 个页面（index/evidence-chain/boundaries/forensics/standards/industry/roadmap）+ 2 资源，scripts/build.js/verify.sh/release.sh/deploy.sh/rollback.sh/rehearse-rollback.sh + deploy/nginx-ai-security.conf；commit 675bde0（站点与静态发布工具）、17e90e4（可复现 tarball）、7a000cc（Actor/Deliverable 登记），已 push origin/main 且工作树干净；release 17e90e4-b62f6d98ee79.tar.gz。独立复跑 `bash scripts/verify.sh`：7 页 + 2 资源 + /ai-security/ 全部 200，无外部资源。AIS-13 最终 status=in_review，并创建 pending ask_user_questions d636d574-68e2-4314-bee0-9606f9c1b735，请求运维开通 SSH/vhost location/docroot 软链/发布目录四项授权；线上发布待授权。\n\n【经验】a) Agent 需读工作区外内容（研究文档、~/.ssh、~/.config/gh）时，必须在 adapterConfig.env 配 OPENCODE_CONFIG_CONTENT external_directory allow；否则工具被拒会导致 run 无 disposition 直接结束。b) 排障时不要只反复重置 recovery/session——先看 run NDJSON 的 stderr 是否有 permission/auto-rejecting；根因在配置，不在 recovery。c) Board 恢复顺序：确认根因→修配置→resolve exhausted action（board-owned, restored→todo）→等待新 run 产出。d) 被拒时 run 可能仍标 succeeded，且 liveness=advanced（有工具调用），不能只看状态判定成功。\n\n【目标 T2】project-manager-ai-security-org-001 / paperclip-ais13-stuck-recovery-2026-11-09。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#paperclip-ais13-stuck-recovery-2026-11-09",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-09"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-11-09"
+        },
+        {
+          "name": "paperclipCompany",
+          "value": "d56a6bbb-48d3-4f9b-a7ff-e2367b0f780b | AI security研究组织 | prefix AIS"
+        },
+        {
+          "name": "paperclipIssue",
+          "value": "AIS-13 | 19b4a5d3-d968-4f7d-b777-926a22b9432c | 最终 in_review"
+        },
+        {
+          "name": "paperclipAgent",
+          "value": "0d499bc5-a4fd-40b3-a59e-ebb5a840e490 | 宣传网站负责人 · ai-security-website-lead"
+        },
+        {
+          "name": "rootCause",
+          "value": "opencode external_directory auto-reject for /mnt/d/Projects/ai-security-research/docs and /root/.ssh; missing OPENCODE_CONFIG_CONTENT external_directory allow -> runs ended without disposition -> deliberate_wait_without_target recovery loop -> blocked after 2 attempts"
+        },
+        {
+          "name": "fix",
+          "value": "agent adapterConfig.env += OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}}; resolution restored->todo; new run da99b19e with 0 permission rejections"
+        },
+        {
+          "name": "verification",
+          "value": "bash scripts/verify.sh PASS: 7 pages + 2 assets + /ai-security/ all 200, no external resources; commits 675bde0, 17e90e4, 7a000cc pushed; pending interaction d636d574 for ops authorization"
+        },
+        {
+          "name": "commit",
+          "value": "ai-security-website@7a000cc (actor/deliverable), 17e90e4 (reproducible tarball), 675bde0 (site)"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -4216,7 +4268,8 @@
         "paperclip-ai-security-org-onboarding-2026-11-06",
         "paperclip-ai-security-grok-onboarding-2026-11-06",
         "paperclip-ais-3-github-push-repair-2026-11-08",
-        "paperclip-ai-security-website-onboarding-2026-11-08"
+        "paperclip-ai-security-website-onboarding-2026-11-08",
+        "paperclip-ais13-stuck-recovery-2026-11-09"
       ],
       "included_relationships": [],
       "parent_element_id": "project-manager-001",
