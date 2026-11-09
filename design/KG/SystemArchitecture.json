@@ -4038,12 +4038,22 @@
         {
           "name": "healAttempt",
           "value": "2026-11-09 unassign→reassign did NOT create a fresh run; it raised execution_reconciliation_required and settled blocked (legacy_execution_requires_reconciliation); AIS-12 was restored to todo. Old deferred comment wake e499d6c3 is now cancelled."
+        },
+        {
+          "name": "upstreamIssues",
+          "value": "paperclipai/paperclip #14300 (comment 6732297958), #17385 (comment 6732297971); related #16816, #16940, #14082, #16519; #15483/#15965 closed-not-merged. Root cause: explicit-native-continuation.ts:283-285 unusedAdmission too narrow; :409-415 gate; native-local-process-stop.ts:47 stop receipt native-only."
         }
       ],
       "description": "【现象】2026-11-09 用户在 AIS-12 追加评论（“业界实践要给出洞察原文出处，修改后交审核，通过才 DONE”）后执行异常：wake e499d6c3 状态 deferred_issue_execution，executionWait.reason=process_identity_missing（“The previous run has no verified stop record.”）；系统自动 disposition repair 耗尽（unchanged_source_state_exhausted，owner=board）。\n\n【根因】AIS-12 上一条被控制面取消的 legacy run c289af3b：process_pid=null、无 native.local_process_stopped 证据；continuation gate（explicit-native-continuation）对 legacy user turn 要求已验证的停止记录，导致后续评论唤醒永久 defer（不是资源/队列积压）。\n\n【处置】\n1) 新建 AIS-14（AIS-12 子任务，指派总负责人 665f6b13）作为唤醒载体（新 issue 无旧 run，绕过 continuation gate），run b36fc003/41198260 启动。\n2) 首次载体运行失败于执行边界：agent 试图访问 /home/repos/ai-security-website（不在其工作区 /mnt/d/Projects/ai-security-research），被 auto-reject external_directory；run 以 “no_user_facing_response” 结束，未发评论。\n3) 在 AIS-14 补人类评论纠正：不要改网站仓库；给洞察文档逐条补可核验出处；网站改动委派给 0d499bc5；在 AIS-12 发评论并列改动，AIS-12 置 in_review（不置 done）。\n4) 新 run 4c97ecd5 已启动处理。\n\n【教训】\n- 外部/legacy run 被控制面取消且无 process identity 时，评论唤醒会 defer；用新子任务做载体最稳。\n- agent 不得访问工作区外的目录；跨仓库工作交给对应 agent/子任务。\n- AIS-12 原 deferred wake 仍存在，未来直接评论可能再次被挡；必要时重新分配（unassign→assign）以产生带 process identity 的 run 来治愈该 issue。\n\n【2026-11-09 治愈尝试结果】按用户要求执行 unassign→reassign：未产生新的 process-identity run；Paperclip 再次生成 execution_reconciliation_required wake 并 settle 为 blocked（cause=legacy_execution_requires_reconciliation），AIS-12 变为 blocked；随后已重新置回 todo。结论：重新指派不能治愈 process_identity_missing 门禁；可靠路径仍是 AIS-14 载体任务。旧的 deferred comment wake e499d6c3 已被 cancelled。",
       "id": "ais12-deferred-wake-carrier-2026-11-09",
       "name": "AIS-12 评论唤醒卡住与载体修复（2026-11-09）",
       "type": "Requirement"
+    },
+    {
+      "id": "cti40-review-path-board-block-recovery-2026-11-09",
+      "type": "Requirement",
+      "name": "威胁情报中心 CTI-40/CTI-39 双 BLOCKED 死锁诊断与恢复（2026-11-09）",
+      "description": "【现象】威胁情报中心（CTI，公司 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6）存在两个 BLOCKED 任务：CTI-40（开发并部署宣传网站，assignee=组织网站负责人 b1852434）与 CTI-39（母任务，assignee=情报负责人 49d7b778）。CTI-39 blockedBy=CTI-40；CTI-40 自身无任何 first-class blocker，却处于 blocked 且无任何调度，故两者永远不会自动解除。\n\n【根因】CTI-40 的一次 run 在 in_review 结束但没有留存持久评审路径（scheduled check / reviewer / approval / monitor / interaction）。平台的一次性自动 review-path 修复 wake（01:17:47，run 7d1ae3c6）再次以无持久路径结束，于是 review-path-recovery-escalation 把该 issue 置为 blocked，并创建 board-owned recovery action 0ac1bba9（kind=missing_disposition, cause=issue_review_path_lost, maxAttempts=1），按设计不再自动跟进，必须由 board 裁决。CTI-39 因 blockedBy=CTI-40 被动等待。\n\n【触发失败的底层原因】组织网站 Agent（opencode_local，ARGO_REPO_ROOT=/home/repos/threat-intel/cti-org-website）的 adapterConfig.env 未配置 OPENCODE_CONFIG_CONTENT。人类要求参考兄弟组织站点（qwenpaw / ai-security）后，Agent 尝试读取 /home/repos/qwenpaw-lab 与 /home/repos/ai-security-website，opencode 对工作区外目录返回 `permission requested: external_directory (...); auto-rejecting`；run 在工具被拒后直接 step_finish 结束、无最终 disposition，导致 review-path 丢失→升级 block（与 AIS-13 同类故障）。\n\n【处置】1) 根因修复：PATCH agent b1852434.adapterConfig.env 增加 OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}}。2) 用临时 board API key（2h，用后即 revoke）调用 POST /api/issues/CTI-40/recovery-actions/resolve：actionId=0ac1bba9, outcome=restored, sourceIssueStatus=todo → recovery action=resolved/handed_back，CTI-40 status_version 7→9、blocked→todo→立即被 run b140e3ea 检出为 in_progress（wake reason=issue_recovery_action_restored）。3) 追加 board 评论明确人类已给全部部署输入（域名 https://argo.derekworkspacev5.com，路径 /cticenter/，47 nginx/root、/opt releases+current 原子软链、约 5.3G 剩余空间），并要求结束前必须留存 approval/interaction 等持久评审路径、done 前写 memory marker。\n\n【验证】恢复后 run b140e3ea 正常运行（last_output_seq 持续增长，stderr 为空，无 external_directory 拒绝），已能读取 /home/repos/ai-security-website；CTI-39 仍 blockedBy=CTI-40（合法等待），待 CTI-40 done 后由依赖自动释放服务转 todo 并唤醒 vso-intel。\n\n【教训】1) BLOCKED 无 blocker 的任务是 board 裁决态：检查 issue_recovery_actions 中 active/ownerType=board 的记录，而不是等自动释放。2) opencode_local Agent 需要访问工作区外参考目录时，必须配置 OPENCODE_CONFIG_CONTENT external_directory=allow，否则 run 会在工具拒绝后无 disposition 结束并触发 disposition/review-path 升级。3) 修复 review-path 死锁的标准顺序：先修 Agent 权限（确保下一次 run 能真正做事）→ 再 resolve recovery action 并 todo 交还原 owner（触发唤醒）→ 用评论补充上下文与收尾要求。\n\n【目标 T2】project-manager-001-ltm-001 层级下的 view 子视图 / cti40-review-path-board-block-recovery-2026-11-09。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#cti40-review-path-board-block-recovery-2026-11-09"
     }
   ],
   "relationships": [
@@ -4332,7 +4342,8 @@
       "description": "威胁情报中心（CTI）新增两个一级项目：组织网站、漏洞情报负责人；各自独立 WSL 仓库/工作目录、ARGO 初始化、Lead Agent 与端到端只读验收。",
       "view_id": "view",
       "included_elements": [
-        "cti-org-website-vuln-intel-onboarding-2026-11-08"
+        "cti-org-website-vuln-intel-onboarding-2026-11-08",
+        "cti40-review-path-board-block-recovery-2026-11-09"
       ]
     }
   ]
