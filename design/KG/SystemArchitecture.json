@@ -4409,6 +4409,14 @@
           "name": "commit",
           "value": "94c94c850",
           "description": "chore(argo): restructure CTI RSI roles into a sub-organization"
+        },
+        {
+          "name": "empowerment",
+          "value": "四岗均已赋能（2026-11-10）：① 角色指令：PATCH instructions-bundle(mode=managed,entryFile=AGENTS.md) + PUT file(baseRevisionId=当前 head)，四岗内容回读完全一致（metrics 1377B / architect 1227B / auditor 822B / lead 763B）。② 技能：company skill org-rsi 1c9ddf56（key=company/f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6/org-rsi），四岗 desiredSkills 已 add。③ 预算硬停：四岗 budget_monthly_cents=500（$5/月）。④ 口径复核：RSI-SCORE-0-VERIFY 4d5722d5-945a-4a65-9576-ede1abb97241 已投递并运行，要求用 skill 口径重算第 0 期并与 RSI-SCORE-1 逐项对比。"
+        },
+        {
+          "name": "empowermentArtifacts",
+          "value": "可审阅源文件：doc/agents/cti-org-rsi/{metrics,architect,auditor,lead}.AGENTS.md 与 org-rsi.SKILL.md。"
         }
       ],
       "description": "【目标】为威胁情报中心（CTI，公司 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6，实例 47）部署首批组织级 RSI 能力（Tier 3）。\n\n【仓库与本体】WSL /home/repos/threat-intel/cti-org-rsi：git init main（c1aac4e）+ argo-init 全绿（1e19893；Neo4j db=cti-org-rsi，schemaKind=default，semanticLifecycle=Aligned，qea=cti-org-rsi.qea）。\n\n【组织与环境】项目「组织进化」447758e4-72f2-4f3f-acf3-e987bbd46471（parent=vso-intel cddd25e8-9d29-4158-a17d-776bc67520b1，lead=组织架构师，status=in_progress）；环境 e937a80c-c144-4b71-9da3-b3f05daff23a（WSL2 · cti-org-rsi，SSH root@100.87.205.43:2222，privateKeySecretRef=5876c840）；环境 probe ok=true，test-environment=pass（hello probe 通过）。\n\n【三岗】均 reportsTo=情报负责人 49d7b778-1dfb-4044-a09e-ce23246312a5，opencode_local+legacy，deepseek/deepseek-flash，heartbeat 300s/maxConcurrentRuns=1/skipTimerWhenNoActionableWork=true，canCreateAgents=false（保持独立性）：\n- 效率质量 · cti-org-rsi-metrics 638471af-d1db-4a03-b8b9-9548c54ce25a（role qa）\n- 组织架构师 · cti-org-rsi-architect 8d4e0cb8-0501-4f32-8acb-b6fb612b9bd4（role pm）\n- 独立审计 · cti-org-rsi-auditor 5b163715-21b6-4e6f-9021-ef180d55fa11（role qa）\n三岗最终 lifecycle_state=ready。DEEPSEEK/SSH 均走 secret_ref，无明文。\n\n【留出评估电池】private 项目「组织进化评估电池」6c8269ae-da7f-4ca8-afc5-2e62e66d6df9（visibility=private，lead=独立审计，仅 board owner + 审计 agent 可读写）；EB-1 只读巡检 dba1024b、EB-2 工作区外读取故障复现 95cc3020、EB-3 交付真实性 3a62c489，均为 backlog 不自动执行。\n\n【Routine】周度记分卡 9d35ca85-93bd-47b3-8d58-6c77cbf51e40（cron 0 9 * * 1 Asia/Shanghai，assignee=效率质量）；月度进化周期 2e7b2c9c-9ebd-442e-9e9c-310a1d55e3de（cron 0 9 1 * * Asia/Shanghai，assignee=组织架构师）。\n\n【首轮验证】记分卡种子 issue RSI-SCORE-1 d3716b9c-33a6-4286-8e70-2171ad4ed184 已投递（run 已 running）；进化周期种子 issue RSI-CYCLE-1 3de51724-9cb7-43bd-97f5-b416ff03fd0c 保持 backlog，待记分卡完成后由 board 释放到 todo。\n\n【已知限制】Paperclip 单一 reportsTo + 一 Project 一 lead：三个岗位都向组织负责人汇报以保独立，因此项目「组织进化」的 Team 块只显示 lead（组织架构师）；效率质量/独立审计在 Org 页的负责人直属下。\n\n【Tier】Tier 3（新增 Agent/项目/routine/评估电池），已含 preview/apply 与验收。",
