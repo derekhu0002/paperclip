@@ -4225,6 +4225,10 @@
         {
           "name": "commit",
           "value": "pending"
+        },
+        {
+          "name": "commit",
+          "value": "49c5a978b (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ],
       "description": "【触发】ARG-19 恢复后人类伙伴要求“批量补齐”：给缺失 OPENCODE_CONFIG_CONTENT 的 opencode_local agent 统一打开 external_directory 允许，避免同类 disposition-repair 死循环。\n\n【范围】实例 47（commit 50fb2810c）。全库 opencode_local 134 个，缺该 env 112 个；本次补齐 lifecycle_state=ready 的 90 个（剩余 19 rejected + 3 terminated 未动）。\n\n【方法】控制面 API + 临时 board key e3e34b83-a1c0-4cc4-8971-4dbf791aa3a6（3h，用完 revoked）。逐个 GET /api/agents/:id 取 adapterConfig.env（plain 值已 redact 为 ***REDACTED***），追加 OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}} 后 PATCH /api/agents/:id；服务端 restoreRedactedAgentEnv 还原 secret/plain，未丢键。并发 4，90/90 成功、0 失败。\n\n【验证】DB 校验：ready 缺配置 = 0；全库 JSONB 扫描无 ***REDACTED*** 残留；抽查 argo 四个 agent 的 ARGO_REPO_ROOT 与 DEEPSEEK_API_KEY(secret_ref) 完好；OPENCODE_CONFIG_CONTENT 值确切。\n\n【关键决策】沿用 AIC-81/AIS-13/ARG-19 已验证的 {\"permission\":{\"external_directory\":\"allow\"}}，而不是逐 agent 定制路径白名单——一致、可预测、避免再次遗漏；代价是这 90 个 agent 的 opencode 文件工具可访问工作区外路径（它们本已能执行 bash，属于既有信任边界）。未改全局 opencode 默认、未改 terminated agent。拒绝：DB 直改 adapter_config（无审计）、只修 ARG-19 一个（其余 89 个会陆续复发）。\n\n【遗留】19 rejected + 3 terminated 未补；根因仍未从“创建模板”消除——建议在 opencode_local agent 创建/安装默认模板预置该 env，并在 setup 自检（读一个工作区外文件被拒）时给出明确 blocker，而非进入 recovery 循环。\n\n【files】本次无仓库代码改动（控制面配置）| date: 2026-11-10 | status: ACTIVE | memoryTier: T2",
