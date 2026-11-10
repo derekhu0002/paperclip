@@ -91,6 +91,10 @@
         {
           "view_id": "view",
           "view_name": "项目经理 · 威胁情报中心组织网站与漏洞情报记忆"
+        },
+        {
+          "view_id": "project-manager-biglaptop-001",
+          "view_name": "项目经理 · big-laptop 设备上线记忆"
         }
       ],
       "attributes": [
@@ -4054,6 +4058,54 @@
       "type": "Requirement",
       "name": "威胁情报中心 CTI-40/CTI-39 双 BLOCKED 死锁诊断与恢复（2026-11-09）",
       "description": "【现象】威胁情报中心（CTI，公司 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6）存在两个 BLOCKED 任务：CTI-40（开发并部署宣传网站，assignee=组织网站负责人 b1852434）与 CTI-39（母任务，assignee=情报负责人 49d7b778）。CTI-39 blockedBy=CTI-40；CTI-40 自身无任何 first-class blocker，却处于 blocked 且无任何调度，故两者永远不会自动解除。\n\n【根因】CTI-40 的一次 run 在 in_review 结束但没有留存持久评审路径（scheduled check / reviewer / approval / monitor / interaction）。平台的一次性自动 review-path 修复 wake（01:17:47，run 7d1ae3c6）再次以无持久路径结束，于是 review-path-recovery-escalation 把该 issue 置为 blocked，并创建 board-owned recovery action 0ac1bba9（kind=missing_disposition, cause=issue_review_path_lost, maxAttempts=1），按设计不再自动跟进，必须由 board 裁决。CTI-39 因 blockedBy=CTI-40 被动等待。\n\n【触发失败的底层原因】组织网站 Agent（opencode_local，ARGO_REPO_ROOT=/home/repos/threat-intel/cti-org-website）的 adapterConfig.env 未配置 OPENCODE_CONFIG_CONTENT。人类要求参考兄弟组织站点（qwenpaw / ai-security）后，Agent 尝试读取 /home/repos/qwenpaw-lab 与 /home/repos/ai-security-website，opencode 对工作区外目录返回 `permission requested: external_directory (...); auto-rejecting`；run 在工具被拒后直接 step_finish 结束、无最终 disposition，导致 review-path 丢失→升级 block（与 AIS-13 同类故障）。\n\n【处置】1) 根因修复：PATCH agent b1852434.adapterConfig.env 增加 OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}}。2) 用临时 board API key（2h，用后即 revoke）调用 POST /api/issues/CTI-40/recovery-actions/resolve：actionId=0ac1bba9, outcome=restored, sourceIssueStatus=todo → recovery action=resolved/handed_back，CTI-40 status_version 7→9、blocked→todo→立即被 run b140e3ea 检出为 in_progress（wake reason=issue_recovery_action_restored）。3) 追加 board 评论明确人类已给全部部署输入（域名 https://argo.derekworkspacev5.com，路径 /cticenter/，47 nginx/root、/opt releases+current 原子软链、约 5.3G 剩余空间），并要求结束前必须留存 approval/interaction 等持久评审路径、done 前写 memory marker。\n\n【验证】恢复后 run b140e3ea 正常运行（last_output_seq 持续增长，stderr 为空，无 external_directory 拒绝），已能读取 /home/repos/ai-security-website；CTI-39 仍 blockedBy=CTI-40（合法等待），待 CTI-40 done 后由依赖自动释放服务转 todo 并唤醒 vso-intel。\n\n【教训】1) BLOCKED 无 blocker 的任务是 board 裁决态：检查 issue_recovery_actions 中 active/ownerType=board 的记录，而不是等自动释放。2) opencode_local Agent 需要访问工作区外参考目录时，必须配置 OPENCODE_CONFIG_CONTENT external_directory=allow，否则 run 会在工具拒绝后无 disposition 结束并触发 disposition/review-path 升级。3) 修复 review-path 死锁的标准顺序：先修 Agent 权限（确保下一次 run 能真正做事）→ 再 resolve recovery action 并 todo 交还原 owner（触发唤醒）→ 用评论补充上下文与收尾要求。\n\n【目标 T2】project-manager-001-ltm-001 层级下的 view 子视图 / cti40-review-path-board-block-recovery-2026-11-09。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#cti40-review-path-board-block-recovery-2026-11-09"
+    },
+    {
+      "id": "biglaptop-paperclip-demo-onboarding-2026-11-10",
+      "name": "big-laptop（derek-big-laptop）WSL 执行环境 + paperclip-demo 项目与 Lead Agent 上线（2026-11-10）",
+      "type": "Requirement",
+      "description": "【目标】在 Tailscale 中的 Windows 大笔记本 derek-big-laptop（100.124.215.84）上部署一个项目与 Lead Agent，onboard 到 47 控制面的 argo 组织，作为组织 1 级项目（parent_project_id=null）。\n\n【结果/证据】\n- 设备接入：设备原本无任何 SSH 端口（22/2222/2022/22222 全关，仅 445/139/135）。在 WSL（Ubuntu 24.04，用户 derek，systemd 可用）安装 openssh-server，drop-in /etc/ssh/sshd_config.d/99-paperclip.conf 设 Port 2222 / PubkeyAuthentication yes / PasswordAuthentication no / PermitRootLogin no；Windows 侧 .wslconfig 已是 networkingMode=mirrored（写在 [experimental] 段，生效），并加 Windows 防火墙入站规则 WSL sshd 2222。47 → 100.124.215.84:2222 与本地 → 设备均 ssh 成功。\n- PATH 修正：opencode 实际在 ~/.npm-global/bin（Linux ELF，1.19.5），argo-init 在 ~/.argo/bin；为非交互 SSH 会话软链到 /usr/local/bin/{opencode,argo-init}。ripgrep 已有。\n- 仓库：/home/derek/repos/paperclip-demo，git init -b main；commit 2b1fa8f 脚手架；argo-init 全绿（schema default/ArchiMate 3.2，actor Business Actor，canonical 3 el / 1 rel / 7 views，Neo4j db=paperclip-demo 与 repo 名一致，qea target=本仓库 paperclip-demo.qea，ontologyValidation=passed，semanticLifecycle=Aligned，subdiagramViews drift 0）；commit 5dc80e5 提交 design/KG + .qea + .argo/temp 状态。\n- 环境：b42f18c6-4457-4b81-b776-160d5b4163cd「WSL2 · paperclip-demo」，ssh derek@100.124.215.84:2222，remoteWorkspacePath=/home/derek/repos/paperclip-demo，公司级私钥 secret 24d43d60-7045-4e07-8621-10b104fb3a0a（key ssh_private_key_biglaptop，名称 SSH · derek-big-laptop）；probe ok 且 remoteCwd 一致。\n- Agent：e1e6aa09-14ed-4562-b8d4-4e8f1223445f「项目经理 · paperclip-demo」，role=pm，reportsTo=null，adapterType 最终=opencode_local、runtime_mode=legacy、directRemoteWorkspace=true、model=deepseek/deepseek-flash、env={ARGO_REPO_ROOT,ARGO_ENV_FILE=/home/derek/.argo/.env,DEEPSEEK_API_KEY=secret_ref 1be5cbdd,PAPERCLIP_OPENCODE_SMALL_MODEL}；heartbeat 300s/maxConcurrentRuns=1/skipTimerWhenNoActionableWork=true；permissions canCreateAgents/canCreateSkills=true；lifecycle ready/idle。\n- 项目：8900a9cf-1f32-4adc-8261-7c41567cfa08「paperclip-demo」，parentProjectId=null（1 级），status=planned，leadAgentId=上述 Agent；primary workspace remote_path。\n- 端到端验收：ARG-18（issue 24d3759d）由 Agent 在真实目录只读执行并 done（run d76739a7，03:01:24→03:02:49）：pwd=/home/derek/repos/paperclip-demo、branch main、单 worktree；queryNeo4jGraph schema passed；getSystemArchitecture semanticRetrieval=invoked；memory_search 命中；validateSystemArchitecture passed/exit 0。\n\n【关键决策】\n1) 新 Agent 默认被创建成 paperclip_runner（native runner），首次 run 失败 runner_remote_provider_artifact_incompatible: provider-pack.json is unreadable (missing)。改为与 argo 组织既有 PM 一致的 opencode_local + runner=legacy + directRemoteWorkspace，问题消失。\n2) 不用 NAT 端口中转，采用 WSL mirrored 网络使 Windows Tailscale 地址直接暴露 WSL sshd（本机自测 100.124.215.84 失败是镜像模式自连回环假阴性，由 47 侧实测判定）。\n\n【坑/教训】\n1) native runner 在 47 缺 provider-pack，任何新 opencode agent 若走 native 都会立刻失败；创建后用 PATCH 切 opencode_local/legacy。\n2) 默认 41 字节指令模板（You are an agent in a Paperclip company.）不足以让 deepseek-flash 收尾：run 成功但 no_user_facing_response，issue 长期 in_progress 并触发 issue_disposition_repair 循环（每 2 分钟一次，烧钱）。通过 instructions-bundle/file PUT 写入「工作契约」（必须一条评论 + 置 done/in_review/blocked + 不以空白结束）后一次通过。PUT 需 baseRevisionId，GET 返回的是 revision.id。\n3) 暂停 Agent 时 lifecycle 卡在 pausing（lifecycle_operation attempts=122，hostComplete=false，无限重试）；用 DB 清 lifecycle_operation、lifecycle_state=ready、status=idle 后恢复调度。\n4) WSL 不启动则无 sshd（需登录/开机自启任务）；derek 属 sudo 组，该部署密钥等同 sudo 权限（用户已知并接受）。\n\n【遗留/TODO】\n- WSL 与 sshd 的开机/登录自启任务尚未建（用户可选）。\n- .wslconfig 的 networkingMode=mirrored 仍在 [experimental] 段（WSL 2.6 生效），迁移到 [wsl2] 需 wsl --shutdown，待用户决定。\n- 每任务成本约 0.0055 USD（deepseek-flash，18k in / 4k out）。\n\n【目标 T2】project-manager-001 / project-manager-biglaptop-001 子视图 / biglaptop-paperclip-demo-onboarding-2026-11-10。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-10"
+        },
+        {
+          "name": "paperclipCompany",
+          "value": "54b2a2a2-fca9-4262-9688-8db4e0688a06 | argo | prefix ARG"
+        },
+        {
+          "name": "paperclipProject",
+          "value": "8900a9cf-1f32-4adc-8261-7c41567cfa08 | paperclip-demo | level-1 (parent=null) | lead=e1e6aa09"
+        },
+        {
+          "name": "paperclipAgent",
+          "value": "e1e6aa09-14ed-4562-b8d4-4e8f1223445f | 项目经理 · paperclip-demo (pm, opencode_local/legacy)"
+        },
+        {
+          "name": "paperclipEnvironment",
+          "value": "b42f18c6-4457-4b81-b776-160d5b4163cd | WSL2 · paperclip-demo | derek@100.124.215.84:2222 | /home/derek/repos/paperclip-demo"
+        },
+        {
+          "name": "paperclipSecret",
+          "value": "24d43d60-7045-4e07-8621-10b104fb3a0a | SSH · derek-big-laptop"
+        },
+        {
+          "name": "verification",
+          "value": "ARG-18 done; run d76739a7; argo-init all green; validate passed; schema passed; semantic invoked"
+        },
+        {
+          "name": "commit",
+          "value": "paperclip-demo@5dc80e5 (design/KG/SystemArchitecture.json, paperclip-demo.qea); paperclip-demo@2b1fa8f (README/.gitignore); paperclip-demo@6495ad6 (ARG-18 memory graph change)"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -4344,6 +4396,15 @@
       "included_elements": [
         "cti-org-website-vuln-intel-onboarding-2026-11-08",
         "cti40-review-path-board-block-recovery-2026-11-09"
+      ]
+    },
+    {
+      "view_id": "project-manager-biglaptop-001",
+      "view_name": "项目经理 · big-laptop 设备上线记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "T2 长期记忆子视图：Tailscale 端 Windows 设备（derek-big-laptop）WSL 执行环境、SSH 接入与 paperclip-demo 项目/Lead Agent 上线记录。",
+      "included_elements": [
+        "biglaptop-paperclip-demo-onboarding-2026-11-10"
       ]
     }
   ]
