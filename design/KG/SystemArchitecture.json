@@ -4111,6 +4111,78 @@
           "description": "design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
+    },
+    {
+      "id": "2026-11-10-47-disk-full",
+      "type": "Requirement",
+      "name": "2026-11-10 47 磁盘打满：每小时全量 pg_dump × 7 天全保留 = 41G 稳态",
+      "description": "【结果】47（47.107.161.168）`/` 由 99%（112G/118G，剩 1.7G）降至 49%（56G/118G，剩 58G）。P0 回收 45G：数据库备份 33G→7G（171→31 份）、删 4 个旧/悬空镜像 + 1 个 ACR 重复镜像（containerd 39G→26G）、db.bak-pre-* 1.7G、/var/www/downloads 1.5G、journal 744M、/root/.npm 2.1G。P1：config.json `database.backup.intervalMinutes` 60→360（备份 /root/backups/config-pre-backup-policy-20261110T035603Z.json）；`instance_settings.general.backupRetention` 由默认 7/4/1 改为 3/1/1。docker restart 后 /api/health status=ok、commit=50fb2810cf582b0893334cd4454e553dfd336a1c、公网 200、启动日志 intervalMinutes=360。\n\n【根因】1) 每小时全量 pg_dump + 保留策略“dailyDays 内全部保留”（packages/db/src/backup-lib.ts:154）→ 7×24=168 份全留，稳态 ~41G；库体量每涨 1MB 备份稳态涨 ~173MB（单份 12MB(10-19)→241MB(11-10)）。2) 每次部署新增 ~6.4G 镜像且从不清理。3) /opt/argo-neo4j 25 个项目库各留 2–5 个 256MB 预分配 txlog=7.8G，未配 dbms.tx_log.rotation.retention_policy。4) db.bak-pre-*、过期下载页、journal、npm 缓存等静态残留 ~9G。\n\n【关键坑】1) 真正生效的是 DB 里的 instance_settings.general.backupRetention（日志 retentionSource=instance-settings-db）；config.json 的 retentionDays 被 pruner 忽略，只在启动 banner 显示 “keep 30d”，极易误判。2) `docker rmi <短ID>` 会被当作 repo:tag 报 “No such image: xxx:latest”，须用 paperclip-fork:<tag> 或全 ID。3) 存量回收 33G 全部来自备份目录，只改策略不会回收历史文件，必须先 trim。4) Windows 上 scp 脚本须先 sed 去 CRLF 再执行。\n\n【遗留】DB 905MB，heartbeat_runs 占 381MB（result_json 271MB / 仅 2401 行）且无保留策略，忙日 +30~80MB；/opt/argo-neo4j 8.2G 需设 tx_log 保留策略并重启（维护窗口）；config.json retentionDays=30 仅显示未生效，建议下次窗口对齐为 3。\n\n【files】doc/DEPLOYMENT-47.md（新增 9.2 磁盘卫生，工作区未提交）| date: 2026-11-10 | status: ACTIVE | memoryTier: T2"
+    },
+    {
+      "description": "【现象】ARG-19（a57008df-360b-4a0f-881e-2a0d6f7d09d0，assignee 项目经理·paperclip-demo e1e6aa09）卡在 in_progress、checkout_run_id/execution_run_id 为 null；用户 04:30 评论的 wake 被置为 deferred_issue_execution，executionWait.reason=process_identity_missing。\n\n【因果链】1) 03:50:26 run 4ace882e 成功但 run.presentation 判定 no_user_facing_response → 产生 deliberate_wait_without_target 恢复动作（attempt 2/2，scheduledRunId=503c298d）。2) 03:50:26.5 run 503c298d 建好但从未启动（started_at null、无 PID/process group、无 adapter.invoke、无 environment lease、controller_boot_id null）。3) 03:51:21 active_run_watchdog 把 503c298d 取消（Cancelled by control plane，expected=true），记下 cause=legacy_execution_requires_reconciliation / policy=preserve_without_replay_v1 / outcome=blocked（action d0da3058）。4) 此后 explicit-native-continuation.ts:413-415 因 legacy run 无 verified stop record 且无 hasNativeLocalProcessStop，永远 blocked(process_identity_missing)，所有评论/定时 wake 都被 defer。\n\n【与重启的关系】47 容器重启发生在 03:56Z（config 备份 20261110T035603Z），比 03:51:21 的取消晚约 5 分钟；03:51:21–03:56:40 之间无任何运行中的 run（503c298d startedAt=null），重启没有打断任何执行。用户当时的「继续」评论（03:51:21.240Z）与取消几乎同时发生，被闸门 defer。所以重启不是根因，只是时间上相邻。\n\n【恢复手段（走产品路径）】用临时 board key（board_api_keys 表，token=pcp_board_<48hex>，key_hash=sha256 hex，用完立即 revoked）调 POST /api/issues/:id/recovery-actions/resolve：outcome=restored、sourceIssueStatus=todo、executionReconciliation={runId:503c298d, providerStopped:true, actionOutcome:not_performed, outcomeEvidence:<无派发证据>}。结果 200 → issue 回 todo(statusVersion 5) → action outcome=handed_back / continuationDelivery=delivered → 新 run e5a1c10c 自动建起并 04:35:15 开始执行、持有 checkout_run_id+execution_run_id。\n\n【产品缺陷（待修）】explicit-native-continuation.ts:283 的 unusedAdmission 只认 errorCode=execution_reconciliation_required，而 watchdog 给未派发就被取消的 legacy run 写的是 cancelled；导致「可证明从未派发」的运行仍需 board 人工 reconciliation。建议让这类取消带上 pre-dispatch 证明（复用 pre-dispatch-execution-wait 谓词）或让 unusedAdmission 接受无派发证据。\n\n【files】doc/DEPLOYMENT-47.md（磁盘卫生 9.2，未提交）；本次无代码改动 | date: 2026-11-10 | status: ACTIVE | memoryTier: T2",
+      "id": "2026-11-10-arg19-stuck-recovery",
+      "name": "2026-11-10 ARG-19 卡死：legacy 未派发 run 被取消后 process_identity_missing 闸门永久阻塞",
+      "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-10"
+        },
+        {
+          "name": "scope",
+          "value": "Paperclip 47 instance, company Argo (54b2a2a2-fca9-4262-9688-8db4e0688a06)"
+        },
+        {
+          "name": "issue",
+          "value": "ARG-19 a57008df-360b-4a0f-881e-2a0d6f7d09d0"
+        },
+        {
+          "name": "agent",
+          "value": "e1e6aa09-14ed-4562-b8d4-4e8f1223445f 项目经理 · paperclip-demo"
+        },
+        {
+          "name": "runs",
+          "value": "failed: e5a1c10c/fb4eadae/85c46a27; recovered: 801ac52b"
+        },
+        {
+          "name": "recurrenceOf",
+          "value": "paperclip-aic-stuck-recovery-2026-11-07 (2026-11-07); paperclip-ais13-stuck-recovery-2026-11-09 (2026-11-09)"
+        },
+        {
+          "name": "commit",
+          "value": "pending"
+        }
+      ],
+      "description": "【现象】ARG-19（a57008df-360b-4a0f-881e-2a0d6f7d09d0，assignee 项目经理·paperclip-demo e1e6aa09，Argo 公司 54b2a2a2-fca9-4262-9688-8db4e0688a06）在 04:35 的恢复 run e5a1c10c 后反复“无终态 disposition”：04:41 run fb4eadae、04:47 run 85c46a27 两次 issue_disposition_repair 均以 run.presentation no_user_facing_response 结束，04:56:15 触发 unchanged_source_state_exhausted → issue blocked，active recovery action 6636d543 owner=board。\n\n【根因（与 AIS-13/AIC-81 同型）】1) 该 agent 的 opencode 未配置 OPENCODE_CONFIG_CONTENT，工作区外路径（/home/derek/.gradle、/home/derek/.m2、/etc、/tmp/android-smoke）全部 external_directory auto-reject，run 被反复打断；2) 三个 run 全程只有 tool_use（19/9/16 次）、0 条 text，结束时也未调用 Paperclip API 记录评论/状态；disposition 只能来自 API 记录，最终文本不算 → 两次 repair 耗尽；3) 修复后同一 owner 2 分钟内完成并置 done，说明不是任务本身不可做。\n\n【处置（控制面 API，临时 board key 78aaba78-b48c-40cc-965f-6adc95c3db6e 已 revoked）】(1) PATCH /api/agents/e1e6aa09 adapterConfig.env 增加 OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}}（其余 env 按 redacted 回传，restoreRedactedAgentEnv 还原；验证 ARGO_REPO_ROOT=/home/derek/repos/paperclip-demo 未丢失）；(2) board 评论给出≤10 次工具调用的最小检查清单，并要求用 API 记录 disposition；(3) POST /api/issues/:id/recovery-actions/resolve {actionId:6636d543, outcome:restored, sourceIssueStatus:todo} → 新 run 801ac52b 05:12:11 起，05:13:54 agent 评论给出结论（SDK ~/Android/Sdk、platform-tools、platforms android-34、build-tools 34.0.0、emulator + AVD SoulTalkApi34、JDK 17、adb 在线；gradle 不在 PATH；Linux 侧看不到 /mnt/c，Windows Android Studio 不可直接调用），05:14:15 issue done（statusVersion 10）。agent 另写自己的 T2 pm-ltm-arg19-001。\n\n【验收（GIVEN-WHEN-THEN）】GIVEN ARG-19 因 disposition repair exhausted 处于 blocked 且 recovery action owner=board；WHEN board 为 assignee 打开 external_directory 允许、评论最小收尾指令并以 restored→todo 解决 active action；THEN owner 的下一次 run 在一条 agent 评论中给出结论并把 issue 置 done，且 run stderr 无 external_directory auto-reject。\n\n【系统性问题】同一根因已第三次出现（AIC-81 2026-11-07、AIS-13 2026-11-09、ARG-19 2026-11-10）：新 agent 默认没有 OPENCODE_CONFIG_CONTENT。建议在 agent 创建默认模板对 opencode_local 预置 external_directory=allow（或收紧为工作区+必要只读路径），否则每个需要读工作区外路径的 agent 都会重演 blocked。\n\n【坑】GET /agents 会把 plain env 值 redact 成 ***REDACTED***，PATCH 必须整包回传并依赖 restoreRedactedAgentEnv，否则会把 ARGO_REPO_ROOT 写坏；disposition repair prompt 明确 “A final message alone does not record disposition”，模型不调 API 就必然再次耗尽。\n\n【files】本次无仓库代码改动，仅控制面配置（Argo 公司 agent env + issue 恢复）| date: 2026-11-10 | status: ACTIVE | memoryTier: T2",
+      "id": "2026-11-10-arg19-disposition-repair-recovery",
+      "name": "2026-11-10 ARG-19 disposition repair 耗尽：external_directory 自动拒绝 + 不记录 disposition（第三次同型）",
+      "testcases": [
+        {
+          "Input": "GIVEN ARG-19 is blocked by unchanged_source_state_exhausted with an active board-owned action",
+          "acceptanceCriteria": "WHEN board grants external_directory, posts a bounded instruction, and resolves restored->todo THEN the next owner run posts a conclusion comment and sets done.",
+          "description": "GIVEN ARG-19 is blocked by unchanged_source_state_exhausted with an active board-owned deliberate_wait_without_target action, WHEN board grants the assignee external_directory permission, posts a bounded finish instruction, and resolves the action with outcome=restored and sourceIssueStatus=todo, THEN the owner's next run posts a conclusion comment and sets the issue to done.",
+          "name": "ARG-19 disposition repair recovery completes",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "GIVEN OPENCODE_CONFIG_CONTENT permission.external_directory=allow",
+          "acceptanceCriteria": "WHEN the run touches paths outside the workspace THEN stderr has no auto-reject and a disposition is recorded.",
+          "description": "GIVEN the assignee agent has OPENCODE_CONFIG_CONTENT with permission.external_directory=allow, WHEN its run reads or writes paths outside the workspace, THEN the run stderr contains no external_directory auto-reject and the run records a disposition.",
+          "name": "No external_directory auto-reject after fix",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -4288,7 +4360,10 @@
         "paperclip-skills-repo-portability-2026-10-29",
         "opencode-skill-isolation-home-fix-2026-10-30",
         "2026-11-03-47-deploy-50fb2810c",
-        "project-manager-session-2026-11-03"
+        "project-manager-session-2026-11-03",
+        "2026-11-10-47-disk-full",
+        "2026-11-10-arg19-stuck-recovery",
+        "2026-11-10-arg19-disposition-repair-recovery"
       ],
       "included_relationships": []
     },
