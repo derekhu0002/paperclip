@@ -4231,7 +4231,7 @@
           "value": "49c5a978b (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ],
-      "description": "【触发】ARG-19 恢复后人类伙伴要求“批量补齐”：给缺失 OPENCODE_CONFIG_CONTENT 的 opencode_local agent 统一打开 external_directory 允许，避免同类 disposition-repair 死循环。\n\n【范围】实例 47（commit 50fb2810c）。全库 opencode_local 134 个，缺该 env 112 个；本次补齐 lifecycle_state=ready 的 90 个（剩余 19 rejected + 3 terminated 未动）。\n\n【方法】控制面 API + 临时 board key e3e34b83-a1c0-4cc4-8971-4dbf791aa3a6（3h，用完 revoked）。逐个 GET /api/agents/:id 取 adapterConfig.env（plain 值已 redact 为 ***REDACTED***），追加 OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}} 后 PATCH /api/agents/:id；服务端 restoreRedactedAgentEnv 还原 secret/plain，未丢键。并发 4，90/90 成功、0 失败。\n\n【验证】DB 校验：ready 缺配置 = 0；全库 JSONB 扫描无 ***REDACTED*** 残留；抽查 argo 四个 agent 的 ARGO_REPO_ROOT 与 DEEPSEEK_API_KEY(secret_ref) 完好；OPENCODE_CONFIG_CONTENT 值确切。\n\n【关键决策】沿用 AIC-81/AIS-13/ARG-19 已验证的 {\"permission\":{\"external_directory\":\"allow\"}}，而不是逐 agent 定制路径白名单——一致、可预测、避免再次遗漏；代价是这 90 个 agent 的 opencode 文件工具可访问工作区外路径（它们本已能执行 bash，属于既有信任边界）。未改全局 opencode 默认、未改 terminated agent。拒绝：DB 直改 adapter_config（无审计）、只修 ARG-19 一个（其余 89 个会陆续复发）。\n\n【遗留】19 rejected + 3 terminated 未补；根因仍未从“创建模板”消除——建议在 opencode_local agent 创建/安装默认模板预置该 env，并在 setup 自检（读一个工作区外文件被拒）时给出明确 blocker，而非进入 recovery 循环。\n\n【files】本次无仓库代码改动（控制面配置）| date: 2026-11-10 | status: ACTIVE | memoryTier: T2",
+      "description": "【触发】ARG-19 恢复后人类伙伴要求“批量补齐”：给缺失 OPENCODE_CONFIG_CONTENT 的 opencode_local agent 统一打开 external_directory 允许，避免同类 disposition-repair 死循环。\n\n【范围】实例 47（commit 50fb2810c）。全库 opencode_local 134 个，缺该 env 112 个；本次补齐 lifecycle_state=ready 的 90 个（剩余 19 rejected + 3 terminated 未动）。\n\n【方法】控制面 API + 临时 board key e3e34b83-a1c0-4cc4-8971-4dbf791aa3a6（3h，用完 revoked）。逐个 GET /api/agents/:id 取 adapterConfig.env（plain 值已 redact 为 ***REDACTED***），追加 OPENCODE_CONFIG_CONTENT={\"permission\":{\"external_directory\":\"allow\"}} 后 PATCH /api/agents/:id；服务端 restoreRedactedAgentEnv 还原 secret/plain，未丢键。并发 4，90/90 成功、0 失败。\n\n【验证】DB 校验：ready 缺配置 = 0；全库 JSONB 扫描无 ***REDACTED*** 残留；抽查 argo 四个 agent 的 ARGO_REPO_ROOT 与 DEEPSEEK_API_KEY(secret_ref) 完好；OPENCODE_CONFIG_CONTENT 值确切。\n\n【关键决策】沿用 AIC-81/AIS-13/ARG-19 已验证的 {\"permission\":{\"external_directory\":\"allow\"}}，而不是逐 agent 定制路径白名单——一致、可预测、避免再次遗漏；代价是这 90 个 agent 的 opencode 文件工具可访问工作区外路径（它们本已能执行 bash，属于既有信任边界）。未改全局 opencode 默认、未改 terminated agent。拒绝：DB 直改 adapter_config（无审计）、只修 ARG-19 一个（其余 89 个会陆续复发）。\n\n【遗留】19 rejected + 3 terminated 未补；根因仍未从“创建模板”消除——建议在 opencode_local agent 创建/安装默认模板预置该 env，并在 setup 自检（读一个工作区外文件被拒）时给出明确 blocker，而非进入 recovery 循环。\n\n【files】本次无仓库代码改动（控制面配置）| date: 2026-11-10 | status: ACTIVE | memoryTier: T2\n\n【目标 T2】design/KG/SystemArchitecture.json#2026-11-10-opencode-external-dir-batch-backfill\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#2026-11-10-opencode-external-dir-batch-backfill",
       "id": "2026-11-10-opencode-external-dir-batch-backfill",
       "name": "2026-11-10 opencode_local 批量补齐 external_directory 权限（90 个 ready agent）",
       "testcases": [
@@ -4250,6 +4250,12 @@
           "type": "Acceptance Test"
         }
       ],
+      "type": "Requirement"
+    },
+    {
+      "description": "【结果】120（120.24.114.13，阿里云 iZwz9fw2jux50hetykz0o8Z，40G 盘）`/` 由 80%（30G 用 / 剩 7.8G）降至 46%（17G 用 / 剩 21G），回收 ~12.7G。\n\n【回收明细】1) /var/backups/aic-insight 9.6G → 2.4G：7 份日备份 md5 完全相同（5eeb13d9…，源数据未变），删 6 份重复，保留最新日备 + monthly。2) journal 3.9G → 500M：journald.conf 写入 SystemMaxUse=500M 并重启 journald（注意：`journalctl --vacuum-size` 当时报 freed 0B，真正生效的是 SystemMaxUse + 重启）。3) /tmp/aic9-restore-20261023T044017Z 622M（10-23 的还原临时目录，陈旧）+ node-compile-cache 25M + jiti 14M。4) /root/.npm/_cacache 751M。5) /opt/elastic-agent.deb 433M（elastic-agent 8.19.8 已 dpkg 安装，安装包属残留）。6) /opt/agentic-8theme-insight/data.bak-20261024T015216Z 319M（发布前旧副本）。\n\n【根因】/usr/local/sbin/aic-insight-backup.sh（/etc/cron.d/aic-insight-backup，每天 03:10）用 `tar -C $SRC --exclude=__pycache__ -czf ... .` 打包，但 SRC=/opt/agentic-8theme-insight 包含自己的 backups/（621M）和 data.bak-*（319M）→ 每份日备 1.19G（真实载荷只有 data 319M + releases 18M）。已加 `--exclude=./backups --exclude=./data.bak-* --exclude=./logs`，实测同参数新档 314M（约为原 1/4），脚本已 bash -n 校验，原脚本备份到 /root/backups/aic-insight-backup.sh.<ts>。保留策略仍为 7 日 + 月度。\n\n【未动】/root/.openclaw 832M（cron 日报 digest 依赖 workspace）、/var/lib/docker 未使用 volumes 1.04G（两个 neo4j 数据卷，无容器引用，属他人数据，需决策）、未使用镜像 604M、/tmp/openclaw 173M 活跃日志、/usr 5.7G 系统目录。\n\n【验证】agentic-insight.service active、nginx active、python 监听 127.0.0.1:8765、nginx 80/443 正常。\n\n【files】/usr/local/sbin/aic-insight-backup.sh（服务器上改，不在仓库）；本次未动仓库代码 | date: 2026-11-10 | status: ACTIVE | memoryTier: T2",
+      "id": "2026-11-10-120-disk-cleanup",
+      "name": "2026-11-10 120 服务器磁盘清理：日备份自包含导致 1.19G/份",
       "type": "Requirement"
     }
   ],
@@ -4432,7 +4438,8 @@
         "project-manager-session-2026-11-03",
         "2026-11-10-47-disk-full",
         "2026-11-10-arg19-stuck-recovery",
-        "2026-11-10-arg19-disposition-repair-recovery"
+        "2026-11-10-arg19-disposition-repair-recovery",
+        "2026-11-10-120-disk-cleanup"
       ],
       "included_relationships": []
     },
