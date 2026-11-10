@@ -4458,6 +4458,61 @@
         }
       ],
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "companyId",
+          "value": "66563a2a-3d6c-444c-90cb-e77ade723e96"
+        },
+        {
+          "name": "paperclipInstance",
+          "value": "47.107.161.168 (commit 50fb2810)"
+        },
+        {
+          "name": "repo",
+          "value": "/mnt/d/Projects/aic-consulting/aic-efficiency"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-11-10"
+        },
+        {
+          "name": "reusePolicy",
+          "value": "0 新增 Agent、0 新增业务项目；仅新增 1 个 private 评估电池项目。"
+        }
+      ],
+      "description": "【目标】为 AI辅助研发咨询顾问团队（AIC，公司 66563a2a-3d6c-444c-90cb-e77ade723e96）建立组织级 RSI 子组织，要求先复用现有资产。\n\n【复用映射】子组织负责人=交付经理 a5d8356a-c714-485d-a992-bb64ce1883e8；效率质量=效率质量 Agent 4885363c-13fb-4972-a609-c1095985109f；组织架构师=知识管理员 60f313f1-71c7-454f-86dd-b3dc81818d72；独立审计=蓝军主审 b2dd3c23-5050-43ea-9d00-e32348e86693。项目复用「效率质量」721297a7-4dbd-4f23-aff7-498770496e8e（lead 改为交付经理）；仓库/环境复用 aic-efficiency / a22ad7ca。\n\n【结构】效率质量与知识管理员 reportsTo=交付经理；蓝军主审保持向首席顾问 e43edda7 汇报（保住全组织独立挑战权）。首席顾问直属 active 8→6。唯一新增：private 项目「组织进化评估电池」03e5fbb9-2868-4838-9d3f-b0c695843d21（parent=效率质量，仅蓝军主审可读）+ EB-1/2/3 留出集。\n\n【赋能】四岗均追加「RSI 附加职责」到各自 AGENTS.md（无损追加，保留原职责）；均下发 org-rsi 公司技能 company/66563a2a-3d6c-444c-90cb-e77ade723e96/org-rsi。\n\n【Routine】AIC 组织周度记分卡（0 9 * * 1，assignee=效率质量）；AIC 组织进化周期（单变异）（0 9 1 * *，assignee=知识管理员）。首期记分卡 RSI-SCORE-AIC-1 3633d5f7-79d5-4725-bf84-c68d4f29cb0e 已投递并 running。\n\n【坑（重要）】给存在 unpriced 记账的 Agent 设置 hard-stop 预算策略会直接触发 budget_override_required 硬事件，Agent 被 paused、issue 变 blocked（本例：效率质量 spent 29.24 < 预算 15000 分仍被暂停）。处置：预算置 0 停用策略 → approve 1e13ce1a → resume → issue 置 todo。教训：AIC 这类含 unpriced 记账的组织，先清记账口径再开硬停预算；本次四个 Agent 的 agent 级策略均置 0。\n\n【可审阅】doc/agents/aic-org-rsi/RSI-ADDENDUM.md。",
+      "id": "aic-org-rsi-suborg-2026-11-10",
+      "name": "AIC 组织级 RSI 子组织（复用式，2026-11-10）",
+      "testcases": [
+        {
+          "Input": "GET /api/companies/66563a2a-3d6c-444c-90cb-e77ade723e96/agents",
+          "acceptanceCriteria": "交付经理/效率质量/知识管理员/蓝军主审均 lifecycle_state=ready；效率质量与知识管理员 reportsTo=交付经理；蓝军主审 reportsTo=首席顾问",
+          "description": "GIVEN AIC 组织，WHEN 查询 RSI 四岗，THEN 均 ready 且汇报线符合子组织设计，未新增 Agent。",
+          "name": "复用式四岗就位",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "GET /api/companies/66563a2a-3d6c-444c-90cb-e77ade723e96/projects",
+          "acceptanceCriteria": "「效率质量」lead=交付经理；「组织进化评估电池」visibility=private 且 parent=效率质量",
+          "description": "GIVEN AIC，WHEN 查询项目树，THEN 复用项目改挂成功且留出集为 private 子项目。",
+          "name": "项目复用与留出集隔离",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "POST /api/agents/4885363c.../resume + GET issues",
+          "acceptanceCriteria": "效率质量 Agent status=idle/ready，lifecycle_holds 为空；RSI-SCORE-AIC-1 不在 blocked",
+          "description": "GIVEN 预算错触发的 paused/blocked，WHEN 置策略 0 + approve + resume + issue 置 todo，THEN Agent 恢复且记分卡重新运行。",
+          "name": "预算误触发恢复",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -4771,7 +4826,8 @@
       "description": "T2 记忆子视图：Paperclip 组织级 RSI（递归自我改进）架构提案，以及威胁情报中心（CTI）首个组织级 RSI 能力的部署记录与验收。",
       "included_elements": [
         "org-rsi-proposal-2026-11-10",
-        "cti-org-rsi-deployment-2026-11-10"
+        "cti-org-rsi-deployment-2026-11-10",
+        "aic-org-rsi-suborg-2026-11-10"
       ],
       "included_relationships": []
     }
