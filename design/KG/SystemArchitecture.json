@@ -95,6 +95,10 @@
         {
           "view_id": "project-manager-biglaptop-001",
           "view_name": "项目经理 · big-laptop 设备上线记忆"
+        },
+        {
+          "view_id": "project-manager-org-rsi-001",
+          "view_name": "项目经理 · 组织级 RSI 架构与落地记忆"
         }
       ],
       "attributes": [
@@ -4253,9 +4257,139 @@
       "type": "Requirement"
     },
     {
-      "description": "【结果】120（120.24.114.13，阿里云 iZwz9fw2jux50hetykz0o8Z，40G 盘）`/` 由 80%（30G 用 / 剩 7.8G）降至 46%（17G 用 / 剩 21G），回收 ~12.7G。\n\n【回收明细】1) /var/backups/aic-insight 9.6G → 2.4G：7 份日备份 md5 完全相同（5eeb13d9…，源数据未变），删 6 份重复，保留最新日备 + monthly。2) journal 3.9G → 500M：journald.conf 写入 SystemMaxUse=500M 并重启 journald（注意：`journalctl --vacuum-size` 当时报 freed 0B，真正生效的是 SystemMaxUse + 重启）。3) /tmp/aic9-restore-20261023T044017Z 622M（10-23 的还原临时目录，陈旧）+ node-compile-cache 25M + jiti 14M。4) /root/.npm/_cacache 751M。5) /opt/elastic-agent.deb 433M（elastic-agent 8.19.8 已 dpkg 安装，安装包属残留）。6) /opt/agentic-8theme-insight/data.bak-20261024T015216Z 319M（发布前旧副本）。\n\n【根因】/usr/local/sbin/aic-insight-backup.sh（/etc/cron.d/aic-insight-backup，每天 03:10）用 `tar -C $SRC --exclude=__pycache__ -czf ... .` 打包，但 SRC=/opt/agentic-8theme-insight 包含自己的 backups/（621M）和 data.bak-*（319M）→ 每份日备 1.19G（真实载荷只有 data 319M + releases 18M）。已加 `--exclude=./backups --exclude=./data.bak-* --exclude=./logs`，实测同参数新档 314M（约为原 1/4），脚本已 bash -n 校验，原脚本备份到 /root/backups/aic-insight-backup.sh.<ts>。保留策略仍为 7 日 + 月度。\n\n【未动】/root/.openclaw 832M（cron 日报 digest 依赖 workspace）、/var/lib/docker 未使用 volumes 1.04G（两个 neo4j 数据卷，无容器引用，属他人数据，需决策）、未使用镜像 604M、/tmp/openclaw 173M 活跃日志、/usr 5.7G 系统目录。\n\n【验证】agentic-insight.service active、nginx active、python 监听 127.0.0.1:8765、nginx 80/443 正常。\n\n【files】/usr/local/sbin/aic-insight-backup.sh（服务器上改，不在仓库）；本次未动仓库代码 | date: 2026-11-10 | status: ACTIVE | memoryTier: T2",
+      "description": "【结果】120（120.24.114.13，阿里云 iZwz9fw2jux50hetykz0o8Z，40G 盘）`/` 由 80%（30G 用 / 剩 7.8G）降至 41%（16G 用 / 剩 23G），累计回收 ~14.3G。\n\n【回收明细】1) /var/backups/aic-insight 9.6G → 2.4G：7 份日备份 md5 完全相同（5eeb13d9…，源数据未变），删 6 份重复，保留最新日备 + monthly。2) journal 3.9G → 500M：journald.conf 写入 SystemMaxUse=500M 并重启 journald（注意：`journalctl --vacuum-size` 当时报 freed 0B，真正生效的是 SystemMaxUse + 重启）。3) /tmp/aic9-restore-20261023T044017Z 622M（10-23 的还原临时目录，陈旧）+ node-compile-cache 25M + jiti 14M。4) /root/.npm/_cacache 751M。5) /opt/elastic-agent.deb 433M（elastic-agent 8.19.8 已 dpkg 安装，安装包属残留）。6) /opt/agentic-8theme-insight/data.bak-20261024T015216Z 319M（发布前旧副本）。7) openclaw 全量移除（人类确认该设备不再使用）：停用并删除 user unit openclaw-gateway（pid 1087，自 10-22 运行，内存 667M）、清空 root crontab 的每日 digest、删 /root/.openclaw 832M + /tmp/openclaw 181M + /tmp/openclaw-0 + /root/openclaw_installer.sh 198K、`npm uninstall -g openclaw`（628M），crontab 已备份到 /root/backups/root-crontab.<ts>.bak；保留 /usr/local/aegis/.../linux-openclaw-check.py（阿里云 aegis 安全检测插件，非本机 openclaw 安装）。\n\n【根因】/usr/local/sbin/aic-insight-backup.sh（/etc/cron.d/aic-insight-backup，每天 03:10）用 `tar -C $SRC --exclude=__pycache__ -czf ... .` 打包，但 SRC=/opt/agentic-8theme-insight 包含自己的 backups/（621M）和 data.bak-*（319M）→ 每份日备 1.19G（真实载荷只有 data 319M + releases 18M）。已加 `--exclude=./backups --exclude=./data.bak-* --exclude=./logs`，实测同参数新档 314M（约为原 1/4），脚本已 bash -n 校验，原脚本备份到 /root/backups/aic-insight-backup.sh.<ts>。保留策略仍为 7 日 + 月度。\n\n【磁盘扩容落地】人类已在云侧把系统盘扩到 80G，但分区 vda3 与 ext4 仍是 39.8G（lsblk 显示 vda=80G / vda3=39.8G）。已备份 GPT 到 /root/backups/vda-gpt-20261110T062314Z.bin，`growpart /dev/vda 3` + `partprobe` + 在线 `resize2fs /dev/vda3`（old_desc_blocks 3→5，20919803 个 4k 块）。现 `/` 为 79G，用 16G，剩 60G（21%）。\n\n【未动】/var/lib/docker 未使用 volumes 1.04G（两个 neo4j 数据卷，无容器引用，属他人数据，需决策）、未使用镜像 604M、/usr 5.7G 系统目录。\n\n【验证】agentic-insight.service active、nginx active、python 监听 127.0.0.1:8765、nginx 80/443 正常；清理后无 openclaw 进程/单元/二进制残留。\n\n【files】/usr/local/sbin/aic-insight-backup.sh（服务器上改，不在仓库）；本次未动仓库代码 | date: 2026-11-10 | status: ACTIVE | memoryTier: T2",
       "id": "2026-11-10-120-disk-cleanup",
       "name": "2026-11-10 120 服务器磁盘清理：日备份自包含导致 1.19G/份",
+      "type": "Requirement"
+    },
+    {
+      "id": "org-rsi-proposal-2026-11-10",
+      "type": "Requirement",
+      "name": "Paperclip 组织级 RSI 架构提案（2026-11-10）",
+      "description": "【定位】在 Paperclip 现有「组织解剖学」之上补「组织代谢」：为每个组织加装可审计、可回滚、抗过拟合的自我改进回路。\n\n【四环】感知（Sense）→ 变异（Propose）→ 选择（Gate）→ 遗传（Inherit）。\n- 感知：从 run log / cost / issue 周期 / 死锁与返工中产出组织记分卡（6 项指标）。\n- 变异：每周期最多 1 条基因组 diff（A 参数 / B 编制 / C 身份），必须写假设、预期指标变化、回滚点、KG 或 trace 证据。\n- 选择：分级门禁 + 预算/权限包络 + 留出评估集（held-out）验证泛化；人类保留 C 级否决。\n- 遗传：把「变异+结果+判据」沉淀为可迁移 Meta-Skill（skills-catalog）与 T2 记忆。\n\n【四篇参考映射】Harness²→无金标时从 trace 挖过程缺陷、双层（通用/领域）分提分验、单条提议+全局裁决；Evo²→进化器自身进化（无训练环境时用元经验文本化）；RRSI→正则化防过拟合（改动幅度限制、夹带检查、换留出集）；OO-Harness→基础+专有+Router 的结构解耦（对应父/子 Project + 共享 skill + PM 路由）。\n\n【三岗制】效率质量（度量，不自评）/ 组织架构师（提议，单变异）/ 独立审计（持留出集，独立复核）。\n\n【反退化】验收入口外部化（DoD、真实 journey、可执行 GIVEN-WHEN-THEN）；审计电池对被进化方不可见；单周期单变异保证归因；用「每单位结构变更的交付增量」记账防结构抖动。\n\n【工件】组织记分卡 / 变异记录 / 基因组账本（company export 落 git，diff 即变异史、import 即回滚）/ 评估电池。\n\n【文档】doc/plans/2026-11-10-paperclip-org-rsi.md（上游仓 paperclip）。",
+      "attributes": [
+        {
+          "name": "docPath",
+          "value": "doc/plans/2026-11-10-paperclip-org-rsi.md"
+        },
+        {
+          "name": "status",
+          "value": "draft-adopted"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-11-10"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        }
+      ],
+      "testcases": [
+        {
+          "name": "三岗就位",
+          "type": "Acceptance Test",
+          "Input": "GET /api/companies/<companyId>/agents",
+          "acceptanceCriteria": "存在效率质量/组织架构师/独立审计三岗，均 reportsTo=组织负责人 且 lifecycle_state=ready",
+          "description": "GIVEN 一个启用 RSI 的组织，WHEN 查询其 Agent 列表，THEN 三岗存在、汇报到组织负责人、状态 ready。"
+        },
+        {
+          "name": "记分卡可产出",
+          "type": "Acceptance Test",
+          "Input": "POST /api/routines/<scorecardRoutineId>/run",
+          "acceptanceCriteria": "生成一条包含 6 项指标的证据 issue，并指派给效率质量 Agent",
+          "description": "GIVEN 周度记分卡 routine 已启用，WHEN 触发一次，THEN 产出含全部 6 项指标的证据 issue。"
+        },
+        {
+          "name": "单周期单变异",
+          "type": "Acceptance Test",
+          "Input": "检查组织进化项目内 open 的 mutation issue 数",
+          "acceptanceCriteria": "同一周期内 open mutation <= 1",
+          "description": "GIVEN 组织架构师在一个周期内，WHEN 提交变异，THEN 只存在 1 条 open 变异记录。"
+        },
+        {
+          "name": "变异可回滚",
+          "type": "Acceptance Test",
+          "Input": "paperclipai company export 对比变异前后",
+          "acceptanceCriteria": "回滚后基因组合包 diff 为空",
+          "description": "GIVEN 一条已应用的 A/B 级变异，WHEN 执行回滚，THEN 基因组恢复到变异前版本。"
+        },
+        {
+          "name": "留出集校验",
+          "type": "Acceptance Test",
+          "Input": "独立审计执行组织进化评估电池",
+          "acceptanceCriteria": "评估电池任务全部跑完且结论写入 mutation 记录",
+          "description": "GIVEN 审计电池含对被进化方不可见的任务，WHEN 复核一个变异，THEN 跑完电池并记录结果。"
+        },
+        {
+          "name": "反自评",
+          "type": "Acceptance Test",
+          "Input": "Agent 尝试编辑自身被度量指标的验收标准",
+          "acceptanceCriteria": "请求被拒绝或标记需人类批准",
+          "description": "GIVEN 任一 Agent，WHEN 尝试修改自己被度量指标的验收标准，THEN 被拒绝或升级为人工审批。"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "companyId",
+          "value": "f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6"
+        },
+        {
+          "name": "paperclipInstance",
+          "value": "47.107.161.168 / paperclip.derekworkspacev5.com (commit 50fb2810)"
+        },
+        {
+          "name": "executionHost",
+          "value": "WSL 100.87.205.43:2222"
+        },
+        {
+          "name": "repo",
+          "value": "/home/repos/threat-intel/cti-org-rsi"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-11-10"
+        }
+      ],
+      "description": "【目标】为威胁情报中心（CTI，公司 f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6，实例 47）部署首批组织级 RSI 能力（Tier 3）。\n\n【仓库与本体】WSL /home/repos/threat-intel/cti-org-rsi：git init main（c1aac4e）+ argo-init 全绿（1e19893；Neo4j db=cti-org-rsi，schemaKind=default，semanticLifecycle=Aligned，qea=cti-org-rsi.qea）。\n\n【组织与环境】项目「组织进化」447758e4-72f2-4f3f-acf3-e987bbd46471（parent=vso-intel cddd25e8-9d29-4158-a17d-776bc67520b1，lead=组织架构师，status=in_progress）；环境 e937a80c-c144-4b71-9da3-b3f05daff23a（WSL2 · cti-org-rsi，SSH root@100.87.205.43:2222，privateKeySecretRef=5876c840）；环境 probe ok=true，test-environment=pass（hello probe 通过）。\n\n【三岗】均 reportsTo=情报负责人 49d7b778-1dfb-4044-a09e-ce23246312a5，opencode_local+legacy，deepseek/deepseek-flash，heartbeat 300s/maxConcurrentRuns=1/skipTimerWhenNoActionableWork=true，canCreateAgents=false（保持独立性）：\n- 效率质量 · cti-org-rsi-metrics 638471af-d1db-4a03-b8b9-9548c54ce25a（role qa）\n- 组织架构师 · cti-org-rsi-architect 8d4e0cb8-0501-4f32-8acb-b6fb612b9bd4（role pm）\n- 独立审计 · cti-org-rsi-auditor 5b163715-21b6-4e6f-9021-ef180d55fa11（role qa）\n三岗最终 lifecycle_state=ready。DEEPSEEK/SSH 均走 secret_ref，无明文。\n\n【留出评估电池】private 项目「组织进化评估电池」6c8269ae-da7f-4ca8-afc5-2e62e66d6df9（visibility=private，lead=独立审计，仅 board owner + 审计 agent 可读写）；EB-1 只读巡检 dba1024b、EB-2 工作区外读取故障复现 95cc3020、EB-3 交付真实性 3a62c489，均为 backlog 不自动执行。\n\n【Routine】周度记分卡 9d35ca85-93bd-47b3-8d58-6c77cbf51e40（cron 0 9 * * 1 Asia/Shanghai，assignee=效率质量）；月度进化周期 2e7b2c9c-9ebd-442e-9e9c-310a1d55e3de（cron 0 9 1 * * Asia/Shanghai，assignee=组织架构师）。\n\n【首轮验证】记分卡种子 issue RSI-SCORE-1 d3716b9c-33a6-4286-8e70-2171ad4ed184 已投递（run 已 running）；进化周期种子 issue RSI-CYCLE-1 3de51724-9cb7-43bd-97f5-b416ff03fd0c 保持 backlog，待记分卡完成后由 board 释放到 todo。\n\n【已知限制】Paperclip 单一 reportsTo + 一 Project 一 lead：三个岗位都向组织负责人汇报以保独立，因此项目「组织进化」的 Team 块只显示 lead（组织架构师）；效率质量/独立审计在 Org 页的负责人直属下。\n\n【Tier】Tier 3（新增 Agent/项目/routine/评估电池），已含 preview/apply 与验收。",
+      "id": "cti-org-rsi-deployment-2026-11-10",
+      "name": "威胁情报中心组织级 RSI 部署（2026-11-10）",
+      "testcases": [
+        {
+          "Input": "GET /api/companies/f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6/agents",
+          "acceptanceCriteria": "638471af/8d4e0cb8/5b163715 均 lifecycle_state=ready 且 reportsTo=49d7b778",
+          "description": "GIVEN CTI 组织，WHEN 查询 RSI 三岗，THEN 三岗 ready、向组织负责人汇报、无明文密钥。",
+          "name": "CTI 三岗就位",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "GET /api/companies/f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6/projects",
+          "acceptanceCriteria": "存在「组织进化」（parent=vso-intel）与 private 「组织进化评估电池」（parent=组织进化），且评估电池仅审计可访问",
+          "description": "GIVEN CTI，WHEN 查询项目树，THEN 组织进化与 private 评估电池建成且父子正确。",
+          "name": "项目与留出集隔离",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "POST /api/environments/e937a80c-c144-4b71-9da3-b3f05daff23a/probe",
+          "acceptanceCriteria": "ok=true remoteCwd=/home/repos/threat-intel/cti-org-rsi",
+          "description": "GIVEN cti-org-rsi 环境，WHEN probe，THEN 可连 WSL 且工作目录正确。",
+          "name": "执行环境可用",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "GET /api/companies/f1b9f8ac-1a4b-4d1d-a8e3-a86f2981dab6 (routines+triggers)",
+          "acceptanceCriteria": "两周 routine active、schedule trigger enabled、next_run_at 非空",
+          "description": "GIVEN 已启用 routine，WHEN 查询，THEN 周度/月度 routine 与 schedule trigger 均 active/enabled。",
+          "name": "日程序列就绪",
+          "type": "Acceptance Test"
+        }
+      ],
       "type": "Requirement"
     }
   ],
@@ -4562,6 +4696,17 @@
       "included_elements": [
         "biglaptop-paperclip-demo-onboarding-2026-11-10"
       ]
+    },
+    {
+      "view_id": "project-manager-org-rsi-001",
+      "view_name": "项目经理 · 组织级 RSI 架构与落地记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "T2 记忆子视图：Paperclip 组织级 RSI（递归自我改进）架构提案，以及威胁情报中心（CTI）首个组织级 RSI 能力的部署记录与验收。",
+      "included_elements": [
+        "org-rsi-proposal-2026-11-10",
+        "cti-org-rsi-deployment-2026-11-10"
+      ],
+      "included_relationships": []
     }
   ]
 }
