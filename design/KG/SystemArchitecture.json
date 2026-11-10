@@ -4540,6 +4540,11 @@
         {
           "name": "decision",
           "value": "不为公众号/小程序各建子组织；先跑 Stage 0 验证，通过后再升格为按价值链划分的单一知识变现子组织（渠道降为 runbook）。"
+        },
+        {
+          "name": "commit",
+          "value": "b8445677b",
+          "description": "docs(argo): design AIC knowledge monetization stage 0 and record the project-binding constraint"
         }
       ],
       "description": "【问题】知识变现（公众号 + 小程序）是否需要独立子组织。\n\n【决策】不为每个渠道建子组织。渠道是分发面，不是责任域；两条渠道共享同一条价值链（内容→产品化/定价→分发→支付履约→留存→数据）。按渠道拆会重复运营并切碎归因；“自己养活自己”需要单一 P&L 责任人。路径：Stage 0 验证 → 升格为单一价值链子组织 → 单渠道规模化后再考虑拆团队。\n\n【平台约束（关键）】Paperclip 强制一 Agent 绑定一 Project（projects_lead_agent_uq 唯一索引；跨项目指派报 bound to project ... cannot work on another project）。因此“零新增 Agent 的独立变现项目”不可行；初建的「知识变现（Stage 0 验证）」项目 6c6f8dbb 因无法被指派而已归档。\n\n【Stage 0 承载】KB-MON-1 单位经济与可售产品定义 → 咨询指挥部 8038e7dc / 首席顾问 e43edda7；KB-MON-2 渠道与可售内容盘点 → 洞察站点 131af019 / 站点负责人 fe189863。不新增 Agent。\n\n【角色复用】P&L 签字=首席顾问；单位经济=效率质量 4885363c；内容产品化=知识管理员 60f313f1；内容源=洞察线 18b3389b；渠道=站点负责人 fe189863。\n\n【通过判据】真实付费≥10（或≥1 企业合同）/ 毛利>30% / 退款率<10% / 获客成本<客单价×30% / 履约可重复 2 周期。未达标不升格组织。\n\n【已知缺口】Paperclip 只有成本账（cost_events/budgets），无收入/订单/权益台账，P&L 算不出；短期 issue+文档，中期 revenue 插件；合规：微信支付资质、小程序知识付费类目、发票税务。\n\n【可审阅】doc/plans/2026-11-10-aic-knowledge-monetization.md。",
