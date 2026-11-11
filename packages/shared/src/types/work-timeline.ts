@@ -7,7 +7,8 @@ import type { AgentAppearance } from "../agent-appearance.js";
  */
 
 export type TimelineActorType = "agent" | "user" | "system" | "plugin";
-export type TimelineEventKind = "created" | "commented" | "approved" | "delegated" | "assigned" | "status_changed";
+/** `unassigned` records an explicit ownership clear and has no target edge. */
+export type TimelineEventKind = "created" | "commented" | "approved" | "delegated" | "assigned" | "unassigned" | "status_changed";
 export type TimelineEdgeKind = "delegation" | "assignment" | "mention";
 
 export interface WorkTimelineActor {

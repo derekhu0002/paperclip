@@ -220,6 +220,7 @@ describe("project env routes", () => {
     expect(mockProjectService.create).toHaveBeenCalledWith(
       "company-1",
       expect.objectContaining({ env: normalizedEnv }),
+      expect.objectContaining({ userId: "board-user" }),
     );
     expect(mockLogActivity).toHaveBeenCalledWith(
       expect.anything(),
