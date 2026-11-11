@@ -1746,6 +1746,22 @@
         {
           "name": "mergePlan20261111",
           "value": "工作量：①独立 worktree + merge/upstream-20261111，文本冲突解决+编译绿 0.5–1 天；②语义修复 1–2 天（重贴 run-completion SSH 瞬断重试/liveness 分支、environment-selection isDotRun→controllerOnly 改名 + assertProjectBoundAgentExecutionTarget、issues.ts memory gate、work-timeline 执行视图、projects parent/lead 绑定、3 个插件对 plugin API 漂移、opencode driver external_directory）；③回归+真机 E2E+47 部署 0.5–1 天；合计 2–4 工作日。风险：迁移撞号（高，可控）、不报错丢功能（run-completion 重试分支，高）、runner 默认行为变化（中高）、插件 API（中）、UI 重构（中）、runner-e2e/restart-chaos 需真机（中）。验收：fork acceptance 套件 + 47 数据副本 E2E 后再部署。附带：工作区有未提交 doc/DEPLOYMENT-47.md（前序遗留）；worktree /root/paperclip-verify（merge/upstream-1029）已 prunable。"
+        },
+        {
+          "name": "merge20261111",
+          "value": "【已完成】merge/upstream-20261111 → dev/local-install（fast-forward）。提交：c40a130000（merge upstream b93df4ca38，19 处冲突）、54c3efdaab（fork 迁移改号 0465 + journal/lockfile 重建）、5c5d195ab5（readString 修复 + NewProjectDialog 测试适配）。origin/dev/local-install = 5c5d195ab5c07488b4769f2bfbaf91ab9d0d3663。"
+        },
+        {
+          "name": "deploy20261111",
+          "value": "【47 部署】镜像 paperclip-fork:5c5d195ab5（--target production，USER_UID/GID=998）；docker save 出 OCI 归档 1.44GB，scp 后 docker load；冷备 /root/backups/db.bak-pre-5c5d195ab5c-20261111T094019Z；容器重建（--env-file .env 保留 JWT secret）。验证：health ok + commit=5c5d195ab5…；启动应用 48 个迁移 0417-0464；0465 因与旧 0417_peaceful_synch 内容字节相同，被 hash 判定为已应用（projects.parent_project_id/environment_id、projects_lead_agent_uq、projects_parent_project_idx 均存在）；数据 8 companies / 55 projects / 141 agents / 606 issues；paperclip-project-tree 插件 status=ready 0.1.0；公网 https 200（assets/index-Dlm9nFqz.js）；磁盘 55%（旧镜像仅保留 50fb2810c 作为回滚）。"
+        },
+        {
+          "name": "verification20261111",
+          "value": "【验证】WSL 全仓 TS typecheck 通过（仅 cargo 缺失，环境性）；定向测试：work-timeline + run-completion + memory gate 232、issues/chat/project/workspace/bundled-plugins 416、UI（含执行时间线）89、execute.remote 9、plugin-project-tree 7、plugin-workspace-diff 26；token gates clean。遗留：plugin-llm-wiki 的 2 个测试文件因 react 仅为 peerDependency（auto-install-peers=false）无法解析，属既有问题。"
+        },
+        {
+          "name": "mergePitfalls20261111",
+          "value": "【坑】①PowerShell Set-Content 默认编码会把 UTF-8 中文/破折号写坏 → 必须 [IO.File]::WriteAllText(UTF8NoBOM)；②Windows pnpm postinstall 因 symlink EPERM 失败 → --ignore-scripts，测试/类型检查改在 WSL 非 root 用户（root 跑不了 embedded postgres）；③db:generate 的 clean/prune:snapshots 是 POSIX-only，Windows 需手动执行对应步骤；④47 已有旧 0417_peaceful_synch，新 0465 必须保持幂等（同 hash 即视为已应用）；⑤docker save 后用 bsdtar 压缩会再包一层 tar，到 47 要解两次；⑥47 的 docker 拉不到 registry，镜像必须工作站构建后传输。"
         }
       ]
     },
