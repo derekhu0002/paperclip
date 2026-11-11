@@ -1762,6 +1762,10 @@
         {
           "name": "mergePitfalls20261111",
           "value": "【坑】①PowerShell Set-Content 默认编码会把 UTF-8 中文/破折号写坏 → 必须 [IO.File]::WriteAllText(UTF8NoBOM)；②Windows pnpm postinstall 因 symlink EPERM 失败 → --ignore-scripts，测试/类型检查改在 WSL 非 root 用户（root 跑不了 embedded postgres）；③db:generate 的 clean/prune:snapshots 是 POSIX-only，Windows 需手动执行对应步骤；④47 已有旧 0417_peaceful_synch，新 0465 必须保持幂等（同 hash 即视为已应用）；⑤docker save 后用 bsdtar 压缩会再包一层 tar，到 47 要解两次；⑥47 的 docker 拉不到 registry，镜像必须工作站构建后传输。"
+        },
+        {
+          "name": "pluginProjectTreeEntry20261111",
+          "value": "【project tree 插件入口（合并后）】插件 id 9e05a231-5700-4d22-9f20-9130dcb84891，status=ready，无公司级禁用行（plugin_company_settings 空=默认启用）。页面：/<ISSUE_PREFIX>/organization（如 /ARG/organization）或 /<PREFIX>/plugins/9e05a231-…；无前缀 /organization 跟当前公司。侧边栏 sidebar slot（order 40）渲染 Project Tree 链接。Settings → Plugins（/company/settings/instance/plugins）只是安装/状态/配置的简化管理页，不含插件页面。已验证 /_plugins/<id>/ui/index.js 200、/_plugins/<id>/ui/manifest.js 404（不需要）。"
         }
       ]
     },
