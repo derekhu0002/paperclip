@@ -186,6 +186,10 @@ function timelineOwnershipProjection() {
   };
 }
 
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
 function readNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "") {

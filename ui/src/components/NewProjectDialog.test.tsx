@@ -30,7 +30,8 @@ beforeEach(() => {
   vi.mocked(projectsApi.create).mockReset().mockResolvedValue({ id: "project-created" } as Awaited<ReturnType<typeof projectsApi.create>>);
   vi.mocked(projectsApi.list).mockResolvedValue([]);
   vi.mocked(projectsApi.environmentOptions).mockReset().mockResolvedValue({ groups: [], defaultEnvironmentId: null, error: null });
-  vi.mocked(agentsApi.list).mockResolvedValue([{ id: "agent-1", name: "Agent 1", status: "idle" } as never]);  container = document.createElement("div");
+  vi.mocked(agentsApi.list).mockResolvedValue([{ id: "agent-1", name: "Agent 1", status: "idle" } as never]);
+  container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
 });
@@ -106,7 +107,7 @@ describe("project environment selection", () => {
     vi.mocked(projectsApi.environmentOptions).mockResolvedValue({ groups, defaultEnvironmentId: "ssh", error: null });
     vi.mocked(projectsApi.create).mockResolvedValue({ id: "project" } as Awaited<ReturnType<typeof projectsApi.create>>);
     await renderForm();
-    const select = container.querySelector<HTMLSelectElement>("select")!;
+    const select = container.querySelector<HTMLSelectElement>("#project-environment")!;
     expect(select.options).toHaveLength(2);
     expect(select.options[0].textContent).toBe("Paperclip Sandbox, Build host");
     expect(select.value).toBe("sandbox");
@@ -119,7 +120,7 @@ describe("project environment selection", () => {
     vi.mocked(projectsApi.environmentOptions).mockResolvedValue({ groups, defaultEnvironmentId: "computer", error: null });
     vi.mocked(projectsApi.create).mockRejectedValue(new Error("Try again"));
     await renderForm();
-    const select = container.querySelector<HTMLSelectElement>("select")!;
+    const select = container.querySelector<HTMLSelectElement>("#project-environment")!;
     expect(select.value).toBe("computer");
     act(() => { select.value = "sandbox"; select.dispatchEvent(new Event("change", { bubbles: true })); });
     act(() => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
@@ -132,7 +133,7 @@ describe("project environment selection", () => {
   it("hides the picker for compatible environments but still sends the default", async () => {
     vi.mocked(projectsApi.environmentOptions).mockResolvedValue({ groups: [groups[0]], defaultEnvironmentId: "ssh", error: null });
     await renderForm();
-    expect(container.querySelector("select")).toBeNull();
+    expect(container.querySelector("#project-environment")).toBeNull();
     expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
     act(() => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     await settle();
@@ -171,7 +172,7 @@ describe("project environment selection", () => {
     const client = await renderForm();
     await act(async () => { await client.refetchQueries({ queryKey: queryKeys.projects.environments("company-1") }); });
     await settle();
-    expect(container.querySelector<HTMLSelectElement>("select")?.value).toBe("sandbox");
+    expect(container.querySelector<HTMLSelectElement>("#project-environment")?.value).toBe("sandbox");
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
   });
@@ -181,7 +182,7 @@ describe("project environment selection", () => {
     await renderForm();
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("Default is unavailable");
     expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(true);
-    const select = container.querySelector<HTMLSelectElement>("select")!;
+    const select = container.querySelector<HTMLSelectElement>("#project-environment")!;
     act(() => { select.value = "sandbox"; select.dispatchEvent(new Event("change", { bubbles: true })); });
     expect(container.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(false);
   });
