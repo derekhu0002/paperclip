@@ -218,3 +218,27 @@ layers):
 
 Personal-edition uploads are throttled (~0.33 MB/s); the manifest-only push is
 instant because the layers already exist.
+
+### 9.2 Disk hygiene (mandatory after each deploy)
+
+Each deploy adds a ~6.4GB image. Without cleanup the instance disk fills: on
+2026-11-10 `/` reached 99% (112G/118G) with 19.6GB of dead images and 33G of
+hourly database dumps. After the new container is healthy, prune:
+
+```sh
+docker image prune -f
+docker images --format '{{.Repository}}:{{.Tag}} {{.CreatedSince}} {{.Size}}'
+docker rmi paperclip-fork:<previous-tag>   # keep only running + one rollback
+df -h /
+```
+
+Two things grow silently and must be checked by count, not by feel:
+
+- `du -xsh /home/paperclip/.paperclip/instances/default/data/backups` — hourly
+  full `pg_dump` copies. Effective retention is the instance setting
+  `backupRetention` (`dailyDays`/`weeklyWeeks`/`monthlyMonths`), read from the
+  DB on every run; `database.backup.retentionDays` in `config.json` is NOT used
+  by the pruner and only shows up in the startup banner.
+- `docker system df` — anything over ~13GB means an old image survived.
+
+`df -h /` must stay below 80%.
