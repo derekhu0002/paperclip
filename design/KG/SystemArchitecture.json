@@ -1730,6 +1730,22 @@
         {
           "name": "ltmViewCapacity",
           "value": "project-manager-001-ltm-001 已达 15 元素上限，下次新增 T2 前需先拆分层子视图；本次新事实改记在本元素属性中。"
+        },
+        {
+          "name": "upstreamStatus20261111",
+          "value": "2026-11-11 复评（只评估，未合并）：HEAD 6ac6fb4325（dev/local-install，origin 前 45）；upstream/master b93df4ca38（2026-11-10 20:15 -0600）；merge-base 仍为 2badf8a4a5（2026-10-29）。领先 228（149 为 chore(argo) 图谱提交，功能代码约 40 提交 / 142 文件 +13878-154）、落后 1472；上游侧 6166 文件 +685703-51012；142 个 fork 文件里 54 个上游也改动（38% 重叠）。git merge-tree --write-tree HEAD upstream/master 实测 19 处文本冲突（.dockerignore、.gitignore、AGENTS.md、pnpm-lock.yaml、migrations/meta/_journal.json（二进制，416 vs 463 条）、shared/src/index.ts、shared/src/types/work-timeline.ts、__tests__/work-timeline-service.test.ts、routes/{issues,openapi,projects}.ts、heartbeat/{environment-selection,run-completion(+test)}.ts、services/work-timeline.ts、ui/components/{IssuesList,NewProjectDialog(+test),ProjectProperties}.tsx），代码侧约 14 个 hunk（每文件 1–2 个）。迁移撞号：fork 0417_peaceful_synch 与上游新增 0417/0418/0419 撞车（上游已到 0464，新增 48 个 sql）→ 需改号 0465 并重生成 journal/snapshot；该迁移含破坏性 UPDATE（同 agent 多项目保留最早）与 projects_lead_agent_uq（上游无此约束，须保留）。"
+        },
+        {
+          "name": "upstreamKeyFixes20261111",
+          "value": "上游解决且 fork 同样存在/曾踩过的问题：1) wake/评论丢失与不收敛处置 #19992/#20066/#19934/#20067/#20084/#20639（对应 AIS-12 process_identity_missing、ARG-19 disposition repair 耗尽、CTI-24 orphaned_running_run）。2) 所有权+崩溃恢复统一：OwnerStamp/proveOwnerGone #19853、共享 owner prover #19997/#20004、stale issue execution/checkout locks #20006、环境租约 #19964、workspace runtime 租约 #20015。3) 依赖与阻塞唤醒 #19457/#20363/#20098/#20180。4) 工作区/租约 #20171/#20273/#20648。5) opencode/runner 稳定性数百条（截断 reply、MCP 放弃的 tool call、restart continuation、cold restore 60s、provider 失败归因、warm runner）。6) 30+ perf 与索引迁移 0455-0461（47 上首步 8s/空唤醒 115s 类慢问题）。7) legacy 兼容仍保留（#20461 resume graceful-shutdown legacy runs、#19377 certify settled legacy processes）→ fork 的 legacy/directRemoteWorkspace 路径不是必须迁 native。"
+        },
+        {
+          "name": "upstreamFeatures20261111",
+          "value": "上游新增关键特性：原生 Runner 扩张（packages/paperclip-runner +235 文件、tests/runner-e2e +993、Kimi Code native、Cursor Cloud provider、ACPX attestation、startup 生命周期契约）；recovery 所有权体系 + crash-point 混沌套件（tests/restart-chaos +109）；execution-admission 项目并发策略 #18746；plugins settled task release/resume、managed worker variables、secret_ref、生命周期游标；task-chat 大改（plan 审批、内联文件 diff、subagent 树、搜索/等待/校验行、MCP 失败提示、proactive messages）；UI（Needs you→Inbox、Refine-v2、assignee avatar）；run log/provider trace 入 S3 #18327、volume-free handoff、skills 脱离 web 磁盘；权限（agent configuration read、commentary:view、individual interaction permissions）。"
+        },
+        {
+          "name": "mergePlan20261111",
+          "value": "工作量：①独立 worktree + merge/upstream-20261111，文本冲突解决+编译绿 0.5–1 天；②语义修复 1–2 天（重贴 run-completion SSH 瞬断重试/liveness 分支、environment-selection isDotRun→controllerOnly 改名 + assertProjectBoundAgentExecutionTarget、issues.ts memory gate、work-timeline 执行视图、projects parent/lead 绑定、3 个插件对 plugin API 漂移、opencode driver external_directory）；③回归+真机 E2E+47 部署 0.5–1 天；合计 2–4 工作日。风险：迁移撞号（高，可控）、不报错丢功能（run-completion 重试分支，高）、runner 默认行为变化（中高）、插件 API（中）、UI 重构（中）、runner-e2e/restart-chaos 需真机（中）。验收：fork acceptance 套件 + 47 数据副本 E2E 后再部署。附带：工作区有未提交 doc/DEPLOYMENT-47.md（前序遗留）；worktree /root/paperclip-verify（merge/upstream-1029）已 prunable。"
         }
       ]
     },
