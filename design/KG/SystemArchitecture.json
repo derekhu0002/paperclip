@@ -1766,6 +1766,10 @@
         {
           "name": "pluginProjectTreeEntry20261111",
           "value": "【project tree 插件入口（合并后）】插件 id 9e05a231-5700-4d22-9f20-9130dcb84891，status=ready，无公司级禁用行（plugin_company_settings 空=默认启用）。页面：/<ISSUE_PREFIX>/organization（如 /ARG/organization）或 /<PREFIX>/plugins/9e05a231-…；无前缀 /organization 跟当前公司。侧边栏 sidebar slot（order 40）渲染 Project Tree 链接。Settings → Plugins（/company/settings/instance/plugins）只是安装/状态/配置的简化管理页，不含插件页面。已验证 /_plugins/<id>/ui/index.js 200、/_plugins/<id>/ui/manifest.js 404（不需要）。"
+        },
+        {
+          "name": "pluginEntryDiagnosis20261111",
+          "value": "【排查】用户报告“看不到 Project Tree / 看不到插件”。服务端日志证实：其 Chrome 会话在 AIS 公司（d56a6bbb），当前页为 /AIS/company/settings/instance/plugins/9e05a231-…（插件设置页，API /api/plugins/<id>、/dashboard、/health、/logs 均 200）。近 3h 无 GET /api/plugins/ui-contributions、无 /_plugins/*/ui 请求 → 主侧边栏的 PluginSlotOutlet 未挂载（Settings 页用的是 CompanySettingsSidebar，不渲染主侧边栏）。结论：插件与 UI 均正常（manifest 含 page+sidebar slot、bundle 导出 ProjectTreeSidebarLink、/AIS/organization 200、AIS 有 2 个项目）；入口是 /AIS/organization（或侧边栏 Work 分组内的 Project Tree），不在 Settings → Plugins 页里。"
         }
       ]
     },
