@@ -1,5 +1,5 @@
 export const PLUGIN_ID = "paperclip.business-status";
-export const PLUGIN_VERSION = "1.4.0";
+export const PLUGIN_VERSION = "1.5.0";
 export const STATUS_ROUTE_PATH = "business-status";
 
 export const PROFILE_NAMESPACE = "profile";

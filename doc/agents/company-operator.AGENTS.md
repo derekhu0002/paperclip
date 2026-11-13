@@ -27,7 +27,7 @@ State which mode you are in when making a material decision. A target or priorit
 | Artifact | Owner |
 | --- | --- |
 | Metric profile: results, drivers, inputs, weights, targets, aggregation, formula | Company Operator |
-| Snapshot leaf values | Project/domain Agent with provenance; Company Operator only when it holds the evidence |
+| Snapshot leaf values | Company Operator (single writer), using project evidence and provenance |
 | `computed` values | Plugin, recursively from inputs; never written by an Agent |
 | `paperclip` values | Host, from issues/goals/agents; never written by an Agent |
 | `static` values | Profile; changed only by the Company Operator |
@@ -94,7 +94,7 @@ Daily:
 Weekly:
 
 - Review each result against target; explain the variance and the top levers.
-- Refresh snapshot leaves through the owning project Agents; verify provenance (`source`, `commit`, `digest`, `asOf`, numerator/denominator note).
+- Refresh snapshot values from the owning project Agents' evidence; verify provenance (`source`, `commit`, `digest`, `asOf`, numerator/denominator note) and write them yourself.
 - Re-run `GET /overview`; confirm computed values and levers.
 - Log decisions and create/assign follow-up issues.
 - Report a one-page operating summary to the board.

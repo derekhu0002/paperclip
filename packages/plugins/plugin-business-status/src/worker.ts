@@ -18,8 +18,11 @@ import {
 import {
   buildCockpitPayload,
   computePaperclipMetrics,
+  parseGovernanceConfig,
   parseSnapshotValues,
+  writerDecision,
   type IngestValue,
+  type GovernanceValidation,
 } from "./logic.js";
 import { metricSourcesForProfile, snapshotIdsForProfile, validateProfile } from "./profile.js";
 
@@ -153,6 +156,42 @@ function actorLabel(input: PluginApiRequestInput): string {
   return `user:${input.actor.userId ?? input.actor.actorId}`;
 }
 
+async function readGovernance(ctx: PluginContext, companyId: string): Promise<GovernanceValidation> {
+  try {
+    const config = await ctx.config.get(companyId);
+    return parseGovernanceConfig(config);
+  } catch (error) {
+    return {
+      ok: false,
+      config: { profileWriterAgentId: "", snapshotWriterAgentIds: [], allowBoardBackfill: false },
+      errors: [`Could not read plugin governance configuration: ${error instanceof Error ? error.message : String(error)}`],
+    };
+  }
+}
+
+function governanceError(validation: GovernanceValidation) {
+  return {
+    status: 409,
+    body: {
+      error: "governance-not-configured",
+      message: "Configure the company Knowledge Manager Agent id in Plugin Settings before writing the cockpit.",
+      errors: validation.errors,
+    },
+  };
+}
+
+function writerError(decision: { allowed: boolean; message?: string }, action: "profile" | "snapshot", input: PluginApiRequestInput) {
+  return {
+    status: 403,
+    body: {
+      error: "writer-not-authorized",
+      message: decision.message ?? `${action} writes are restricted to the company Knowledge Manager Agent.`,
+      action,
+      actor: input.actor.actorType === "agent" ? `agent:${input.actor.agentId ?? input.actor.actorId}` : `user:${input.actor.userId ?? input.actor.actorId}`,
+    },
+  };
+}
+
 async function saveProfileForCompany(
   ctx: PluginContext,
   companyId: string,
@@ -242,11 +281,28 @@ const plugin = definePlugin({
     ctx.actions.register("save-profile", async (params, context) => {
       const companyId = String(params.companyId ?? context.companyId ?? "");
       if (!companyId) throw new Error("companyId is required");
+      const governance = await readGovernance(ctx, companyId);
+      if (!governance.ok) {
+        throw new Error(`governance-not-configured: ${governance.errors.join("; ")}`);
+      }
+      const decision = writerDecision(
+        governance.config,
+        { type: context.actor.type === "agent" ? "agent" : "user", agentId: context.actor.agentId },
+        "profile",
+      );
+      if (!decision.allowed) {
+        throw new Error(`writer-not-authorized: ${decision.message}`);
+      }
       const profile = await saveProfileForCompany(ctx, companyId, params.profile);
       return { companyId, profile };
     });
 
     ctx.logger.info("business-status plugin ready", { pluginId: PLUGIN_ID });
+  },
+
+  async onValidateConfig(config: Record<string, unknown>) {
+    const validation = parseGovernanceConfig(config);
+    return validation.ok ? { ok: true } : { ok: false, errors: validation.errors };
   },
 
   async onApiRequest(input: PluginApiRequestInput) {
@@ -259,6 +315,14 @@ const plugin = definePlugin({
     }
 
     if (input.routeKey === "ingest-metrics") {
+      const governance = await readGovernance(ctx, companyId);
+      if (!governance.ok) return governanceError(governance);
+      const decision = writerDecision(
+        governance.config,
+        { type: input.actor.actorType, agentId: input.actor.agentId },
+        "snapshot",
+      );
+      if (!decision.allowed) return writerError(decision, "snapshot", input);
       const profile = await readProfile(ctx, companyId);
       if (!profile) {
         return { status: 400, body: { error: "configure a cockpit profile before ingesting metric values" } };
@@ -274,6 +338,14 @@ const plugin = definePlugin({
     }
 
     if (input.routeKey === "save-profile") {
+      const governance = await readGovernance(ctx, companyId);
+      if (!governance.ok) return governanceError(governance);
+      const decision = writerDecision(
+        governance.config,
+        { type: input.actor.actorType, agentId: input.actor.agentId },
+        "profile",
+      );
+      if (!decision.allowed) return writerError(decision, "profile", input);
       const body = (input.body ?? {}) as { profile?: unknown };
       try {
         const profile = await saveProfileForCompany(ctx, companyId, body.profile);

@@ -577,6 +577,9 @@ function ConfigureDrawer({
           Edit the JSON profile for this company. The profile defines key results, process drivers, metric inputs, causal weights, targets and metric sources. It is stored per company; the Agent can also write it through{" "}
           <code style={{ color: C.info }}>POST /api/plugins/{PLUGIN_ID}/api/profile</code>.
         </p>
+        <p style={{ color: C.muted, fontSize: 11, margin: 0, lineHeight: 1.6 }}>
+          Writes are restricted to the company Knowledge Manager configured in Plugin Settings. If saving fails with governance-not-configured or writer-not-authorized, ask the board to set the writer agent id.
+        </p>
         <textarea
           value={text}
           onChange={(event) => setText(event.target.value)}

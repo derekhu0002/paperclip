@@ -606,10 +606,17 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     }
     const instructionsFilePath = asString(config.instructionsFilePath, "").trim();
     // Direct remote mode runs in the real checkout, so OpenCode loads the
-    // project's own AGENTS.md exactly like the host TUI. Do not read a
-    // host-local instructions path from the Paperclip server.
+    // project's own AGENTS.md exactly like the host TUI. It can also prepend
+    // the Agent's managed instructions from the Paperclip host, which keeps
+    // role instructions per Agent while leaving project context intact.
+    const directWorkspaceInstructions = asString(config.directWorkspaceInstructions, "prepend");
+    const directInstructionsMode = directWorkspaceInstructions === "ignore" ? "ignore" : "prepend";
+    const directInstructionsFilePath =
+      directRemoteWorkspace && directInstructionsMode === "prepend" && instructionsFilePath && path.isAbsolute(instructionsFilePath)
+        ? instructionsFilePath
+        : "";
     const resolvedInstructionsFilePath = directRemoteWorkspace
-      ? ""
+      ? directInstructionsFilePath
       : instructionsFilePath
         ? path.resolve(cwd, instructionsFilePath)
         : "";
@@ -618,10 +625,10 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     if (resolvedInstructionsFilePath) {
       try {
         const instructionsContents = await fs.readFile(resolvedInstructionsFilePath, "utf8");
-        instructionsPrefix =
-          `${instructionsContents}\n\n` +
-          `The above agent instructions were loaded from ${resolvedInstructionsFilePath}. ` +
-          `Resolve any relative file references from ${instructionsDir}.\n\n`;
+        const sourceNote = directRemoteWorkspace
+          ? "The above agent instructions are the Paperclip-managed instructions for this Agent. The execution workspace is the project checkout; OpenCode also loads the project's own AGENTS.md.\n\n"
+          : `The above agent instructions were loaded from ${resolvedInstructionsFilePath}. Resolve any relative file references from ${instructionsDir}.\n\n`;
+        instructionsPrefix = `${instructionsContents}\n\n${sourceNote}`;
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         await onLog(
@@ -638,9 +645,19 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
           "Direct remote workspace: OpenCode runs in the execution host's real project directory; no workspace staging or sync-back.",
         );
         if (instructionsFilePath) {
-          notes.push(
-            `instructionsFilePath "${instructionsFilePath}" is not read by the Paperclip host in direct mode; the execution host resolves instructions from the real workspace (e.g. AGENTS.md).`,
-          );
+          if (directInstructionsMode === "ignore") {
+            notes.push(
+              `instructionsFilePath "${instructionsFilePath}" is ignored in direct mode (directWorkspaceInstructions=ignore); the execution host resolves instructions from the real workspace (e.g. AGENTS.md).`,
+            );
+          } else if (resolvedInstructionsFilePath) {
+            notes.push(
+              `Prepended per-Agent instructions from ${resolvedInstructionsFilePath}; project AGENTS.md is still loaded by OpenCode.`,
+            );
+          } else {
+            notes.push(
+              `instructionsFilePath "${instructionsFilePath}" is not an absolute Paperclip-host path; direct mode cannot read it. Use a managed instructions bundle or an absolute path.`,
+            );
+          }
         }
         return notes;
       }

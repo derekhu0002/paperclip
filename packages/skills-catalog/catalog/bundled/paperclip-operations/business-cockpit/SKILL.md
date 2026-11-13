@@ -53,6 +53,16 @@ Never print the token or put it in a metric note.
 
 All routes require `Authorization: Bearer <token>`. Send the `companyId` you are authorized for; an Agent API key is scoped to its company. Do not query another company's cockpit.
 
+## Governance
+
+The board configures company-scoped **Plugin Settings** with `agent.id` values, never Agent names:
+
+- `profileWriterAgentId`: the Knowledge Manager Agent allowed to write the profile.
+- `snapshotWriterAgentIds`: the Knowledge Manager Agent(s) allowed to ingest snapshot values.
+- `allowBoardBackfill`: emergency board override; keep `false`.
+
+The Knowledge Manager is the single writer of profile and snapshot values. Project Leads provide and validate evidence, but they do not write the company cockpit. A missing configuration returns `governance-not-configured` (HTTP 409); a non-writer returns `writer-not-authorized` (HTTP 403). Do not retry around either error.
+
 ## Profile schema
 
 The object below is the value of `profile` in `POST /api/plugins/paperclip.business-status/api/profile`; the request body is `{ "companyId": "<company-id>", "profile": { ... } }`.
@@ -238,13 +248,14 @@ Rules:
    - `inputs` on any metric that is composed from other metrics; use it to expose the hierarchy down to leaf measurements. `inputs` may reference results or drivers and must stay acyclic.
    - `paperclip` source where the host already computes it; `snapshot` for project-specific evidence.
 3. `POST profile` with the full profile. It replaces the company's previous profile.
-4. Collect snapshot values from the project graph, issues, runs or documents. Include `source`, `commit`, `digest`, `asOf` and a note with numerator/denominator.
-5. `POST metrics` with only the values you can prove.
+4. Collect evidence from the project Lead (graph, issues, runs or documents). The Knowledge Manager is the single writer; include `source`, `commit`, `digest`, `asOf` and a note with numerator/denominator.
+5. `POST metrics` with only the values you can prove, and only as the configured Knowledge Manager writer.
 6. `GET overview` again. Report before/after values, levers, and every metric that is still `awaiting-data` and why.
 7. Refresh periodically or when the project graph/schema changes. Ask project Leads for missing exports through issues.
 
 ## Guardrails
 
+- Only the configured Knowledge Manager may write profile or snapshot. If you get `writer-not-authorized` or `governance-not-configured`, stop and ask the board/KM; do not retry or bypass.
 - Only ingest `source: "snapshot"` ids. If `POST /metrics` returns `metric-not-ingestible`, do not retry the same id; the value is host-computed, fixed or derived from inputs.
 - On profile validation errors, read the reported path and hint, fix the profile, and resubmit. Do not bypass a cycle, unknown input or invalid aggregation.
 - Do not fabricate values. If a result cannot be computed, leave it `awaiting-data` and name the missing source.
@@ -268,10 +279,14 @@ Rules:
 | `missing-or-invalid-asOf` | `asOf` is not ISO-8601 | send an ISO timestamp |
 | `missing-id` | row has no metric id | add the id |
 
+Governance rejections are top-level errors, not rejected rows: `governance-not-configured` (HTTP 409) means the board has not set the KM writer; `writer-not-authorized` (HTTP 403) means the caller is not the configured KM. Both are terminal; stop and escalate.
+
 If the same error repeats twice, stop and report the exact `reason` and `message` to the CEO/human. Do not bypass the API, edit plugin state directly, or invent a value.
 
 ## Success checklist
 
+- Governance is configured in company Plugin Settings; the caller is the configured Knowledge Manager writer.
+- Snapshot values were written by the Knowledge Manager from Lead-provided evidence, not by the Lead directly.
 - Profile validation passed; a `computed` metric has at least one input and a valid aggregation.
 - Every leaf is `paperclip`, `snapshot` or `static`; no leaf is `computed`.
 - Only `snapshot` ids were sent to `POST /metrics`; every accepted value has `asOf` and provenance.

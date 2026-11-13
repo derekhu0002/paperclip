@@ -1,7 +1,7 @@
-# Company Agent Router (Direct Workspace)
+﻿# Company Agent Router (Direct Workspace)
 
 > Copy this file to the company project root as `AGENTS.md`. Keep it role-neutral.
-> In direct workspace mode, the project's `AGENTS.md` is what the runtime loads; this router dispatches each Agent to its own role file.
+> In direct workspace mode, the project's `AGENTS.md` is what the runtime loads. If the adapter supports `directWorkspaceInstructions=prepend` (opencode-local 0.4.0+), use the per-Agent managed bundle instead; otherwise this router dispatches each Agent to its own role file.
 
 Your role is **not** defined in this file. It is defined by your Paperclip Agent identity.
 

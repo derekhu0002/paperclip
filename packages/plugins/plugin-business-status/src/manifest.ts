@@ -22,6 +22,30 @@ const manifest: PaperclipPluginManifestV1 = {
     "ui.page.register",
     "ui.sidebar.register",
   ],
+  instanceConfigSchema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      profileWriterAgentId: {
+        type: "string",
+        title: "Profile writer agent ID",
+        description: "Agent id (UUID) allowed to write the cockpit profile. Set this to the company Knowledge Manager Agent.",
+      },
+      snapshotWriterAgentIds: {
+        type: "array",
+        title: "Snapshot writer agent IDs",
+        description: "Agent ids allowed to ingest snapshot values. Set this to the company Knowledge Manager Agent; add backups only when intentional.",
+        items: { type: "string" },
+      },
+      allowBoardBackfill: {
+        type: "boolean",
+        title: "Allow board backfill",
+        default: false,
+        description: "Emergency override: allow a board user to write profile and snapshot values. Keep false for the KM-only writer rule.",
+      },
+    },
+    required: ["profileWriterAgentId", "snapshotWriterAgentIds"],
+  },
   entrypoints: {
     worker: "./dist/worker.js",
     ui: "./dist/ui",

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -351,7 +351,7 @@ describe("opencode remote execution", () => {
           id: "agent-1",
           companyId: "company-1",
           name: "OpenCode Builder",
-          adapterType: "opencode_local",
+        adapterType: "opencode_local" as const,
           adapterConfig: {},
         },
         runtime: {
@@ -513,7 +513,7 @@ describe("opencode remote execution", () => {
     expect(prepareWorkspaceForSshExecution).not.toHaveBeenCalled();
     expect(restoreWorkspaceFromSshExecution).not.toHaveBeenCalled();
     const runCall = runChildProcess.mock.calls.find(
-      (entry) => Array.isArray(entry[2]) && entry[2].includes("run"),
+        (entry: unknown[]) => Array.isArray(entry[2]) && (entry[2] as string[]).includes("run"),
     ) as
       | [string, string, string[], { env: Record<string, string> }]
       | undefined;
@@ -526,5 +526,88 @@ describe("opencode remote execution", () => {
         remoteDir: "/real/project/.paperclip-runtime/opencode/xdgConfig",
       }),
     );
+  });
+
+  it("prepends per-Agent instructions in direct mode and keeps project AGENTS.md discovery", async () => {
+    const rootDir = await mkdtemp(path.join(os.tmpdir(), "paperclip-opencode-direct-instructions-"));
+    cleanupDirs.push(rootDir);
+    const workspaceDir = path.join(rootDir, "workspace");
+    await mkdir(workspaceDir, { recursive: true });
+    const instructionsPath = path.join(rootDir, "agent-instructions.md");
+    await writeFile(instructionsPath, "ROLE: CEO-ONLY\nDo not read the KM role file.\n", "utf8");
+
+    const baseInput = {
+      runId: "run-direct-instructions",
+      agent: {
+        id: "agent-1",
+        companyId: "company-1",
+        name: "OpenCode Builder",
+        adapterType: "opencode_local",
+        adapterConfig: {},
+      },
+      runtime: {
+        sessionId: null,
+        sessionParams: null,
+        sessionDisplayId: null,
+        taskKey: null,
+      },
+      context: {
+        paperclipWorkspace: {
+          cwd: workspaceDir,
+          source: "project_primary",
+        },
+      },
+      executionTransport: {
+        remoteExecution: {
+          host: "127.0.0.1",
+          port: 2222,
+          username: "fixture",
+          remoteWorkspacePath: "/real/project",
+          remoteCwd: "/real/project",
+          privateKey: "PRIVATE KEY",
+          knownHosts: "[127.0.0.1]:2222 ssh-ed25519 AAAA",
+          strictHostKeyChecking: true,
+        },
+      },
+      onLog: async () => {},
+    };
+
+    await execute({
+      ...baseInput,
+      config: {
+        command: "opencode",
+        model: "opencode/gpt-5-nano",
+        directRemoteWorkspace: true,
+        instructionsFilePath: instructionsPath,
+        paperclipRuntimeSkills: [],
+        env: { XDG_CONFIG_HOME: path.join(rootDir, "config") },
+      },
+    });
+
+    const calls = () =>
+      runChildProcess.mock.calls.filter(
+      (entry: unknown[]) => Array.isArray(entry[2]) && (entry[2] as string[]).includes("run"),
+      ) as Array<[string, string, string[], { env: Record<string, string>; stdin?: string }]>;
+    const prepended = calls().at(-1);
+    expect(prepended?.[2]).toContain("/real/project");
+    expect(prepended?.[3].stdin).toContain("ROLE: CEO-ONLY");
+    expect(prepended?.[3].env.OPENCODE_DISABLE_PROJECT_CONFIG).toBeUndefined();
+
+    await execute({
+      ...baseInput,
+      runId: "run-direct-instructions-ignored",
+      config: {
+        command: "opencode",
+        model: "opencode/gpt-5-nano",
+        directRemoteWorkspace: true,
+        directWorkspaceInstructions: "ignore",
+        instructionsFilePath: instructionsPath,
+        paperclipRuntimeSkills: [],
+        env: { XDG_CONFIG_HOME: path.join(rootDir, "config") },
+      },
+    });
+    const ignored = calls().at(-1);
+    expect(ignored?.[3].stdin ?? "").not.toContain("ROLE: CEO-ONLY");
+    expect(ignored?.[3].env.OPENCODE_DISABLE_PROJECT_CONFIG).toBeUndefined();
   });
 });

@@ -528,6 +528,74 @@ export interface RejectedValue {
   message?: string;
 }
 
+export interface GovernanceConfig {
+  profileWriterAgentId: string;
+  snapshotWriterAgentIds: string[];
+  allowBoardBackfill: boolean;
+}
+
+export interface GovernanceValidation {
+  ok: boolean;
+  config: GovernanceConfig;
+  errors: string[];
+}
+
+export function parseGovernanceConfig(input: unknown): GovernanceValidation {
+  const record = typeof input === "object" && input !== null ? (input as Record<string, unknown>) : {};
+  const profileWriterAgentId =
+    typeof record.profileWriterAgentId === "string" ? record.profileWriterAgentId.trim() : "";
+  const snapshotWriterAgentIds = Array.isArray(record.snapshotWriterAgentIds)
+    ? [...new Set(record.snapshotWriterAgentIds.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean))]
+    : [];
+  const allowBoardBackfill = record.allowBoardBackfill === true;
+  const errors: string[] = [];
+  if (!profileWriterAgentId) {
+    errors.push("profileWriterAgentId is required: set it to the company Knowledge Manager Agent id in Plugin Settings.");
+  }
+  if (snapshotWriterAgentIds.length === 0) {
+    errors.push("snapshotWriterAgentIds must contain at least one agent id: set it to the company Knowledge Manager Agent id in Plugin Settings.");
+  }
+  if (record.allowBoardBackfill !== undefined && typeof record.allowBoardBackfill !== "boolean") {
+    errors.push("allowBoardBackfill must be a boolean.");
+  }
+  return {
+    ok: errors.length === 0,
+    config: { profileWriterAgentId, snapshotWriterAgentIds, allowBoardBackfill },
+    errors,
+  };
+}
+
+export type WriterAction = "profile" | "snapshot";
+
+export interface WriterActor {
+  type: "user" | "agent";
+  agentId?: string | null;
+}
+
+export function writerDecision(
+  config: GovernanceConfig,
+  actor: WriterActor,
+  action: WriterAction,
+): { allowed: boolean; message?: string } {
+  if (actor.type === "user") {
+    if (config.allowBoardBackfill) return { allowed: true };
+    return {
+      allowed: false,
+      message: `Board backfill is disabled. Ask the Knowledge Manager Agent (${config.profileWriterAgentId}) to write the ${action} instead.`,
+    };
+  }
+  const agentId = actor.agentId ?? "";
+  const allowedIds = action === "profile" ? [config.profileWriterAgentId] : config.snapshotWriterAgentIds;
+  if (allowedIds.includes(agentId)) return { allowed: true };
+  const label = action === "profile" ? "profile" : "snapshot";
+  return {
+    allowed: false,
+    message: `${label} writes are restricted to the Knowledge Manager Agent${
+      allowedIds.length === 1 ? ` (${allowedIds[0]})` : `s (${allowedIds.join(", ")})`
+    }. Actor ${agentId || "unknown"} is not authorized.`,
+  };
+}
+
 export function parseSnapshotValues(
   body: unknown,
   allowedIds: Set<string>,

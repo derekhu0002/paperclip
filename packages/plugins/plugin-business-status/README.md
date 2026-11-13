@@ -23,11 +23,21 @@ The UI ranks levers by `driver gap × abs(weight)`. A driver with no gap does no
 Metric sources:
 
 - `paperclip`: computed by the host from issues, goals and agents; not ingestible.
-- `snapshot`: ingested by a project/Agent with provenance; the only ingestible source.
+- `snapshot`: written by the company Knowledge Manager from project-Lead evidence; the only ingestible source.
 - `static`: fixed value in the profile; not ingestible.
 - `computed`: derived from its `inputs` by the plugin; not ingestible.
 
 `POST /metrics` rejects every non-`snapshot` id with a `metric-not-ingestible` reason and a message that names the source and explains what to do instead.
+
+## Governance
+
+Governance is company-scoped **Plugin Settings**, controlled by the board/operator, not by the profile:
+
+- `profileWriterAgentId`: the Knowledge Manager Agent id allowed to write the profile.
+- `snapshotWriterAgentIds`: the Knowledge Manager Agent id(s) allowed to ingest snapshot values.
+- `allowBoardBackfill`: emergency board override; keep `false` for the KM-only writer rule.
+
+Bindings use `agent.id` (UUID), never the Agent name. A missing configuration returns `governance-not-configured`; a non-writer returns `writer-not-authorized`. Project Leads provide evidence and validate numbers, but the Knowledge Manager is the single cockpit writer.
 
 ## UI
 

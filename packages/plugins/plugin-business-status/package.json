@@ -1,6 +1,6 @@
 {
   "name": "@paperclipai/plugin-business-status",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Generic business operating cockpit: key results, process drivers, causal levers, and a per-company editable profile.",
   "type": "module",
   "private": true,

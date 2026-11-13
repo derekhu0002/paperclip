@@ -79,7 +79,7 @@ const securityProfile = {
 test("manifest exposes the generic cockpit contract in English", () => {
   assert.equal(manifest.id, "paperclip.business-status");
   assert.equal(manifest.apiVersion, 1);
-  assert.equal(manifest.version, "1.4.0");
+  assert.equal(manifest.version, "1.5.0");
   assert.equal(manifest.displayName, "Business Cockpit");
   const slotTypes = manifest.ui.slots.map((slot) => slot.type).sort();
   assert.deepEqual(slotTypes, ["dashboardWidget", "page", "sidebar"]);
@@ -91,6 +91,8 @@ test("manifest exposes the generic cockpit contract in English", () => {
   for (const capability of ["issues.read", "goals.read", "agents.read", "plugin.state.read", "plugin.state.write", "api.routes.register"]) {
     assert.ok(manifest.capabilities.includes(capability), capability);
   }
+  assert.ok(manifest.instanceConfigSchema?.properties?.profileWriterAgentId);
+  assert.ok(manifest.instanceConfigSchema?.properties?.snapshotWriterAgentIds);
 });
 
 test("the starter profile is a valid, editable example", () => {
@@ -561,6 +563,36 @@ test("QwenPaw detection coverage computed model is end-to-end deterministic", ()
   assert.equal(rejectedComputed.values.length, 0);
   assert.equal(rejectedComputed.rejected[0].reason, "metric-not-ingestible");
   assert.match(rejectedComputed.rejected[0].message, /computed/);
+});
+
+test("governance restricts profile and snapshot writes to the KM agent", () => {
+  const parsed = logic.parseGovernanceConfig({
+    profileWriterAgentId: " km-agent ",
+    snapshotWriterAgentIds: ["km-agent", "km-agent", "backup-km"],
+    allowBoardBackfill: false,
+  });
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.config.profileWriterAgentId, "km-agent");
+  assert.deepEqual(parsed.config.snapshotWriterAgentIds, ["km-agent", "backup-km"]);
+
+  assert.equal(logic.writerDecision(parsed.config, { type: "agent", agentId: "km-agent" }, "profile").allowed, true);
+  assert.equal(logic.writerDecision(parsed.config, { type: "agent", agentId: "km-agent" }, "snapshot").allowed, true);
+  assert.equal(logic.writerDecision(parsed.config, { type: "agent", agentId: "backup-km" }, "snapshot").allowed, true);
+  assert.equal(logic.writerDecision(parsed.config, { type: "agent", agentId: "project-lead" }, "snapshot").allowed, false);
+  assert.equal(logic.writerDecision(parsed.config, { type: "agent", agentId: "project-lead" }, "profile").allowed, false);
+  assert.equal(logic.writerDecision(parsed.config, { type: "user", agentId: null }, "snapshot").allowed, false);
+
+  const boardAllowed = logic.writerDecision(
+    { ...parsed.config, allowBoardBackfill: true },
+    { type: "user", agentId: null },
+    "snapshot",
+  );
+  assert.equal(boardAllowed.allowed, true);
+
+  const missing = logic.parseGovernanceConfig({});
+  assert.equal(missing.ok, false);
+  assert.ok(missing.errors.some((error) => error.includes("profileWriterAgentId")));
+  assert.ok(missing.errors.some((error) => error.includes("snapshotWriterAgentIds")));
 });
 
 test("default Paperclip metrics are computed from issues, goals and agents", () => {
