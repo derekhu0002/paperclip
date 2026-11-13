@@ -114,6 +114,9 @@ function badge(text: ReactNode, status: MetricStatus | "info" = "unknown"): Reac
 
 function button(primary = false, disabled = false): CSSProperties {
   return {
+    boxSizing: "border-box",
+    minHeight: 32,
+    whiteSpace: "nowrap",
     background: primary ? C.primary : "transparent",
     color: primary ? C.primaryFg : C.fg,
     border: `1px solid ${C.border}`,
@@ -171,20 +174,54 @@ function metricIndex(payload: CockpitPayload): Map<string, MetricEntry> {
   return index;
 }
 
-function inputsFor(payload: CockpitPayload, index: Map<string, MetricEntry>, id: string): MetricEntry[] {
+type MetricInputView = {
+  entry: MetricEntry;
+  weight?: number;
+  note?: string;
+  source: "input" | "link" | "affects";
+};
+
+function inputsFor(payload: CockpitPayload, index: Map<string, MetricEntry>, id: string): MetricInputView[] {
   const entry = index.get(id);
   if (!entry) return [];
-  const explicit = entry.value.definition.inputs ?? [];
-  if (explicit.length > 0) {
-    return explicit.map((inputId) => index.get(inputId)).filter((input): input is MetricEntry => Boolean(input));
+  const views = new Map<string, MetricInputView>();
+
+  for (const input of entry.value.definition.inputs ?? []) {
+    const inputEntry = index.get(input.id);
+    if (!inputEntry) continue;
+    views.set(input.id, {
+      entry: inputEntry,
+      weight: input.weight,
+      note: input.note,
+      source: "input",
+    });
   }
+
   if (entry.role === "result") {
-    return payload.drivers
-      .filter((driver) => driver.affects.includes(id) || driver.impacts.some((impact) => impact.resultId === id))
-      .sort((a, b) => impactFor(b, id) - impactFor(a, id))
-      .map((driver) => ({ role: "driver" as const, value: driver }));
+    for (const link of payload.profile?.links ?? []) {
+      if (link.to !== id) continue;
+      const inputEntry = index.get(link.from);
+      if (!inputEntry) continue;
+      const existing = views.get(link.from);
+      if (!existing) {
+        views.set(link.from, { entry: inputEntry, weight: link.weight, note: link.note, source: "link" });
+      } else if (existing.weight == null) {
+        existing.weight = link.weight;
+        existing.note = existing.note ?? link.note;
+        existing.source = "link";
+      }
+    }
+    for (const driver of payload.drivers) {
+      if (!driver.affects.includes(id) || views.has(driver.definition.id)) continue;
+      views.set(driver.definition.id, { entry: { role: "driver", value: driver }, source: "affects" });
+    }
   }
-  return [];
+
+  const result = [...views.values()];
+  if (entry.role === "result") {
+    result.sort((a, b) => Math.abs(b.weight ?? 0) - Math.abs(a.weight ?? 0));
+  }
+  return result;
 }
 
 function ResultCard({ result, onOpen }: { result: MetricValue; onOpen: () => void }) {
@@ -227,7 +264,8 @@ function ResultCard({ result, onOpen }: { result: MetricValue; onOpen: () => voi
   );
 }
 
-function InputCard({ entry, impact, onOpen }: { entry: MetricEntry; impact?: number; onOpen: () => void }) {
+function InputCard({ input, impact, onOpen }: { input: MetricInputView; impact?: number; onOpen: () => void }) {
+  const entry = input.entry;
   const metric = entry.value;
   const awaiting = metric.state === "awaiting-data";
   return (
@@ -252,7 +290,13 @@ function InputCard({ entry, impact, onOpen }: { entry: MetricEntry; impact?: num
           {metric.provenance.source ?? "—"} · {shortTime(metric.asOf)}
         </span>
       </div>
-      {impact != null ? <div style={{ color: C.info, fontSize: 11 }}>Impact {impact.toFixed(2)}</div> : null}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11 }}>
+        <span style={{ color: input.weight != null ? C.info : C.muted }}>
+          {input.weight != null ? `Weight ${input.weight.toFixed(2)}` : "Weight not declared"}
+        </span>
+        {impact != null ? <span style={{ color: C.info }}>Impact {impact.toFixed(2)}</span> : null}
+      </div>
+      {input.note ? <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.5 }}>{input.note}</div> : null}
       <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.5 }}>
         {metric.provenance.formula ?? metric.definition.formula ?? "No formula provided."}
       </div>
@@ -270,6 +314,19 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function metricMeaning(entry: MetricEntry): string {
+  const definition = entry.value.definition;
+  if (definition.description) return definition.description;
+  const direction = definition.direction === "higher-is-better" ? "higher is better" : "lower is better";
+  const target = formatMetricValue(definition.target, definition.unit) ?? "not set";
+  const source = entry.value.provenance.source ?? definition.source;
+  if (entry.role === "result") {
+    return `${definition.label} is a final result the company is accountable for. It is measured in ${definition.unit}; ${direction}; target ${target}. It is currently sourced from ${source}. The inputs below show what is expected to move it.`;
+  }
+  const affects = entry.value.affects.length > 0 ? entry.value.affects.join(", ") : "no downstream result declared";
+  return `${definition.label} is a process driver. It is measured in ${definition.unit}; ${direction}; target ${target}. It is expected to affect ${affects}. It is currently sourced from ${source}.`;
+}
+
 function MetricDetail({
   entry,
   inputs,
@@ -280,7 +337,7 @@ function MetricDetail({
   onJump,
 }: {
   entry: MetricEntry;
-  inputs: MetricEntry[];
+  inputs: MetricInputView[];
   pathEntries: MetricEntry[];
   onOpen: (id: string) => void;
   onBack: () => void;
@@ -328,6 +385,9 @@ function MetricDetail({
               Target {targetText(metric)} · {gapText(metric)}
             </span>
           </div>
+          <p style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, margin: "8px 0 0", maxWidth: 760 }}>
+            {metricMeaning(entry)}
+          </p>
         </div>
         <div style={{ color: C.muted, fontSize: 11, textAlign: "right" }}>
           <div>as-of {shortTime(metric.asOf)}</div>
@@ -368,6 +428,34 @@ function MetricDetail({
         </div>
       </section>
 
+      <section style={card}>
+        <strong style={{ fontSize: 14 }}>Input relationship</strong>
+        <p style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, margin: "8px 0 10px" }}>
+          Weights express how strongly each input moves this metric. A negative weight means the input moves it in the opposite direction. The displayed value is measured from the declared source; this version does not recompute it from inputs.
+        </p>
+        {inputs.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 12 }}>Leaf metric: no inputs influence this metric directly.</div>
+        ) : (
+          <div style={{ display: "grid", gap: 0 }}>
+            {inputs.map((input) => (
+              <div key={input.entry.value.definition.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+                <span style={{ fontSize: 12 }}>
+                  {input.entry.value.definition.label}
+                  <span style={{ color: C.muted, fontSize: 11 }}> · {input.entry.role === "result" ? "result" : "driver"}</span>
+                </span>
+                <span style={{ color: input.weight != null ? C.info : C.muted, fontSize: 11, whiteSpace: "nowrap" }}>
+                  {input.weight != null ? `weight ${input.weight.toFixed(2)}` : "weight not declared"}
+                </span>
+                <span style={{ gridColumn: "1 / -1", color: C.muted, fontSize: 11 }}>
+                  {input.source === "link" ? "Weight from causal link." : input.source === "affects" ? "Input from affects; no weight." : "Weight from inputs."}
+                  {input.note ? ` ${input.note}` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {isDriver ? (
         <section style={card}>
           <strong style={{ fontSize: 14 }}>Affects</strong>
@@ -401,8 +489,8 @@ function MetricDetail({
         ) : (
           <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginTop: 10 }}>
             {inputs.map((input) => {
-              const impact = entry.role === "result" && input.role === "driver" ? impactFor(input.value, definition.id) : undefined;
-              return <InputCard key={input.value.definition.id} entry={input} impact={impact} onOpen={() => onOpen(input.value.definition.id)} />;
+              const impact = entry.role === "result" && input.entry.role === "driver" ? impactFor(input.entry.value, definition.id) : undefined;
+              return <InputCard key={input.entry.value.definition.id} input={input} impact={impact} onOpen={() => onOpen(input.entry.value.definition.id)} />;
             })}
           </div>
         )}
@@ -608,7 +696,7 @@ function Cockpit({
             {badge(`${payload.snapshot.valueCount} snapshot values`, "unknown")}
           </div>
         </div>
-        <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+        <div style={{ display: "grid", gap: 6, justifyItems: "end", alignContent: "start", minWidth: 330, flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" style={button()} onClick={onConfigure}>
               Configure
@@ -620,7 +708,7 @@ function Cockpit({
               Refresh
             </button>
           </div>
-          {copied ? <span style={{ color: C.muted, fontSize: 11 }}>{copied}</span> : null}
+          <span style={{ color: C.muted, fontSize: 11, minHeight: 16, lineHeight: "16px" }}>{copied ?? ""}</span>
         </div>
       </header>
 

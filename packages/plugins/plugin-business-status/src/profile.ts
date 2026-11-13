@@ -4,6 +4,7 @@ import type {
   DriverDefinition,
   MetricDefinition,
   MetricDirection,
+  MetricInput,
   MetricSource,
   MetricUnit,
 } from "./shared.js";
@@ -77,6 +78,7 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
   if (!id || !ID_PATTERN.test(id)) errors.push(`${prefix}.id must match ${ID_PATTERN}`);
   const label = readString(input.label);
   if (!label) errors.push(`${prefix}.label is required`);
+  const description = readString(input.description) ?? undefined;
   const unit = readString(input.unit);
   if (!unit || !UNITS.includes(unit as MetricUnit)) errors.push(`${prefix}.unit must be one of ${UNITS.join(", ")}`);
   const direction = readString(input.direction);
@@ -120,14 +122,55 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
     }
   }
   const rawInputs = input.inputs;
-  let inputs: string[] | undefined;
+  let inputs: MetricInput[] | undefined;
   if (rawInputs !== undefined) {
-    if (!Array.isArray(rawInputs) || !rawInputs.every((entry) => typeof entry === "string" && entry.trim())) {
-      errors.push(`${prefix}.inputs must be an array of metric ids`);
+    if (!Array.isArray(rawInputs)) {
+      errors.push(`${prefix}.inputs must be an array`);
     } else {
-      const cleaned = [...new Set(rawInputs.map((entry) => (entry as string).trim()))];
-      if (id && cleaned.includes(id)) errors.push(`${prefix}.inputs cannot reference its own metric id`);
-      inputs = cleaned;
+      const normalized: MetricInput[] = [];
+      const seen = new Set<string>();
+      for (const [inputIndex, rawInput] of rawInputs.entries()) {
+        if (typeof rawInput === "string") {
+          const inputId = rawInput.trim();
+          if (!inputId) {
+            errors.push(`${prefix}.inputs[${inputIndex}] must be a metric id`);
+            continue;
+          }
+          if (seen.has(inputId)) {
+            errors.push(`${prefix}.inputs has duplicate id ${inputId}`);
+            continue;
+          }
+          seen.add(inputId);
+          normalized.push({ id: inputId });
+          continue;
+        }
+        if (!isRecord(rawInput)) {
+          errors.push(`${prefix}.inputs[${inputIndex}] must be a metric id or object`);
+          continue;
+        }
+        const inputId = readString(rawInput.id);
+        if (!inputId) {
+          errors.push(`${prefix}.inputs[${inputIndex}].id is required`);
+          continue;
+        }
+        if (seen.has(inputId)) {
+          errors.push(`${prefix}.inputs has duplicate id ${inputId}`);
+          continue;
+        }
+        let weight: number | undefined;
+        if (rawInput.weight !== undefined) {
+          if (!isFiniteNumber(rawInput.weight) || rawInput.weight < -1 || rawInput.weight > 1) {
+            errors.push(`${prefix}.inputs[${inputIndex}].weight must be between -1 and 1`);
+            continue;
+          }
+          weight = rawInput.weight;
+        }
+        const note = readString(rawInput.note) ?? undefined;
+        seen.add(inputId);
+        normalized.push({ id: inputId, ...(weight !== undefined ? { weight } : {}), ...(note ? { note } : {}) });
+      }
+      if (normalized.some((input) => id && input.id === id)) errors.push(`${prefix}.inputs cannot reference its own metric id`);
+      if (normalized.length > 0) inputs = normalized;
     }
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -140,6 +183,7 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
     warn,
     critical,
     source: source as MetricSource,
+    ...(description ? { description } : {}),
     ...(sourceRef ? { sourceRef } : {}),
     ...(formula ? { formula } : {}),
     ...(value !== undefined ? { value } : {}),
@@ -148,8 +192,26 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
   return kind === "driver" ? { ok: true, metric: { ...metric, affects } as DriverDefinition, errors } : { ok: true, metric, errors };
 }
 
-function findInputCycle(metrics: MetricDefinition[]): string[] | null {
+function findDependencyCycle(results: MetricDefinition[], drivers: DriverDefinition[], links: CausalLink[]): string[] | null {
+  const metrics = [...results, ...drivers];
   const byId = new Map(metrics.map((metric) => [metric.id, metric]));
+  const adjacency = new Map<string, Set<string>>();
+
+  function addEdge(from: string, to: string) {
+    if (!byId.has(from) || !byId.has(to)) return;
+    const targets = adjacency.get(from) ?? new Set<string>();
+    targets.add(to);
+    adjacency.set(from, targets);
+  }
+
+  for (const metric of metrics) {
+    for (const input of metric.inputs ?? []) addEdge(metric.id, input.id);
+  }
+  for (const link of links) addEdge(link.to, link.from);
+  for (const driver of drivers) {
+    for (const resultId of driver.affects) addEdge(resultId, driver.id);
+  }
+
   const state = new Map<string, 0 | 1 | 2>();
   const stack: string[] = [];
 
@@ -161,9 +223,8 @@ function findInputCycle(metrics: MetricDefinition[]): string[] | null {
     if (current === 2) return null;
     state.set(id, 1);
     stack.push(id);
-    for (const inputId of byId.get(id)?.inputs ?? []) {
-      if (!byId.has(inputId)) continue;
-      const cycle = visit(inputId);
+    for (const next of [...(adjacency.get(id) ?? [])].sort()) {
+      const cycle = visit(next);
       if (cycle) return cycle;
     }
     stack.pop();
@@ -171,8 +232,8 @@ function findInputCycle(metrics: MetricDefinition[]): string[] | null {
     return null;
   }
 
-  for (const metric of metrics) {
-    const cycle = visit(metric.id);
+  for (const id of [...byId.keys()].sort()) {
+    const cycle = visit(id);
     if (cycle) return cycle;
   }
   return null;
@@ -224,13 +285,9 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
 
   const allIds = new Set([...resultIds, ...driverIds]);
   for (const metric of [...results, ...drivers]) {
-    for (const inputId of metric.inputs ?? []) {
-      if (!allIds.has(inputId)) errors.push(`metric ${metric.id} has unknown input ${inputId}`);
+    for (const input of metric.inputs ?? []) {
+      if (!allIds.has(input.id)) errors.push(`metric ${metric.id} has unknown input ${input.id}`);
     }
-  }
-  if (errors.length === 0) {
-    const cycle = findInputCycle([...results, ...drivers]);
-    if (cycle) errors.push(`profile.inputs contain a cycle: ${cycle.join(" -> ")}`);
   }
 
   const links: CausalLink[] = [];
@@ -251,6 +308,11 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
     if (linkKeys.has(key)) errors.push(`duplicate link: ${key}`);
     linkKeys.add(key);
     links.push({ from, to, weight, ...(readString(entry.note) ? { note: readString(entry.note)! } : {}) });
+  }
+
+  if (errors.length === 0) {
+    const cycle = findDependencyCycle(results, drivers, links);
+    if (cycle) errors.push(`profile dependency graph contains a cycle: ${cycle.join(" -> ")}`);
   }
 
   if (errors.length > 0) return { ok: false, errors };

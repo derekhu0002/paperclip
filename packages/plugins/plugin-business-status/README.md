@@ -12,7 +12,9 @@ A profile has three parts:
 - `drivers`: the process metrics that influence the results. `affects` is optional and lists the downstream results used by the lever ranking.
 - `links`: causal edges from a driver to a result with a weight from -1 to 1.
 
-Any metric can also declare `inputs`: a list of metric ids that explain how it is composed. This turns results and drivers into one metric DAG: a driver can be an input to another driver, and a result can be an input to another metric. The plugin validates that every input exists and that the graph is acyclic.
+Any metric can also declare `inputs`: a list of metric ids (or `{ id, weight, note }` objects) that explain how it is composed. This turns results and drivers into one metric DAG: a driver can be an input to another driver, and a result can be an input to another metric. `weight` is between -1 and 1; it expresses how strongly the input moves the metric, and a negative weight means the opposite direction. Each metric can also declare a `description` explaining what it means and why it matters.
+
+The plugin validates every input reference, rejects self-references and cycles, and treats links/`affects` as dependency edges when checking the graph. The validation order is deterministic: unknown inputs, self-references and cycles are rejected before the profile is saved.
 
 The UI ranks levers by `driver gap × abs(weight)`. A driver with no gap does not appear as an actionable lever; if no configured driver explains a result gap, the UI says so instead of inventing a cause.
 
@@ -27,8 +29,8 @@ Metric sources:
 ## UI
 
 - Home: only the company's final results.
-- Click a result: open its detail page with the definition, calculation, provenance and input cards.
-- Click an input card: drill into that metric using the same definition/calculation/inputs layout.
+- Click a result: open its detail page with the metric's meaning, definition, calculation, input relationship (weights and notes), provenance and input cards.
+- Click an input card: drill into that metric using the same layout.
 - Leaf metrics show where the measurement comes from (`source`, `sourceRef`, `commit`, `digest`, `asOf`, `note`) and stop drilling.
 - Sidebar entry: **Business Cockpit**.
 - Page: `/:companyPrefix/business-status`.

@@ -1,5 +1,5 @@
 export const PLUGIN_ID = "paperclip.business-status";
-export const PLUGIN_VERSION = "1.2.0";
+export const PLUGIN_VERSION = "1.3.0";
 export const STATUS_ROUTE_PATH = "business-status";
 
 export const PROFILE_NAMESPACE = "profile";
@@ -13,9 +13,16 @@ export type MetricStatus = "ok" | "warn" | "critical" | "unknown";
 export type MetricState = "current" | "awaiting-data";
 export type MetricSource = "paperclip" | "snapshot" | "static";
 
+export interface MetricInput {
+  id: string;
+  weight?: number;
+  note?: string;
+}
+
 export interface MetricDefinition {
   id: string;
   label: string;
+  description?: string;
   unit: MetricUnit;
   direction: MetricDirection;
   target: number | null;
@@ -25,7 +32,7 @@ export interface MetricDefinition {
   sourceRef?: string;
   formula?: string;
   value?: number | null;
-  inputs?: string[];
+  inputs?: MetricInput[];
 }
 
 export interface DriverDefinition extends MetricDefinition {

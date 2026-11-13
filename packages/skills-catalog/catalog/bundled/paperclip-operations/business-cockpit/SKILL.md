@@ -65,6 +65,7 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
     {
       "id": "delivery-throughput",
       "label": "Delivery Throughput (30d)",
+      "description": "How much finished work the company delivered in the last 30 days.",
       "unit": "count",
       "direction": "higher-is-better",
       "target": 10,
@@ -73,13 +74,17 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
       "source": "paperclip",
       "sourceRef": "delivery-throughput",
       "formula": "Issues completed in the last 30 days.",
-      "inputs": ["wip"]
+      "inputs": [
+        { "id": "wip", "weight": 0.3, "note": "More WIP slows the flow." },
+        { "id": "flow-efficiency", "weight": 0.2 }
+      ]
     }
   ],
   "drivers": [
     {
       "id": "wip",
       "label": "Work in Progress",
+      "description": "How many issues are open and actively being worked on.",
       "unit": "count",
       "direction": "lower-is-better",
       "target": 10,
@@ -93,6 +98,7 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
     {
       "id": "flow-efficiency",
       "label": "Flow Efficiency",
+      "description": "How much of the cycle time is active work rather than waiting.",
       "unit": "ratio",
       "direction": "higher-is-better",
       "target": 0.6,
@@ -101,7 +107,7 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
       "source": "snapshot",
       "sourceRef": "flow-efficiency",
       "formula": "Active time / total cycle time.",
-      "inputs": ["wip"],
+      "inputs": [{ "id": "wip", "weight": -0.5, "note": "High WIP increases waiting time." }],
       "affects": ["delivery-throughput"]
     }
   ],
@@ -118,6 +124,7 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
 | --- | --- | --- |
 | `id` | yes | Lowercase slug, unique across results and drivers. |
 | `label` | yes | Human-readable name. |
+| `description` | no | What the metric means and why it matters; shown on the metric detail page. |
 | `unit` | yes | `ratio`, `count`, `days`, `currency` or `score`. |
 | `direction` | yes | `higher-is-better` or `lower-is-better`. |
 | `target` | yes | Numeric target. |
@@ -126,9 +133,13 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
 | `sourceRef` | for `paperclip` | Host-computed metric key. |
 | `formula` | no | Plain-language formula shown in the UI. |
 | `value` | for `static` | Fixed numeric value. |
-| `inputs` | no | Metric ids that explain how this metric is composed. Any result or driver id; must exist and must not create a cycle. |
+| `inputs` | no | Metric ids that explain how this metric is composed. Each entry is `{ "id", "weight"?, "note"? }`; a bare id string is also accepted. |
 
-`inputs` turns results and drivers into one metric DAG. A driver can be an input to another driver, and a result can be an input to another metric. In this version `inputs` is explanatory: the plugin shows the hierarchy and provenance but does not recompute a parent value from its inputs. A metric with no `inputs` is a leaf; its value comes from `paperclip`, `snapshot` or `static`.
+`inputs` turns results and drivers into one metric DAG. A driver can be an input to another driver, and a result can be an input to another metric. In this version `inputs` is explanatory: the plugin shows the hierarchy, the weight and the provenance but does not recompute a parent value from its inputs. A metric with no `inputs` is a leaf; its value comes from `paperclip`, `snapshot` or `static`.
+
+`weight` is between `-1` and `1`. It expresses how strongly the input moves this metric; a negative weight means the opposite direction. The UI shows each input's weight and note.
+
+The plugin validates the full dependency graph deterministically: explicit `inputs`, plus links and `affects` (a link is treated as the result depending on the driver). Unknown inputs, self-references and cycles are rejected before the profile is saved.
 
 A driver's `affects` is optional. When present, it lists downstream result ids used by the lever ranking.
 
