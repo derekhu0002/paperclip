@@ -4859,8 +4859,8 @@
         },
         {
           "name": "pluginVersion",
-          "value": "1.1.0",
-          "description": "Generic editable cockpit framework; English-only UI and docs; agent API doc."
+          "value": "1.1.1",
+          "description": "Version bump forces Paperclip to reload the plugin UI module (cache key uses plugin.updatedAt/version)."
         },
         {
           "name": "installPath",
@@ -4933,8 +4933,8 @@
         },
         {
           "name": "sidebarStyle",
-          "value": "Aligned with Project Tree: .bc-sidebar-link hover/active uses --sidebar-accent, aria-current=page, same spacing/icon size.",
-          "description": "commit 5e2f031; fixes missing hover highlight on the Business Cockpit sidebar entry."
+          "value": "Verified with Playwright: inactive .bc-sidebar-link hover changes background from transparent to oklch(0.88 0 0), identical to Project Tree; active page uses the same accent via aria-current=page.",
+          "description": "commit 518fbd4 (version bump) + 5e2f031 (style alignment)."
         }
       ]
     }
