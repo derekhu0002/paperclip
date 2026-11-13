@@ -4671,6 +4671,11 @@
         {
           "name": "qwe171StopAnalysis",
           "value": "QWE-171 于 03:49:10 done（run a45e18c7）。用户 03:51:07 评论后，系统记录 issue.comment.reopen（退回 todo）且 executionContinuation.trigger.reason=issue_reopened_via_comment，sourceRunId=a45e18c7；因上一 run disposition 在重开后过期，触发 issue_disposition_repair（attempt 2, retryOfRunId=a45e18c7）。repair run 067a5fc4 03:52:09 启动，03:57:27 被 board operator cancel（cancelled / Cancelled by a board operator），issue 留在 in_progress 且无 owner → UI ExecutionBlockerNotice 显示 “Couldn't finish this attempt. Your message is saved.”（legacy fallback；cancelled_by_operator 文案只在 native continuation）。timer run 628dd44b 接续成功；用户 04:00:07 再评论触发 run 5a7db2cb 成功，QWE-171 于 04:02:26 done（status_version 8），无新 recovery invariant。结论：done 任务被评论重开是上游设计；disposition repair 是上游恢复机制；legacy operator-stop 的展示与状态收尾是上游缺口/覆盖不足，不是 fork 回归（c40a130000..HEAD 对 task-interruption-presentation.ts / explicit-native-continuation.ts / ExecutionBlockerNotice.tsx 为 0 commit / 0 diff）。"
+        },
+        {
+          "name": "commit",
+          "value": "de41ba84a1",
+          "description": "chore(argo): record QWE-171 stop/reopen root-cause analysis (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     },
