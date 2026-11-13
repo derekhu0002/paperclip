@@ -5265,6 +5265,23 @@
         {
           "name": "governanceAdapterAt",
           "value": "2026-11-13T12:25:00Z"
+        },
+        {
+          "name": "skillActivation",
+          "value": "business-cockpit is an on-demand skill, not embedded in AGENTS.md. Install it in the company Skills catalog and attach it to the Knowledge Manager's desiredSkills; the KM role instruction says to load it before any profile write, snapshot ingest, computed-metric change or API error. The CEO may load it read-only. defaultInstall=false, so each company must install it explicitly. If it is unavailable, the KM stops and asks the board to install it."
+        },
+        {
+          "name": "commit",
+          "value": "62a68c8caf",
+          "description": "docs: add skill load triggers to agent roles; files: doc/agents/company-ceo.AGENTS.md, doc/agents/company-knowledge-manager.AGENTS.md"
+        },
+        {
+          "name": "taskSummarySkillActivation",
+          "value": "【任务 2026-11-13】明确 business-cockpit skill 的触发与安装方式。\n\n【结论】skill 不复制进 AGENTS.md；AGENTS.md 只写触发条件、边界和缺失处理。KM 在任何 profile 写入、snapshot 回填、computed 变更或 API 错误前加载 business-cockpit；CEO 只读使用。skill 需安装到公司 Skills catalog 并挂到 KM desiredSkills；defaultInstall=false，不自动启用。当前 47 镜像 catalog 可能较旧，安装前需确认版本。commit：62a68c8caf。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "skillActivationAt",
+          "value": "2026-11-13T12:35:00Z"
         }
       ]
     }
