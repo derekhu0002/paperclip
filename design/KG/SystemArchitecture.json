@@ -99,6 +99,10 @@
         {
           "view_id": "project-manager-org-rsi-001",
           "view_name": "项目经理 · 组织级 RSI 架构与落地记忆"
+        },
+        {
+          "view_id": "project-manager-kg-manager-001",
+          "view_name": "项目经理 · QwenPaw kg-manager 上线记忆"
         }
       ],
       "attributes": [
@@ -4590,6 +4594,46 @@
         }
       ],
       "type": "Requirement"
+    },
+    {
+      "id": "kg-manager-onboarding-2026-11-13",
+      "name": "kg-manager Agent 配置完成与 direct workspace/ARGO MCP 读写验收（2026-11-13）",
+      "type": "Requirement",
+      "description": "【目标】在 47 Paperclip 的 QwenPaw 攻防实验室（公司 1ba5e77b-d25b-42fc-8eea-7762210b1422）完成 kg-manager Agent 的剩余配置，并验证其在 direct workspace 运行且 ARGO MCP 读、写接口可用。\n\n【结果与证据】\n- Agent：6be1ffdb-688c-4ef0-bc76-461593318a07，name=kg-manager，title=知识图谱管理员，role=general，reportsTo=千万破 Commander（f2440fd0），status=idle / lifecycle=ready。\n- 运行配置：adapterType=opencode_local、runner=legacy、model=paperclip/deepseek-flash（公司 AI 连接 56d3bffa / grant 9de13a55）、directRemoteWorkspace=true、dangerouslySkipPermissions=true、env={ARGO_REPO_ROOT, PAPERCLIP_OPENCODE_SMALL_MODEL}。\n- 环境：af893f2e-910e-40d0-8885-9faa8547505f（WSL2 · kg-mgr，root@100.87.205.43:2222 → /root/repos/qwenpaw-anti-defend-kg-management），probe ok 且 remoteCwd 一致；test-environment 对已保存配置 status=pass（hello probe passed）。\n- 运行时：heartbeat={enabled:true, intervalSec:300, maxConcurrentRuns:1, skipTimerWhenNoActionableWork:true}。\n- 项目：eb30b743-d065-4561-88c0-1f928aa42626（qwenpaw-anti-defend-kg-management），leadAgentId=kg-manager、environmentId=af893f2e。\n- 验收 issue：QWE-168（2582182e-66f0-4832-b6fc-ff8a7e83517d），assignment run aceb302f 成功，runnerProfile.adapterDispatch.adapterType=opencode_local，session cwd=/root/repos/qwenpaw-anti-defend-kg-management。\n- 读：queryNeo4jGraph {schema:true} passed（schemaKind=default / ArchiMate 3.2，4 el / 1 rel / 7 views）；getSystemArchitecture 语义 semanticRetrieval=invoked；memory_search passed。\n- 写：addArchitectureElement 在视图 project-manager-001-ltm-001 新增元素 kg-manager-argo-mcp-2026-11-13（Requirement），written=true、embedding Aligned、qea/neo4j 同步 passed；validateSystemArchitecture passed/exitCode 0；随后 updateArchitectureElement 登记提交。\n- WSL 仓库提交：b16514b（ARGO 基线）、59dbd2a（验收元素+commit attr）、7464b0c（登记提交）。\n\n【关键决策】\n1) 显式 runner=legacy：该 Linux 实例 runner=auto 会把 opencode_local 解析成 paperclip_runner；direct remote workspace 语义要求 opencode_local。\n2) 模型走公司 AI 连接 paperclip/deepseek-flash；不设 OPENCODE_ALLOW_ALL_MODELS=1（实测会让托管连接的 hello probe 报 Invalid URL），不设 OPENCODE_CONFIG_CONTENT（adapter 在 dangerouslySkipPermissions 下已允许 external_directory）。\n3) 公司 requireBoardApprovalForNewAgents=true，setup 草稿通过 POST /agent-hires（setupAgentId）+ approvals/:id/approve 完成。\n\n【坑/注意】PATCH 会保留既有 runtimeConfig.aiConnection（同 harness 且兼容时），因此切换配置后仍走托管连接；WSL 仓库原无 git 身份，已写 repo-local user.name/email；test-environment 的 opencode-envtest-* 会在 .paperclip-runtime/runs 下留 staging 副本（已 gitignore）；principleIndex 仍 declared-missing。\n\n【目标 T2】project-manager-kg-manager-001 / kg-manager-onboarding-2026-11-13。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-13"
+        },
+        {
+          "name": "paperclipCompany",
+          "value": "1ba5e77b-d25b-42fc-8eea-7762210b1422 | QwenPaw 攻防实验室（千万破） | prefix QWE"
+        },
+        {
+          "name": "paperclipAgent",
+          "value": "6be1ffdb-688c-4ef0-bc76-461593318a07 | kg-manager | opencode_local/legacy | model=paperclip/deepseek-flash | directRemoteWorkspace=true"
+        },
+        {
+          "name": "paperclipProject",
+          "value": "eb30b743-d065-4561-88c0-1f928aa42626 | qwenpaw-anti-defend-kg-management | lead=6be1ffdb | env=af893f2e"
+        },
+        {
+          "name": "paperclipEnvironment",
+          "value": "af893f2e-910e-40d0-8885-9faa8547505f | WSL2 · kg-mgr | root@100.87.205.43:2222:/root/repos/qwenpaw-anti-defend-kg-management"
+        },
+        {
+          "name": "verification",
+          "value": "QWE-168 done; run aceb302f succeeded (adapterDispatch=opencode_local, cwd remote); ARGO read schema 4/1/7 + semantic invoked + memory_search; ARGO write addArchitectureElement+validate passed; commits b16514b/59dbd2a/7464b0c"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -4906,6 +4950,16 @@
         "cti-org-rsi-deployment-2026-11-10",
         "aic-org-rsi-suborg-2026-11-10",
         "aic-knowledge-monetization-stage0-2026-11-10"
+      ],
+      "included_relationships": []
+    },
+    {
+      "view_id": "project-manager-kg-manager-001",
+      "view_name": "项目经理 · QwenPaw kg-manager 上线记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "QwenPaw 攻防实验室 kg-manager Agent 的配置完成与 direct workspace / ARGO MCP 读写验收记录（2026-11-13）。",
+      "included_elements": [
+        "kg-manager-onboarding-2026-11-13"
       ],
       "included_relationships": []
     }
