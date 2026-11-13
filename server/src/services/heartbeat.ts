@@ -397,6 +397,8 @@ import {
 
 import { nativeChatWorkspaceCwd } from "./native-runtime/native-chat-workspace.js";
 import {
+  configuredEnvironmentProjection,
+  configuredSecretEnvironment,
   type NativeExecutionInput,
   type NativeSessionBackend,
 } from "../vendor/paperclip-runner/index.js";
@@ -3495,6 +3497,9 @@ export function heartbeatService(
             runtimeConfig,
             runtimeSkillEntries,
             runScopedMentionedSkillKeys,
+            configuredSecretNames: configuredSecretEnvironment(
+              configuredEnvironmentProjection(configuredTaskEnvironment, secretKeys),
+            ).map(secret => secret.name),
             instructionCopy: preparedInstructions.instructionCopy,
             agentIdentity,
             issueAssigneeOverrides,
@@ -3561,6 +3566,7 @@ export function heartbeatService(
             resolvedConfig,
             resolvedInstanceSettings,
             configuredTaskEnvironment,
+            secretKeys,
             adapterEnv,
             agentIdentity,
             observability,
