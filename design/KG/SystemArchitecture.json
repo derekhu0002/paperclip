@@ -4690,6 +4690,11 @@
         {
           "name": "commit",
           "value": "38c234f"
+        },
+        {
+          "name": "commit",
+          "value": "edfbb3e8a7",
+          "description": "chore(argo): record kg-manager role definition AGENTS.md (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
