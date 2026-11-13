@@ -5122,7 +5122,8 @@
         },
         {
           "name": "ownershipModel",
-          "value": "CEO owns the business metric system: outcomes, targets, weights, metric contracts, operating cadence, investigation, intervention and accountability. The knowledge-management Agent is the metric steward: definitions, source registry, lineage, versioning, missing-data registry, reconciliation and contract hygiene. Domain/project Agents produce leaf evidence with provenance and execute interventions. The plugin enforces structure, ingestion permissions, computed evaluation and deterministic error feedback. The CEO does not delegate accountability to the KM Agent; the KM Agent maintains the contract the CEO owns."
+          "value": "Recommended: two Agents on the company's top-level Project. CEO owns strategy, outcomes, targets, weights, cadence, investigation, intervention and board reporting. Knowledge Manager is the profile writer and metric steward: definitions, sources, lineage, versions, missing data, validation and audit. Both have separate per-Agent AGENTS.md bundles under companies/<companyId>/agents/<agentId>/instructions; no separate project and no shared prompt. Project Agents write snapshot leaves with provenance; plugin computes computed metrics and enforces ingestion; host/engineering owns plugin install/code.",
+          "description": "Separate CEO and KM Agents on the same top-level project; per-Agent instructions avoid prompt/memory pollution."
         },
         {
           "name": "commit",
@@ -5158,6 +5159,39 @@
         {
           "name": "operatorTemplateAt",
           "value": "2026-11-13T11:40:00Z"
+        },
+        {
+          "name": "ceoTemplatePath",
+          "value": "doc/agents/company-ceo.AGENTS.md",
+          "description": "CEO agent template for the company top-level project."
+        },
+        {
+          "name": "kmTemplatePath",
+          "value": "doc/agents/company-knowledge-manager.AGENTS.md",
+          "description": "Knowledge Manager / Metric Steward agent template for the same company top-level project."
+        },
+        {
+          "name": "mergedTemplatePath",
+          "value": "doc/agents/company-operator.AGENTS.md",
+          "description": "Optional merged CEO+KM fallback; prefer split templates because Paperclip supports per-Agent instruction bundles."
+        },
+        {
+          "name": "commit",
+          "value": "1eefe38381d5070a86daf81db7f1b983fae456f3",
+          "description": "docs: split CEO and knowledge manager agent templates; files: doc/agents/company-ceo.AGENTS.md, doc/agents/company-knowledge-manager.AGENTS.md, doc/agents/company-operator.AGENTS.md"
+        },
+        {
+          "name": "commit",
+          "value": "d7ab94dc8d",
+          "description": "style: normalize company operator template"
+        },
+        {
+          "name": "taskSummarySplitAgents",
+          "value": "【任务 2026-11-13】澄清 Paperclip 的 per-Agent 指令能力，拆分 CEO 与 Knowledge Manager 模板。\n\n【结论】不需要合并，也不需要独立项目。Paperclip 的 managed instructions bundle 按 agentId 存放：companies/<companyId>/agents/<agentId>/instructions/AGENTS.md；两个 Agent 可挂在同一个公司总 Project，各自有独立 AGENTS.md 和记忆范围。合并的唯一理由是减少管理，不是避免 prompt 污染。\n\n【分工】CEO 做 strategy/outcomes/targets/weights/cadence/investigation/intervention/board；KM 是 profile writer + metric steward，做定义/来源/lineage/版本/缺失数据/校验/审计；project Agents 写 snapshot 叶子；plugin 算 computed 并强制 source 规则；host/engineering 管插件安装与代码。\n\n【产出】company-ceo.AGENTS.md、company-knowledge-manager.AGENTS.md；company-operator.AGENTS.md 标为 merged fallback。commits：1eefe38381d5070a86daf81db7f1b983fae456f3、d7ab94dc8d。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "splitAgentsAt",
+          "value": "2026-11-13T11:50:00Z"
         }
       ]
     }
