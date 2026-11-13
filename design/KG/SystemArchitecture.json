@@ -4859,7 +4859,8 @@
         },
         {
           "name": "pluginVersion",
-          "value": "1.0.0"
+          "value": "1.1.0",
+          "description": "Generic editable cockpit framework; English-only UI and docs; agent API doc."
         },
         {
           "name": "installPath",
@@ -4871,15 +4872,16 @@
         },
         {
           "name": "profiles",
-          "value": "default-delivery (all companies), qwenpaw-security (QWE)"
+          "value": "No built-in profiles. One editable JSON profile per company. QwenPaw has 'QwenPaw Security Cockpit'; other companies start unconfigured.",
+          "description": "v1.1.0 removed the default-delivery and qwenpaw-security built-ins."
         },
         {
           "name": "verification",
-          "value": "pnpm typecheck/build/test 7/7; install ready; Playwright QWE+ARGA both pass; QWE 96.8/54.8/58.3; ARGA delivery throughput 3/10 warn"
+          "value": "v1.1.0 ready; pnpm typecheck/build/test 9/9 incl no-Chinese scan; Playwright QWE configured English cockpit + ARGA unconfigured empty state; snapshots preserved (96.8/54.8/58.3)."
         },
         {
           "name": "followups",
-          "value": "per-company profile overrides/config editor; merge old value-stream sidebar into secondary page; expose plugin tools or bridge /api/plugins/* for agent updates"
+          "value": "Agent profile design through API; per-company profiles; bridge gap for /api/plugins/* remains."
         },
         {
           "name": "memoryTier",
@@ -4903,6 +4905,26 @@
           "name": "uiBranding",
           "value": "Business Cockpit + gauge icon",
           "description": "commit 209283cc; sidebar/page/widget UI deployed. Installed DB manifest displayName still updates on next plugin upgrade."
+        },
+        {
+          "name": "agentInterface",
+          "value": "GET /api/plugins/paperclip.business-status/api/overview; POST /api/profile; POST /api/metrics; schema and workflow in AGENT-API.md.",
+          "description": "Agent designs or updates the cockpit profile and ingests snapshot values."
+        },
+        {
+          "name": "framework",
+          "value": "Results + drivers + causal links; per-company profile; UI Configure JSON editor; no hardcoded business KPIs.",
+          "description": "Industry-style generic cockpit framework."
+        },
+        {
+          "name": "correction",
+          "value": "2026-11-13 v1.1.0: removed built-in profiles, translated all plugin UI/docs to English, added AGENT-API.md, upgraded in place (state preserved).",
+          "description": "Supersedes the earlier two-profile description."
+        },
+        {
+          "name": "commit",
+          "value": "46b21ab0edd4e5c4846f38f533b863f1cbc67d0c",
+          "description": "feat: generic editable cockpit framework, English-only UI, agent API doc (v1.1.0); files: src/*, AGENT-API.md, README.md, dist/*"
         }
       ]
     }
