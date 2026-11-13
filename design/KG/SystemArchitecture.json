@@ -1758,6 +1758,39 @@
         {
           "name": "mergePlan20261111",
           "value": "工作量：①独立 worktree + merge/upstream-20261111，文本冲突解决+编译绿 0.5–1 天；②语义修复 1–2 天（重贴 run-completion SSH 瞬断重试/liveness 分支、environment-selection isDotRun→controllerOnly 改名 + assertProjectBoundAgentExecutionTarget、issues.ts memory gate、work-timeline 执行视图、projects parent/lead 绑定、3 个插件对 plugin API 漂移、opencode driver external_directory）；③回归+真机 E2E+47 部署 0.5–1 天；合计 2–4 工作日。风险：迁移撞号（高，可控）、不报错丢功能（run-completion 重试分支，高）、runner 默认行为变化（中高）、插件 API（中）、UI 重构（中）、runner-e2e/restart-chaos 需真机（中）。验收：fork acceptance 套件 + 47 数据副本 E2E 后再部署。附带：工作区有未提交 doc/DEPLOYMENT-47.md（前序遗留）；worktree /root/paperclip-verify（merge/upstream-1029）已 prunable。"
+        },
+        {
+          "name": "merge20261111",
+          "value": "【已完成】merge/upstream-20261111 → dev/local-install（fast-forward）。提交：c40a130000（merge upstream b93df4ca38，19 处冲突）、54c3efdaab（fork 迁移改号 0465 + journal/lockfile 重建）、5c5d195ab5（readString 修复 + NewProjectDialog 测试适配）。origin/dev/local-install = 5c5d195ab5c07488b4769f2bfbaf91ab9d0d3663。"
+        },
+        {
+          "name": "deploy20261111",
+          "value": "【47 部署】镜像 paperclip-fork:5c5d195ab5（--target production，USER_UID/GID=998）；docker save 出 OCI 归档 1.44GB，scp 后 docker load；冷备 /root/backups/db.bak-pre-5c5d195ab5c-20261111T094019Z；容器重建（--env-file .env 保留 JWT secret）。验证：health ok + commit=5c5d195ab5…；启动应用 48 个迁移 0417-0464；0465 因与旧 0417_peaceful_synch 内容字节相同，被 hash 判定为已应用（projects.parent_project_id/environment_id、projects_lead_agent_uq、projects_parent_project_idx 均存在）；数据 8 companies / 55 projects / 141 agents / 606 issues；paperclip-project-tree 插件 status=ready 0.1.0；公网 https 200（assets/index-Dlm9nFqz.js）；磁盘 55%（旧镜像仅保留 50fb2810c 作为回滚）。"
+        },
+        {
+          "name": "verification20261111",
+          "value": "【验证】WSL 全仓 TS typecheck 通过（仅 cargo 缺失，环境性）；定向测试：work-timeline + run-completion + memory gate 232、issues/chat/project/workspace/bundled-plugins 416、UI（含执行时间线）89、execute.remote 9、plugin-project-tree 7、plugin-workspace-diff 26；token gates clean。遗留：plugin-llm-wiki 的 2 个测试文件因 react 仅为 peerDependency（auto-install-peers=false）无法解析，属既有问题。"
+        },
+        {
+          "name": "mergePitfalls20261111",
+          "value": "【坑】①PowerShell Set-Content 默认编码会把 UTF-8 中文/破折号写坏 → 必须 [IO.File]::WriteAllText(UTF8NoBOM)；②Windows pnpm postinstall 因 symlink EPERM 失败 → --ignore-scripts，测试/类型检查改在 WSL 非 root 用户（root 跑不了 embedded postgres）；③db:generate 的 clean/prune:snapshots 是 POSIX-only，Windows 需手动执行对应步骤；④47 已有旧 0417_peaceful_synch，新 0465 必须保持幂等（同 hash 即视为已应用）；⑤docker save 后用 bsdtar 压缩会再包一层 tar，到 47 要解两次；⑥47 的 docker 拉不到 registry，镜像必须工作站构建后传输。"
+        },
+        {
+          "name": "pluginProjectTreeEntry20261111",
+          "value": "【project tree 插件入口（合并后）】插件 id 9e05a231-5700-4d22-9f20-9130dcb84891，status=ready，无公司级禁用行（plugin_company_settings 空=默认启用）。页面：/<ISSUE_PREFIX>/organization（如 /ARG/organization）或 /<PREFIX>/plugins/9e05a231-…；无前缀 /organization 跟当前公司。侧边栏 sidebar slot（order 40）渲染 Project Tree 链接。Settings → Plugins（/company/settings/instance/plugins）只是安装/状态/配置的简化管理页，不含插件页面。已验证 /_plugins/<id>/ui/index.js 200、/_plugins/<id>/ui/manifest.js 404（不需要）。"
+        },
+        {
+          "name": "pluginEntryDiagnosis20261111",
+          "value": "【排查】用户报告“看不到 Project Tree / 看不到插件”。服务端日志证实：其 Chrome 会话在 AIS 公司（d56a6bbb），当前页为 /AIS/company/settings/instance/plugins/9e05a231-…（插件设置页，API /api/plugins/<id>、/dashboard、/health、/logs 均 200）。近 3h 无 GET /api/plugins/ui-contributions、无 /_plugins/*/ui 请求 → 主侧边栏的 PluginSlotOutlet 未挂载（Settings 页用的是 CompanySettingsSidebar，不渲染主侧边栏）。结论：插件与 UI 均正常（manifest 含 page+sidebar slot、bundle 导出 ProjectTreeSidebarLink、/AIS/organization 200、AIS 有 2 个项目）；入口是 /AIS/organization（或侧边栏 Work 分组内的 Project Tree），不在 Settings → Plugins 页里。"
+        },
+        {
+          "name": "adapterDecouplingAnalysis20261111",
+          "value": "【评估：direct workspace 能否改成自定义 adapter（只分析未实施）】fork 相对 upstream/master 的实际侵入面：packages/adapters/opencode-local 12 文件 +530/−50（execute.ts +145：directRemoteWorkspace 分支、per-agent HOME/XDG、skills 隔离、external_directory；runtime-config/skills/test/index/ui build-config）；adapter-utils 6 文件 +212/−11（ssh.ts 重试、ssh-connection-failure.ts、types.ts 1 行、sandbox-callback-bridge）；server 非 fork 目录仅有 environment-selection.ts +2 行调用 fork 模块 + run-completion.ts 23 行 SSH 瞬断重试 + workspace-runtime.ts 8 行。结论：direct workspace 的业务逻辑本来已基本在 adapter 内，真正在 server 的是“选环境阶段的配置校验”（assertProjectBoundAgentExecutionTarget → 项目绑定 agent 必须 directRemoteWorkspace+非 local 环境）和 workspace 供给/租约决策。上游已有一等公民的外部 adapter：docs/adapters/external-adapters.md、POST /api/adapters/install（instance admin，cloud-managed 禁止）、启动时由 adapter-plugin-store 加载、registry.ts 允许外部 adapter 覆盖内置 type 并保留 builtin fallback（unregister 可回退）；shared/adapter-type.ts 的 type 是开放字符串，但 environment-support.ts 的 REMOTE_MANAGED_ADAPTERS 按 type 白名单控制远端执行支持（新 type 需改上游文件，复用 opencode_local 类型可规避）。风险：这次合并上游带来大量 opencode/runner 修复，整包覆盖式 adapter 会把这些变成人工挑拣，长期成本高于当前的薄 inline。建议路径：通用能力（external_directory、per-agent HOME、SSH 瞬断重试）向上游提 PR；若要零侵入则外部 adapter 覆盖 opencode_local（仅 runtime），保留 server 侧 2 行守卫。workspaceProvider 插件（prepare/finalize/inspect/remove）是另一个潜在落点，但契约面向 prepared binding，是否适配“不供给工作区”未验证。"
+        },
+        {
+          "name": "mergeReconciledAt",
+          "value": "2026-11-13",
+          "description": "Merged origin/dev/local-install ARGO commits cf9bb454a8, 8120c12268, 86048288f2, 2613c57187 into the local business-status history; graph and qea reconciled before push."
         }
       ]
     },
