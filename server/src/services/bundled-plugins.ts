@@ -116,15 +116,21 @@ export const BUNDLED_PLUGIN_CATALOG: readonly BundledPluginCatalogEntry[] = [
     pluginKey: "paperclip-project-tree",
     relativePath: "plugin-project-tree",
   },
+  {
+    // Fork plugin shipped in the image: generic business cockpit.
+    key: "business-status",
+    pluginKey: "paperclip.business-status",
+    relativePath: "plugin-business-status",
+  },
 ];
 
 /**
  * Keys ensured on a self-hosted instance (no managed config present).
  * The kubernetes sandbox provider is auto-installed when its bundle is
- * present; the fork's project-tree plugin is part of this image's product
- * surface, so it is ensured the same way.
+ * present; the fork's project-tree and business-status plugins are part of
+ * this image's product surface, so they are ensured the same way.
  */
-export const SELF_HOSTED_AUTO_INSTALL_KEYS: readonly string[] = ["kubernetes", "project-tree"];
+export const SELF_HOSTED_AUTO_INSTALL_KEYS: readonly string[] = ["kubernetes", "project-tree", "business-status"];
 
 export function resolveManagedBundledPluginKeys(
   keys: readonly string[] | null | undefined,

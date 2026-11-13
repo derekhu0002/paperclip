@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+﻿import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
@@ -194,8 +194,8 @@ describe("resolveBundledPluginInstalls", () => {
     expect(resolved).toHaveLength(1);
   });
 
-  it("keeps the self-hosted default list to the kubernetes and project-tree bundles", () => {
-    expect(SELF_HOSTED_AUTO_INSTALL_KEYS).toEqual(["kubernetes", "project-tree"]);
+  it("keeps the self-hosted default list to the kubernetes, project-tree and business-status bundles", () => {
+    expect(SELF_HOSTED_AUTO_INSTALL_KEYS).toEqual(["kubernetes", "project-tree", "business-status"]);
     const entries = resolveBundledPluginInstalls(SELF_HOSTED_AUTO_INSTALL_KEYS, {
       catalogRoot: resolveBundledCatalogRoot({}),
       env: {},
@@ -211,6 +211,11 @@ describe("resolveBundledPluginInstalls", () => {
         key: "project-tree",
         pluginKey: "paperclip-project-tree",
         localPath: "/app/packages/plugins/plugin-project-tree",
+      },
+      {
+        key: "business-status",
+        pluginKey: "paperclip.business-status",
+        localPath: "/app/packages/plugins/plugin-business-status",
       },
     ]);
   });
@@ -655,3 +660,4 @@ describe("ensureBundledPlugins", () => {
     expect(installPlugin).toHaveBeenCalledOnce();
   });
 });
+

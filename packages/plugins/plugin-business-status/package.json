@@ -1,0 +1,51 @@
+{
+  "name": "@paperclipai/plugin-business-status",
+  "version": "1.1.1",
+  "description": "Generic business operating cockpit: key results, process drivers, causal levers, and a per-company editable profile.",
+  "type": "module",
+  "private": true,
+  "files": [
+    "dist",
+    "README.md",
+    "AGENT-API.md"
+  ],
+  "paperclipPlugin": {
+    "manifest": "./dist/manifest.js",
+    "worker": "./dist/worker.js",
+    "ui": "./dist/ui/"
+  },
+  "scripts": {
+    "prebuild": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps",
+    "build": "node ./esbuild.config.mjs",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "pretest": "pnpm build",
+    "test": "node --test tests/*.test.mjs",
+    "typecheck": "pnpm --filter @paperclipai/plugin-sdk ensure-build-deps && tsc --noEmit"
+  },
+  "keywords": [
+    "paperclip",
+    "plugin",
+    "business-status",
+    "cockpit",
+    "okr"
+  ],
+  "author": "Paperclip",
+  "license": "MIT",
+  "dependencies": {
+    "@paperclipai/plugin-sdk": "workspace:*",
+    "@paperclipai/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.18",
+    "esbuild": "^0.28.2",
+    "react": "^19.2.8",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}
