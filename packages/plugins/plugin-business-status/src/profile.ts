@@ -2,6 +2,7 @@ import type {
   BusinessProfile,
   CausalLink,
   DriverDefinition,
+  MetricAggregation,
   MetricDefinition,
   MetricDirection,
   MetricInput,
@@ -11,7 +12,8 @@ import type {
 
 const UNITS: MetricUnit[] = ["ratio", "count", "days", "currency", "score"];
 const DIRECTIONS: MetricDirection[] = ["higher-is-better", "lower-is-better"];
-const SOURCES: MetricSource[] = ["paperclip", "snapshot", "static"];
+const SOURCES: MetricSource[] = ["paperclip", "snapshot", "static", "computed"];
+const AGGREGATIONS: MetricAggregation[] = ["sum", "weighted-sum", "average", "ratio", "min", "max"];
 const ID_PATTERN = /^[a-z][a-z0-9-]*$/;
 
 export const STARTER_PROFILE: BusinessProfile = {
@@ -104,7 +106,22 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
   }
   const sourceRef = readString(input.sourceRef);
   if (source === "paperclip" && !sourceRef) errors.push(`${prefix}.sourceRef is required when source=paperclip`);
+  if (source === "computed" && sourceRef) errors.push(`${prefix}.sourceRef is not used when source=computed`);
   const formula = readString(input.formula) ?? undefined;
+  const aggregationRaw = readString(input.aggregation);
+  let aggregation: MetricAggregation | undefined;
+  if (source === "computed") {
+    if (!aggregationRaw || !AGGREGATIONS.includes(aggregationRaw as MetricAggregation)) {
+      errors.push(`${prefix}.aggregation is required when source=computed; use one of ${AGGREGATIONS.join(", ")}`);
+    } else {
+      aggregation = aggregationRaw as MetricAggregation;
+    }
+    if (input.value !== undefined) {
+      errors.push(`${prefix}.value is not allowed when source=computed; the value is derived from inputs`);
+    }
+  } else if (aggregationRaw !== null) {
+    errors.push(`${prefix}.aggregation is only allowed when source=computed`);
+  }
   let value: number | null | undefined;
   if (source === "static") {
     if (!isFiniteNumber(input.value)) errors.push(`${prefix}.value is required when source=static`);
@@ -159,18 +176,59 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
         }
         let weight: number | undefined;
         if (rawInput.weight !== undefined) {
-          if (!isFiniteNumber(rawInput.weight) || rawInput.weight < -1 || rawInput.weight > 1) {
-            errors.push(`${prefix}.inputs[${inputIndex}].weight must be between -1 and 1`);
+          if (!isFiniteNumber(rawInput.weight)) {
+            errors.push(`${prefix}.inputs[${inputIndex}].weight must be a finite number`);
             continue;
           }
-          weight = rawInput.weight;
+          if (source === "computed") {
+            if (aggregation !== "weighted-sum") {
+              errors.push(`${prefix}.inputs[${inputIndex}].weight is only used when source=computed and aggregation=weighted-sum`);
+              continue;
+            }
+            weight = rawInput.weight;
+          } else if (rawInput.weight < -1 || rawInput.weight > 1) {
+            errors.push(`${prefix}.inputs[${inputIndex}].weight must be between -1 and 1 when source is ${source}`);
+            continue;
+          } else {
+            weight = rawInput.weight;
+          }
+        }
+        const roleRaw = readString(rawInput.role);
+        let role: "numerator" | "denominator" | undefined;
+        if (roleRaw !== null) {
+          if (source !== "computed" || aggregation !== "ratio") {
+            errors.push(`${prefix}.inputs[${inputIndex}].role is only used when source=computed and aggregation=ratio`);
+            continue;
+          }
+          if (roleRaw !== "numerator" && roleRaw !== "denominator") {
+            errors.push(`${prefix}.inputs[${inputIndex}].role must be "numerator" or "denominator"`);
+            continue;
+          }
+          role = roleRaw;
         }
         const note = readString(rawInput.note) ?? undefined;
         seen.add(inputId);
-        normalized.push({ id: inputId, ...(weight !== undefined ? { weight } : {}), ...(note ? { note } : {}) });
+        normalized.push({
+          id: inputId,
+          ...(weight !== undefined ? { weight } : {}),
+          ...(role ? { role } : {}),
+          ...(note ? { note } : {}),
+        });
       }
-      if (normalized.some((input) => id && input.id === id)) errors.push(`${prefix}.inputs cannot reference its own metric id`);
+      if (normalized.some((input) => id && input.id === id)) errors.push(`${prefix}.inputs cannot reference its own metric id; remove the self-reference`);
       if (normalized.length > 0) inputs = normalized;
+    }
+  }
+  if (source === "computed") {
+    if (!inputs || inputs.length === 0) {
+      errors.push(`${prefix} is source=computed but has no inputs; a computed metric must have at least one input. Add inputs or change source to snapshot/paperclip/static.`);
+    }
+    if (aggregation === "ratio") {
+      const numerators = inputs?.filter((input) => input.role === "numerator") ?? [];
+      const denominators = inputs?.filter((input) => input.role === "denominator") ?? [];
+      if (numerators.length !== 1 || denominators.length !== 1) {
+        errors.push(`${prefix} aggregation=ratio requires exactly one input with role="numerator" and one with role="denominator"`);
+      }
     }
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -187,6 +245,7 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
     ...(sourceRef ? { sourceRef } : {}),
     ...(formula ? { formula } : {}),
     ...(value !== undefined ? { value } : {}),
+    ...(aggregation ? { aggregation } : {}),
     ...(inputs && inputs.length > 0 ? { inputs } : {}),
   };
   return kind === "driver" ? { ok: true, metric: { ...metric, affects } as DriverDefinition, errors } : { ok: true, metric, errors };
@@ -260,7 +319,7 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
     const validation = validateMetric(entry, "result", `results[${index}]`);
     errors.push(...validation.errors);
     if (validation.metric) {
-      if (ids.has(validation.metric.id)) errors.push(`duplicate metric id: ${validation.metric.id}`);
+      if (ids.has(validation.metric.id)) errors.push(`duplicate metric id "${validation.metric.id}"; results and drivers must use unique ids`);
       ids.add(validation.metric.id);
       results.push(validation.metric as MetricDefinition);
     }
@@ -269,7 +328,7 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
     const validation = validateMetric(entry, "driver", `drivers[${index}]`);
     errors.push(...validation.errors);
     if (validation.metric) {
-      if (ids.has(validation.metric.id)) errors.push(`duplicate metric id: ${validation.metric.id}`);
+      if (ids.has(validation.metric.id)) errors.push(`duplicate metric id "${validation.metric.id}"; results and drivers must use unique ids`);
       ids.add(validation.metric.id);
       drivers.push(validation.metric as DriverDefinition);
     }
@@ -279,14 +338,14 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
   const driverIds = new Set(drivers.map((driver) => driver.id));
   for (const driver of drivers) {
     for (const affect of driver.affects) {
-      if (!resultIds.has(affect)) errors.push(`driver ${driver.id} affects unknown result ${affect}`);
+      if (!resultIds.has(affect)) errors.push(`driver "${driver.id}" affects "${affect}" which is not a result; add it to results or fix affects`);
     }
   }
 
   const allIds = new Set([...resultIds, ...driverIds]);
   for (const metric of [...results, ...drivers]) {
     for (const input of metric.inputs ?? []) {
-      if (!allIds.has(input.id)) errors.push(`metric ${metric.id} has unknown input ${input.id}`);
+      if (!allIds.has(input.id)) errors.push(`metric "${metric.id}" has unknown input "${input.id}": it is not declared in this profile. Add it to results/drivers or fix the input id`);
     }
   }
 
@@ -300,8 +359,8 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
     const from = readString(entry.from);
     const to = readString(entry.to);
     const weight = isFiniteNumber(entry.weight) ? entry.weight : null;
-    if (!from || !driverIds.has(from)) errors.push(`links[${index}].from must reference a driver id`);
-    if (!to || !resultIds.has(to)) errors.push(`links[${index}].to must reference a result id`);
+    if (!from || !driverIds.has(from)) errors.push(`links[${index}].from must reference a declared driver id`);
+    if (!to || !resultIds.has(to)) errors.push(`links[${index}].to must reference a declared result id`);
     if (weight == null || weight < -1 || weight > 1) errors.push(`links[${index}].weight must be between -1 and 1`);
     if (!from || !to || weight == null) continue;
     const key = `${from}->${to}`;
@@ -312,7 +371,7 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
 
   if (errors.length === 0) {
     const cycle = findDependencyCycle(results, drivers, links);
-    if (cycle) errors.push(`profile dependency graph contains a cycle: ${cycle.join(" -> ")}`);
+    if (cycle) errors.push(`profile dependency graph contains a cycle: ${cycle.join(" -> ")}; remove or redirect one input/link to break it`);
   }
 
   if (errors.length > 0) return { ok: false, errors };
@@ -335,4 +394,13 @@ export function snapshotIdsForProfile(profile: BusinessProfile | null): Set<stri
     if (metric.source === "snapshot") ids.add(metric.sourceRef ?? metric.id);
   }
   return ids;
+}
+
+export function metricSourcesForProfile(profile: BusinessProfile | null): Map<string, MetricSource> {
+  const sources = new Map<string, MetricSource>();
+  if (!profile) return sources;
+  for (const metric of [...profile.results, ...profile.drivers]) {
+    sources.set(metric.sourceRef ?? metric.id, metric.source);
+  }
+  return sources;
 }

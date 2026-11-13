@@ -177,6 +177,7 @@ function metricIndex(payload: CockpitPayload): Map<string, MetricEntry> {
 type MetricInputView = {
   entry: MetricEntry;
   weight?: number;
+  role?: "numerator" | "denominator";
   note?: string;
   source: "input" | "link" | "affects";
 };
@@ -192,6 +193,7 @@ function inputsFor(payload: CockpitPayload, index: Map<string, MetricEntry>, id:
     views.set(input.id, {
       entry: inputEntry,
       weight: input.weight,
+      role: input.role,
       note: input.note,
       source: "input",
     });
@@ -294,6 +296,7 @@ function InputCard({ input, impact, onOpen }: { input: MetricInputView; impact?:
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 11 }}>
         <span style={{ color: input.weight != null ? C.info : C.muted }}>
           {input.weight != null ? `Weight ${input.weight.toFixed(2)}` : "Weight not declared"}
+          {input.role ? ` · ${input.role}` : ""}
         </span>
         <span style={{ color: C.muted }}>
           Gap ratio {metric.gapRatio == null ? "—" : metric.gapRatio.toFixed(2)}
@@ -435,7 +438,7 @@ function MetricDetail({
       <section style={card}>
         <strong style={{ fontSize: 14 }}>Input relationship</strong>
         <p style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, margin: "8px 0 10px" }}>
-          Weights express how strongly each input moves this metric. A negative weight means the input moves it in the opposite direction. The displayed value is measured from the declared source; this version does not recompute it from inputs.
+          Weights express how strongly each input moves this metric. A negative weight means the input moves it in the opposite direction. For <code style={{ color: C.info }}>computed</code> metrics, weights are formula coefficients for weighted-sum; for measured metrics they express influence. The displayed value is measured or derived from the declared source; this version does not recompute a snapshot value from inputs.
         </p>
         {inputs.length === 0 ? (
           <div style={{ color: C.muted, fontSize: 12 }}>Leaf metric: no inputs influence this metric directly.</div>
@@ -447,7 +450,7 @@ function MetricDetail({
                 <div key={input.entry.value.definition.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
                   <span style={{ fontSize: 12 }}>
                     {input.entry.value.definition.label}
-                    <span style={{ color: C.muted, fontSize: 11 }}> · {input.entry.role === "result" ? "result" : "driver"} · {directionLabel(input.entry.value.definition.direction)}</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}> · {input.entry.role === "result" ? "result" : "driver"} · {directionLabel(input.entry.value.definition.direction)}{input.role ? ` · ${input.role}` : ""}</span>
                   </span>
                   <span style={{ color: input.weight != null ? C.info : C.muted, fontSize: 11, whiteSpace: "nowrap" }}>
                     {input.weight != null ? `weight ${input.weight.toFixed(2)}` : "weight not declared"}
@@ -604,7 +607,7 @@ function ConfigureDrawer({
           </button>
         </div>
         <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.7 }}>
-          Metric sources: <code style={{ color: C.info }}>paperclip</code> (computed by the host), <code style={{ color: C.info }}>snapshot</code> (ingested through the metrics API), <code style={{ color: C.info }}>static</code> (fixed value). Use <code style={{ color: C.info }}>inputs</code> to nest one metric under another. See the bundled business-cockpit skill for the full schema.
+          Metric sources: <code style={{ color: C.info }}>paperclip</code> (computed by the host), <code style={{ color: C.info }}>snapshot</code> (ingested through the metrics API), <code style={{ color: C.info }}>static</code> (fixed value), <code style={{ color: C.info }}>computed</code> (derived from inputs by the plugin; not ingestible). Use <code style={{ color: C.info }}>inputs</code> to nest one metric under another. See the bundled business-cockpit skill for the full schema.
         </div>
       </div>
     </div>

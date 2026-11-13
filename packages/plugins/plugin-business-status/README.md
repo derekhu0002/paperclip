@@ -12,19 +12,22 @@ A profile has three parts:
 - `drivers`: the process metrics that influence the results. `affects` is optional and lists the downstream results used by the lever ranking.
 - `links`: causal edges from a driver to a result with a weight from -1 to 1.
 
-Any metric can also declare `inputs`: a list of metric ids (or `{ id, weight, note }` objects) that explain how it is composed. This turns results and drivers into one metric DAG: a driver can be an input to another driver, and a result can be an input to another metric. `weight` is between -1 and 1; it expresses how strongly the input moves the metric, and a negative weight means the opposite direction. Each metric can also declare a `description` explaining what it means and why it matters.
+Any metric can also declare `inputs`: a list of metric ids (or `{ id, weight, role, note }` objects) that explain how it is composed. This turns results and drivers into one metric DAG: a driver can be an input to another driver, and a result can be an input to another metric. Each metric can also declare a `description` explaining what it means and why it matters.
 
-The plugin validates every input reference, rejects self-references and cycles, and treats links/`affects` as dependency edges when checking the graph. The validation order is deterministic: unknown inputs, self-references and cycles are rejected before the profile is saved.
+For measured metrics, `inputs` is explanatory: `weight` is between -1 and 1 and expresses influence. For `source: "computed"`, the plugin evaluates the inputs recursively. Supported aggregations are `sum`, `weighted-sum`, `average`, `ratio`, `min` and `max`; `ratio` requires exactly one `role: "numerator"` and one `role: "denominator"` input.
+
+The plugin validates every input reference, rejects self-references and cycles, and treats links/`affects` as dependency edges when checking the graph. The validation order is deterministic and errors include the metric/path and a fix hint. A `computed` metric must have at least one input; a leaf cannot be computed. If any input is missing, the computed metric stays `awaiting-data`; it is never filled with 0.
 
 The UI ranks levers by `driver gap × abs(weight)`. A driver with no gap does not appear as an actionable lever; if no configured driver explains a result gap, the UI says so instead of inventing a cause.
 
 Metric sources:
 
-- `paperclip`: computed by the host from issues, goals and agents.
-- `snapshot`: ingested by a project/Agent with provenance.
-- `static`: fixed value, only when intentional.
+- `paperclip`: computed by the host from issues, goals and agents; not ingestible.
+- `snapshot`: ingested by a project/Agent with provenance; the only ingestible source.
+- `static`: fixed value in the profile; not ingestible.
+- `computed`: derived from its `inputs` by the plugin; not ingestible.
 
-`inputs` is explanatory in this version: the plugin does not recompute a parent value from its inputs. A leaf metric is a metric with no `inputs`; its value and provenance come from `paperclip`, `snapshot` or `static`.
+`POST /metrics` rejects every non-`snapshot` id with a `metric-not-ingestible` reason and a message that names the source and explains what to do instead.
 
 ## UI
 

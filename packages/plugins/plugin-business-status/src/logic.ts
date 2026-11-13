@@ -10,6 +10,7 @@
   type DriverValue,
   type MetricDefinition,
   type MetricProvenance,
+  type MetricSource,
   type MetricStatus,
   type MetricValue,
   type Snapshot,
@@ -256,12 +257,132 @@ function provenanceFor(
   };
 }
 
-function toMetricValue(
+interface ResolvedMetric {
+  value: number | null;
+  asOf: string | null;
+  provenance: MetricProvenance;
+}
+
+function aggregationDescription(definition: MetricDefinition): string {
+  const ids = (definition.inputs ?? []).map((input) => input.id);
+  if (definition.aggregation === "weighted-sum") {
+    return `Weighted sum of ${ids.join(", ")}.`;
+  }
+  if (definition.aggregation === "average") return `Average of ${ids.join(", ")}.`;
+  if (definition.aggregation === "min") return `Minimum of ${ids.join(", ")}.`;
+  if (definition.aggregation === "max") return `Maximum of ${ids.join(", ")}.`;
+  if (definition.aggregation === "ratio") return "Numerator / denominator.";
+  return `Sum of ${ids.join(", ")}.`;
+}
+
+function aggregateComputedValue(
+  definition: MetricDefinition,
+  entries: Array<{ input: NonNullable<MetricDefinition["inputs"]>[number]; resolved: ResolvedMetric }>,
+): { value: number | null; note: string | null } {
+  const inputs = definition.inputs ?? [];
+  if (inputs.length === 0) {
+    return { value: null, note: "Computed metric has no inputs; it stays awaiting-data." };
+  }
+  const missing = entries.filter((entry) => entry.resolved.value == null).map((entry) => entry.input.id);
+  if (missing.length > 0) {
+    return { value: null, note: `Awaiting input value(s): ${missing.join(", ")}.` };
+  }
+  const values = entries.map((entry) => entry.resolved.value as number);
+  let value: number | null = null;
+  let note: string | null = null;
+  switch (definition.aggregation) {
+    case "weighted-sum":
+      value = entries.reduce((sum, entry) => sum + (entry.resolved.value as number) * (entry.input.weight ?? 1), 0);
+      break;
+    case "average":
+      value = values.reduce((sum, entry) => sum + entry, 0) / values.length;
+      break;
+    case "min":
+      value = Math.min(...values);
+      break;
+    case "max":
+      value = Math.max(...values);
+      break;
+    case "ratio": {
+      const numerator = entries.find((entry) => entry.input.role === "numerator")?.resolved.value;
+      const denominator = entries.find((entry) => entry.input.role === "denominator")?.resolved.value;
+      if (numerator == null || denominator == null) {
+        note = "Ratio requires one numerator and one denominator input.";
+      } else if (denominator === 0) {
+        note = "Ratio denominator is zero; the metric stays awaiting-data.";
+      } else {
+        value = numerator / denominator;
+      }
+      break;
+    }
+    case "sum":
+    default:
+      value = values.reduce((sum, entry) => sum + entry, 0);
+      break;
+  }
+  if (value != null && !Number.isFinite(value)) {
+    return { value: null, note: "Computed value is not finite; the metric stays awaiting-data." };
+  }
+  return { value, note };
+}
+
+function resolveDefinitionValue(
   definition: MetricDefinition,
   computed: ComputedMetrics,
   snapshot: Snapshot | null,
-): MetricValue {
-  const { value, asOf, provenance } = provenanceFor(definition, computed, snapshot);
+  byId: Map<string, MetricDefinition>,
+  cache: Map<string, ResolvedMetric>,
+  visiting: Set<string>,
+): ResolvedMetric {
+  const cached = cache.get(definition.id);
+  if (cached) return cached;
+  if (definition.source !== "computed") {
+    const resolved = provenanceFor(definition, computed, snapshot);
+    cache.set(definition.id, resolved);
+    return resolved;
+  }
+  if (visiting.has(definition.id)) {
+    return {
+      value: null,
+      asOf: null,
+      provenance: {
+        source: "computed",
+        formula: definition.formula ?? null,
+        note: "Cycle detected while resolving computed metric; it stays awaiting-data.",
+      },
+    };
+  }
+  visiting.add(definition.id);
+  const entries = (definition.inputs ?? []).map((input) => {
+    const inputDefinition = byId.get(input.id);
+    const resolved = inputDefinition
+      ? resolveDefinitionValue(inputDefinition, computed, snapshot, byId, cache, visiting)
+      : {
+          value: null,
+          asOf: null,
+          provenance: { source: null, note: `Input ${input.id} is not defined in this profile.` },
+        };
+    return { input, resolved };
+  });
+  const aggregated = aggregateComputedValue(definition, entries);
+  const asOf = latestAsOf(entries.map((entry) => entry.resolved.asOf));
+  const resolved: ResolvedMetric = {
+    value: aggregated.value,
+    asOf,
+    provenance: {
+      source: "computed",
+      formula: definition.formula ?? aggregationDescription(definition),
+      note: aggregated.note ?? `Computed from ${entries.length} input(s).`,
+      asOf,
+    },
+  };
+  visiting.delete(definition.id);
+  cache.set(definition.id, resolved);
+  return resolved;
+}
+
+function toMetricValue(definition: MetricDefinition, resolved: ResolvedMetric): MetricValue {
+  const { value, asOf, provenance } = resolved;
   const state = value == null ? "awaiting-data" : "current";
   return {
     definition,
@@ -280,10 +401,15 @@ export function mergeProfile(
   computed: ComputedMetrics,
   snapshot: Snapshot | null,
 ): { results: MetricValue[]; drivers: DriverValue[] } {
-  const results = profile.results.map((definition) => toMetricValue(definition, computed, snapshot));
+  const definitions = [...profile.results, ...profile.drivers];
+  const byId = new Map(definitions.map((definition) => [definition.id, definition]));
+  const cache = new Map<string, ResolvedMetric>();
+  const resolve = (definition: MetricDefinition) =>
+    resolveDefinitionValue(definition, computed, snapshot, byId, cache, new Set());
+  const results = profile.results.map((definition) => toMetricValue(definition, resolve(definition)));
   const resultById = new Map(results.map((result) => [result.definition.id, result]));
   const drivers: DriverValue[] = profile.drivers.map((definition) => {
-    const base = toMetricValue(definition, computed, snapshot);
+    const base = toMetricValue(definition, resolve(definition));
     const impacts = profile.links
       .filter((link) => link.from === definition.id)
       .map((link) => {
@@ -399,11 +525,13 @@ export interface IngestValue {
 export interface RejectedValue {
   id: string | null;
   reason: string;
+  message?: string;
 }
 
 export function parseSnapshotValues(
   body: unknown,
   allowedIds: Set<string>,
+  knownSources: Map<string, MetricSource> = new Map(),
 ): { values: IngestValue[]; rejected: RejectedValue[] } {
   const rejected: RejectedValue[] = [];
   const values: IngestValue[] = [];
@@ -413,22 +541,41 @@ export function parseSnapshotValues(
     const record = (entry ?? {}) as Record<string, unknown>;
     const id = typeof record.id === "string" ? record.id.trim() : null;
     if (!id) {
-      rejected.push({ id: null, reason: "missing-id" });
+      rejected.push({ id: null, reason: "missing-id", message: "Each value must include a non-empty metric id." });
       continue;
     }
     if (!allowedIds.has(id)) {
-      rejected.push({ id, reason: "unknown-metric-id" });
+      const source = knownSources.get(id);
+      if (source) {
+        rejected.push({
+          id,
+          reason: "metric-not-ingestible",
+          message: `Metric "${id}" is source="${source}". Only source="snapshot" metrics can be ingested; ${
+            source === "computed"
+              ? "computed metrics are derived from their inputs"
+              : source === "paperclip"
+                ? "paperclip metrics are computed by the host"
+                : "static metrics are fixed in the profile"
+          }.`,
+        });
+      } else {
+        rejected.push({
+          id,
+          reason: "unknown-metric-id",
+          message: `Metric "${id}" is not declared in the active profile. Add it to results/drivers or fix the id.`,
+        });
+      }
       continue;
     }
     const value = typeof record.value === "number" ? record.value : Number(record.value);
     if (record.value == null || !Number.isFinite(value)) {
-      rejected.push({ id, reason: "invalid-value" });
+      rejected.push({ id, reason: "invalid-value", message: "value must be a finite number." });
       continue;
     }
     const asOfRaw = record.asOf;
     const parsed = typeof asOfRaw === "string" ? Date.parse(asOfRaw) : Number.NaN;
     if (!Number.isFinite(parsed)) {
-      rejected.push({ id, reason: "missing-or-invalid-asOf" });
+      rejected.push({ id, reason: "missing-or-invalid-asOf", message: "asOf must be an ISO-8601 timestamp." });
       continue;
     }
     values.push({

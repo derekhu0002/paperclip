@@ -21,7 +21,7 @@ import {
   parseSnapshotValues,
   type IngestValue,
 } from "./logic.js";
-import { snapshotIdsForProfile, validateProfile } from "./profile.js";
+import { metricSourcesForProfile, snapshotIdsForProfile, validateProfile } from "./profile.js";
 
 const SNAPSHOT_SCOPE = {
   scopeKind: "company" as const,
@@ -175,12 +175,12 @@ async function ingestForCompany(
   ctx: PluginContext,
   companyId: string,
   values: IngestValue[],
-  rejected: Array<{ id: string | null; reason: string }>,
+  rejected: Array<{ id: string | null; reason: string; message?: string }>,
   reportedBy: string,
 ): Promise<{
   saved: number;
   savedIds: string[];
-  rejected: Array<{ id: string | null; reason: string }>;
+  rejected: Array<{ id: string | null; reason: string; message?: string }>;
   snapshotUpdatedAt: string;
 }> {
   const now = Date.now();
@@ -264,7 +264,8 @@ const plugin = definePlugin({
         return { status: 400, body: { error: "configure a cockpit profile before ingesting metric values" } };
       }
       const allowedIds = snapshotIdsForProfile(profile);
-      const { values, rejected } = parseSnapshotValues(input.body, allowedIds);
+      const knownSources = metricSourcesForProfile(profile);
+      const { values, rejected } = parseSnapshotValues(input.body, allowedIds, knownSources);
       if (values.length === 0) {
         return { status: 400, body: { error: "no valid metric values supplied", rejected } };
       }

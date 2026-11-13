@@ -129,21 +129,51 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
 | `direction` | yes | `higher-is-better` or `lower-is-better`. |
 | `target` | yes | Numeric target. |
 | `warn` / `critical` | no | Thresholds used for the status badge. |
-| `source` | yes | `paperclip`, `snapshot` or `static`. |
+| `source` | yes | `paperclip`, `snapshot`, `static` or `computed`. |
 | `sourceRef` | for `paperclip` | Host-computed metric key. |
 | `formula` | no | Plain-language formula shown in the UI. |
 | `value` | for `static` | Fixed numeric value. |
-| `inputs` | no | Metric ids that explain how this metric is composed. Each entry is `{ "id", "weight"?, "note"? }`; a bare id string is also accepted. |
+| `aggregation` | for `computed` | `sum`, `weighted-sum`, `average`, `ratio`, `min` or `max`. |
+| `inputs` | no | Metric ids that explain how this metric is composed. Each entry is `{ "id", "weight"?, "role"?, "note"? }`; a bare id string is also accepted. |
 
-`inputs` turns results and drivers into one metric DAG. A driver can be an input to another driver, and a result can be an input to another metric. In this version `inputs` is explanatory: the plugin shows the hierarchy, the weight and the provenance but does not recompute a parent value from its inputs. A metric with no `inputs` is a leaf; its value comes from `paperclip`, `snapshot` or `static`.
+`inputs` turns results and drivers into one metric DAG. A driver can be an input to another driver, and a result can be an input to another metric. A metric with no `inputs` is a leaf; a leaf must be `paperclip`, `snapshot` or `static`, never `computed`.
 
-`weight` is between `-1` and `1`. It expresses how strongly the input moves this metric; a negative weight means the opposite direction. The UI shows each input's weight and note.
+For measured metrics (`paperclip`, `snapshot`, `static`), `inputs` is explanatory: the plugin shows the hierarchy, weight and provenance but does not recompute the value. For `computed`, the plugin evaluates inputs recursively; a missing input keeps the parent `awaiting-data`.
 
-The plugin validates the full dependency graph deterministically: explicit `inputs`, plus links and `affects` (a link is treated as the result depending on the driver). Unknown inputs, self-references and cycles are rejected before the profile is saved.
+`weight` has two meanings:
+
+- measured metrics: influence weight between `-1` and `1`; negative means opposite direction.
+- `computed` + `weighted-sum`: formula coefficient (any finite number).
+
+`ratio` requires exactly one input with `"role": "numerator"` and one with `"role": "denominator"`; weights are not used.
+
+Only `source: "snapshot"` metrics can be ingested through `POST /metrics`. A `computed`, `paperclip` or `static` id is rejected with `reason: "metric-not-ingestible"` and a message naming the source and the correct action.
+
+The plugin validates the full dependency graph deterministically: explicit `inputs`, plus links and `affects` (a link is treated as the result depending on the driver). Unknown inputs, self-references and cycles are rejected before the profile is saved; each error includes the metric path and a fix hint.
 
 A driver's `affects` is optional. When present, it lists downstream result ids used by the lever ranking.
 
 A link connects a driver id (`from`) to a result id (`to`) with a weight between `-1` and `1`. The cockpit ranks levers by driver gap multiplied by the absolute weight.
+
+### Computed example
+
+```json
+{
+  "id": "weighted-coverage",
+  "label": "Weighted Coverage",
+  "unit": "ratio",
+  "direction": "higher-is-better",
+  "target": 0.8,
+  "source": "computed",
+  "aggregation": "weighted-sum",
+  "inputs": [
+    { "id": "telemetry-source-coverage", "weight": 0.4 },
+    { "id": "validated-coverage-rate", "weight": 0.6 }
+  ]
+}
+```
+
+The Agent may ingest `telemetry-source-coverage` and `validated-coverage-rate` if they are `snapshot`, but must not ingest `weighted-coverage`; the plugin computes it.
 
 ## Host-computed metrics (`source: "paperclip"`)
 
@@ -215,6 +245,8 @@ Rules:
 
 ## Guardrails
 
+- Only ingest `source: "snapshot"` ids. If `POST /metrics` returns `metric-not-ingestible`, do not retry the same id; the value is host-computed, fixed or derived from inputs.
+- On profile validation errors, read the reported path and hint, fix the profile, and resubmit. Do not bypass a cycle, unknown input or invalid aggregation.
 - Do not fabricate values. If a result cannot be computed, leave it `awaiting-data` and name the missing source.
 - Do not write issues, goals, agents or project graphs from this skill.
 - Do not install, upgrade or configure the plugin.

@@ -79,7 +79,7 @@ const securityProfile = {
 test("manifest exposes the generic cockpit contract in English", () => {
   assert.equal(manifest.id, "paperclip.business-status");
   assert.equal(manifest.apiVersion, 1);
-  assert.equal(manifest.version, "1.3.2");
+  assert.equal(manifest.version, "1.4.0");
   assert.equal(manifest.displayName, "Business Cockpit");
   const slotTypes = manifest.ui.slots.map((slot) => slot.type).sort();
   assert.deepEqual(slotTypes, ["dashboardWidget", "page", "sidebar"]);
@@ -272,6 +272,164 @@ test("one driver can influence multiple results in a DAG", () => {
   const payload = logic.buildCockpitPayload(validation.profile, {}, null, now, "company-1");
   const driver = payload.drivers.find((entry) => entry.definition.id === "telemetry");
   assert.deepEqual(driver.impacts.map((impact) => impact.resultId).sort(), ["coverage", "mitigation"]);
+});
+
+test("computed metrics resolve from inputs and cannot be ingested", () => {
+  const computedProfile = {
+    name: "Computed Cockpit",
+    results: [
+      {
+        id: "weighted",
+        label: "Weighted Score",
+        unit: "score",
+        direction: "higher-is-better",
+        target: 1,
+        source: "computed",
+        aggregation: "weighted-sum",
+        inputs: [
+          { id: "a", weight: 0.4 },
+          { id: "b", weight: 0.6 },
+        ],
+      },
+    ],
+    drivers: [
+      {
+        id: "a",
+        label: "A",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 1,
+        source: "snapshot",
+        sourceRef: "a",
+      },
+      {
+        id: "b",
+        label: "B",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 1,
+        source: "snapshot",
+        sourceRef: "b",
+      },
+    ],
+    links: [],
+  };
+  const validation = profileModule.validateProfile(computedProfile);
+  assert.equal(validation.ok, true);
+  const snapshot = {
+    schema: "paperclip.business-status.snapshot/v1",
+    updatedAt: new Date(now).toISOString(),
+    values: {
+      a: { value: 0.5, asOf: new Date(now).toISOString() },
+      b: { value: 1, asOf: new Date(now).toISOString() },
+    },
+  };
+  const payload = logic.buildCockpitPayload(validation.profile, {}, snapshot, now, "company-1");
+  const weighted = payload.results[0];
+  assert.equal(weighted.value, 0.8);
+  assert.equal(weighted.state, "current");
+  assert.equal(weighted.provenance.source, "computed");
+
+  const missing = logic.buildCockpitPayload(
+    validation.profile,
+    {},
+    { ...snapshot, values: { a: snapshot.values.a } },
+    now,
+    "company-1",
+  );
+  assert.equal(missing.results[0].state, "awaiting-data");
+  assert.match(missing.results[0].provenance.note, /b/);
+
+  const allowed = profileModule.snapshotIdsForProfile(validation.profile);
+  assert.deepEqual([...allowed].sort(), ["a", "b"]);
+  const sources = profileModule.metricSourcesForProfile(validation.profile);
+  const parsed = logic.parseSnapshotValues(
+    {
+      values: [
+        { id: "weighted", value: 1, asOf: new Date(now).toISOString() },
+        { id: "a", value: 0.2, asOf: new Date(now).toISOString() },
+      ],
+    },
+    allowed,
+    sources,
+  );
+  assert.equal(parsed.values.length, 1);
+  assert.equal(parsed.rejected[0].reason, "metric-not-ingestible");
+  assert.match(parsed.rejected[0].message, /computed/);
+
+  const ratioProfile = {
+    ...computedProfile,
+    results: [
+      {
+        id: "ratio",
+        label: "Ratio",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 1,
+        source: "computed",
+        aggregation: "ratio",
+        inputs: [
+          { id: "a", role: "numerator" },
+          { id: "b", role: "denominator" },
+        ],
+      },
+    ],
+  };
+  const ratioValidation = profileModule.validateProfile(ratioProfile);
+  assert.equal(ratioValidation.ok, true);
+  const ratioPayload = logic.buildCockpitPayload(
+    ratioValidation.profile,
+    {},
+    { ...snapshot, values: { a: { value: 3, asOf: new Date(now).toISOString() }, b: { value: 4, asOf: new Date(now).toISOString() } } },
+    now,
+    "company-1",
+  );
+  assert.equal(ratioPayload.results[0].value, 0.75);
+  const zeroDenominator = logic.buildCockpitPayload(
+    ratioValidation.profile,
+    {},
+    { ...snapshot, values: { a: { value: 3, asOf: new Date(now).toISOString() }, b: { value: 0, asOf: new Date(now).toISOString() } } },
+    now,
+    "company-1",
+  );
+  assert.equal(zeroDenominator.results[0].state, "awaiting-data");
+  assert.match(zeroDenominator.results[0].provenance.note, /denominator/);
+});
+
+test("computed metrics require inputs, aggregation and ratio roles", () => {
+  const baseResult = {
+    id: "computed",
+    label: "Computed",
+    unit: "score",
+    direction: "higher-is-better",
+    target: 1,
+    source: "computed",
+    aggregation: "sum",
+  };
+  const leaf = profileModule.validateProfile({ name: "Leaf", results: [baseResult], drivers: [], links: [] });
+  assert.equal(leaf.ok, false);
+  assert.ok(leaf.errors.some((error) => error.includes("no inputs")));
+
+  const noAggregation = profileModule.validateProfile({
+    name: "No aggregation",
+    results: [{ ...baseResult, aggregation: undefined, inputs: ["a"] }],
+    drivers: [{ ...baseResult, aggregation: undefined, id: "a", source: "snapshot", sourceRef: "a", target: 1 }],
+    links: [],
+  });
+  assert.equal(noAggregation.ok, false);
+  assert.ok(noAggregation.errors.some((error) => error.includes("aggregation is required")));
+
+  const badRatio = profileModule.validateProfile({
+    name: "Bad ratio",
+    results: [{ ...baseResult, aggregation: "ratio", inputs: ["a", "b"] }],
+    drivers: [
+      { ...baseResult, aggregation: undefined, id: "a", source: "snapshot", sourceRef: "a", target: 1 },
+      { ...baseResult, aggregation: undefined, id: "b", source: "snapshot", sourceRef: "b", target: 1 },
+    ],
+    links: [],
+  });
+  assert.equal(badRatio.ok, false);
+  assert.ok(badRatio.errors.some((error) => error.includes("numerator")));
 });
 
 test("default Paperclip metrics are computed from issues, goals and agents", () => {

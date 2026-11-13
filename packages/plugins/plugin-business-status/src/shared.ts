@@ -1,5 +1,5 @@
 export const PLUGIN_ID = "paperclip.business-status";
-export const PLUGIN_VERSION = "1.3.2";
+export const PLUGIN_VERSION = "1.4.0";
 export const STATUS_ROUTE_PATH = "business-status";
 
 export const PROFILE_NAMESPACE = "profile";
@@ -11,11 +11,13 @@ export type MetricUnit = "ratio" | "count" | "days" | "currency" | "score";
 export type MetricDirection = "higher-is-better" | "lower-is-better";
 export type MetricStatus = "ok" | "warn" | "critical" | "unknown";
 export type MetricState = "current" | "awaiting-data";
-export type MetricSource = "paperclip" | "snapshot" | "static";
+export type MetricSource = "paperclip" | "snapshot" | "static" | "computed";
+export type MetricAggregation = "sum" | "weighted-sum" | "average" | "ratio" | "min" | "max";
 
 export interface MetricInput {
   id: string;
   weight?: number;
+  role?: "numerator" | "denominator";
   note?: string;
 }
 
@@ -32,6 +34,7 @@ export interface MetricDefinition {
   sourceRef?: string;
   formula?: string;
   value?: number | null;
+  aggregation?: MetricAggregation;
   inputs?: MetricInput[];
 }
 
