@@ -4877,7 +4877,7 @@
         },
         {
           "name": "verification",
-          "value": "v1.1.0 ready; pnpm typecheck/build/test 9/9 incl no-Chinese scan; Playwright QWE configured English cockpit + ARGA unconfigured empty state; snapshots preserved (96.8/54.8/58.3)."
+          "value": "Fork package: build passed, typecheck passed, node tests 9/9; server bundled-plugins test expectation updated. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -4935,6 +4935,26 @@
           "name": "sidebarStyle",
           "value": "Verified with Playwright: inactive .bc-sidebar-link hover changes background from transparent to oklch(0.88 0 0), identical to Project Tree; active page uses the same accent via aria-current=page.",
           "description": "commit 518fbd4 (version bump) + 5e2f031 (style alignment)."
+        },
+        {
+          "name": "forkPath",
+          "value": "packages/plugins/plugin-business-status",
+          "description": "Bundled plugin source now lives in the paperclip fork."
+        },
+        {
+          "name": "forkIntegration",
+          "value": "BUNDLED_PLUGIN_CATALOG key=business-status -> plugin-business-status; SELF_HOSTED_AUTO_INSTALL_KEYS includes business-status; Dockerfile copies package.json and builds it; pnpm-lock importer added.",
+          "description": "Ready for a future image release; no image was built or deployed."
+        },
+        {
+          "name": "commit",
+          "value": "383ed32e2182ed6ab8ed3d36f48600707e516fe5",
+          "description": "feat: bundle business-status cockpit plugin in the fork image (files: packages/plugins/plugin-business-status/*, server/src/services/bundled-plugins.ts, server/src/__tests__/bundled-plugins.test.ts, Dockerfile, pnpm-lock.yaml)"
+        },
+        {
+          "name": "pendingDeploy",
+          "value": "Push fork commit to origin/dev/local-install, rebuild image, then replace the current local-path install with the bundled install while preserving QwenPaw profile/snapshot state.",
+          "description": "User asked not to publish the image yet."
         }
       ]
     }
