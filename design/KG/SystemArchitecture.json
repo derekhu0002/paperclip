@@ -4988,6 +4988,11 @@
           "name": "pendingDeploy",
           "value": "Push fork commit to origin/dev/local-install, rebuild image, then replace the current local-path install with the bundled install while preserving QwenPaw profile/snapshot state.",
           "description": "User asked not to publish the image yet."
+        },
+        {
+          "name": "commit",
+          "value": "c2e8e39900982c6c3427ccb39124a18b44f471db",
+          "description": "merge: origin/dev/local-install ARGO memory into business-status history; pushed to origin/dev/local-install (includes plugin fork integration 383ed32e)."
         }
       ]
     }
