@@ -4709,6 +4709,15 @@
           "name": "commit",
           "value": "65d6da04d6",
           "description": "chore(argo): record schema-agnostic mapping rule for kg-manager role (files: design/KG/SystemArchitecture.json, paperclip.qea)"
+        },
+        {
+          "name": "ontologyModel",
+          "value": "融合本体（type-level）：相同 kind+语义的节点/边类型合并为一个 canonical type；同名不同义不合并（provider 限定 + conflict）；边类型先融合节点再校验端点对。大本体只存类型定义 + providers 路由 + fusionDecision，不存任何项目实例/图谱内容。每个类型记录 providers（projectId、graphKey、schemaKind/Language、源类型名、定义/属性/端点、bundleDigest、commit、ownerLeadAgentId、access=federation|snapshot|issue），需要数据时按类型 → providers 取数。权威载体 knowledge/ontology/fused-ontology.json；项目可用 workspace 自定义本体，不假设 ArchiMate；实例只进带 TTL 的缓存/快照，不回写大本体。"
+        },
+        {
+          "name": "commit",
+          "value": "c30d273",
+          "description": "docs(agents): model org ontology as type-level fusion with provider routing (file: AGENTS.md in kg repo)"
         }
       ]
     }
