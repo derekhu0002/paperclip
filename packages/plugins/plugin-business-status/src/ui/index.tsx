@@ -577,18 +577,6 @@ function Cockpit({
           </table>
         </div>
       </section>
-
-      <section style={card}>
-        <details>
-          <summary style={{ cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Data sources and configuration</summary>
-          <div style={{ display: "grid", gap: 6, marginTop: 10, color: C.muted, fontSize: 12, lineHeight: 1.7 }}>
-            <span>Metric ingest: <code style={{ color: C.info }}>POST {payload.snapshot.ingestRoute}</code> (companyId + values); undeclared ids or missing asOf are rejected.</span>
-            <span>Profile: <code style={{ color: C.info }}>POST {payload.snapshot.profileRoute}</code> (companyId + profile JSON). Stored per company; you or an Agent can design it.</span>
-            <span>Snapshot updated: {shortTime(payload.snapshot.updatedAt)} · values: {payload.snapshot.valueCount}.</span>
-            <span>This page is read-only; it never writes issues, goals, agents or project graphs.</span>
-          </div>
-        </details>
-      </section>
     </div>
   );
 }
