@@ -5007,6 +5007,19 @@
         {
           "name": "skillPath",
           "value": "packages/skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md"
+        },
+        {
+          "name": "taskSummary",
+          "value": "【任务补充 2026-11-13】把 paperclip.business-status 的 AGENT-API.md 替换为随镜像分发的 bundled skill，且不默认开启。\n\n【结果/证据】\n- 新 skill：packages/skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md；catalog id=paperclipai:bundled:paperclip-operations:business-cockpit；kind=bundled；defaultInstall=false；trustLevel=markdown_only。\n- 删除 packages/plugins/plugin-business-status/AGENT-API.md；README 指向该 skill；package.json files 移除 AGENT-API.md；测试改为扫描 skill 并继续断言无中文。\n- generated/catalog.json 重新生成；validate 通过（18 个 catalog skills）。\n- 插件包 build、typecheck、node tests 9/9 通过。\n- commits：e5db2d969748e8087d981dcfe655697cc09a64bc（skill/文档）、16974727d7b0930bf354d0ff36414f8d08ad296b（ARGO 记录）；已 push origin/dev/local-install。\n\n【关键决策】\n1) kind=bundled + defaultInstall=false：镜像自带，但公司需在 Skills 目录手动安装，不自动启用。\n2) skill 保持英文，延续插件包 English-only 约束。\n3) 不重建、不部署 47 镜像；留给后续镜像发布。\n\n【坑/修复】\n1) 本地 Windows/WSL node_modules 缺 tsx/@paperclipai/shared/zod，catalog build 失败；改用 node_modules/.pnpm/tsx@4.23.15 + 临时 junction 到 packages/shared 和 zod，build/validate 通过。\n2) edit 工具在新增测试行插入 CRLF，git diff --check 报 trailing whitespace；统一为 LF 后通过。\n3) 全量 server vitest 未跑（缺 zod/supertest），由 CI 覆盖。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "taskSummaryAt",
+          "value": "2026-11-13T08:58:00Z"
+        },
+        {
+          "name": "commit",
+          "value": "16974727d7b0930bf354d0ff36414f8d08ad296b",
+          "description": "chore(argo): record business cockpit skill replacement; files: design/KG/SystemArchitecture.json, paperclip.qea"
         }
       ]
     }
