@@ -1,3 +1,9 @@
+﻿.claude
+.agents
+.codex
+.devin
+.greptile
+.opencode
 .git
 .github
 .paperclip
@@ -35,12 +41,12 @@ packages/paperclip-runner/scripts/*-smoke.mjs
 # generated-file drift checks, so their committed outputs and inputs must
 # survive the slimming above. 2026-09-04: the *.md rule stripped the
 # committed capability contract out of the context and every image build
-# on master failed its drift check — .github/docker-context-checks.Dockerfile
+# on master failed its drift check 鈥?.github/docker-context-checks.Dockerfile
 # now guards this in PR CI.
 !packages/paperclip-runner/generated/**
 !packages/paperclip-runner/docs/capability-contract.md
 # check:runner-workflow-traceability access()es every regression test the
-# stress-traceability spec names — those are src/**/*.test.ts files, so
+# stress-traceability spec names 鈥?those are src/**/*.test.ts files, so
 # they must survive the *.test.ts rule above.
 !packages/paperclip-runner/src/**/*.test.ts
 !packages/paperclip-runner/src/**/*.test.tsx
