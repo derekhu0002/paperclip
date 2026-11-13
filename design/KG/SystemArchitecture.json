@@ -4892,8 +4892,8 @@
         },
         {
           "name": "pluginVersion",
-          "value": "1.4.0",
-          "description": "Adds source=computed, recursive evaluation, leaf-only computed validation and actionable ingestion errors."
+          "value": "1.5.0",
+          "description": "Adds company-scoped board governance for KM-only profile/snapshot writes."
         },
         {
           "name": "installPath",
@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 14/14. Skill catalog manifest validated with 18 skills; business-cockpit skill now includes error-handling and success-checklist sections. Company Operator template created at doc/agents/company-operator.AGENTS.md. Deployed plugin remains 1.4.0 on 47; the updated skill/template ship in the next image build. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Plugin: build passed, typecheck passed, node tests 15/15. Adapter: targeted vitest execute.remote.test.ts 10/10 passed (WSL); adapter full typecheck was blocked by the local broken node_modules/vitest type resolution, not by the change. Plugin 1.5.0 deployed to 47: plugin loader activated 1.5.0, health ok, UI bundle HTTP 200 (44135 bytes) contains governance copy. Governance Plugin Settings on 47 are not yet configured, so profile/snapshot writes will return governance-not-configured until the board sets profileWriterAgentId and snapshotWriterAgentIds. Adapter code is in the fork but the 47 image still runs the old adapter until the next image build."
         },
         {
           "name": "followups",
@@ -5244,6 +5244,27 @@
         {
           "name": "ontologyRoleAt",
           "value": "2026-11-13T12:15:00Z"
+        },
+        {
+          "name": "governanceModel",
+          "value": "Governance lives in company-scoped Plugin Settings (instanceConfigSchema), controlled by the board: profileWriterAgentId, snapshotWriterAgentIds, allowBoardBackfill. Bindings use agent.id UUIDs, never names. The Knowledge Manager is the single writer of profile and snapshot values; Project Leads provide and validate evidence. Missing config returns governance-not-configured (409); a non-writer returns writer-not-authorized (403). onValidateConfig validates the IDs. The UI Configure drawer explains the restriction."
+        },
+        {
+          "name": "adapterDirectInstructions",
+          "value": "opencode-local 0.4.0 adds directWorkspaceInstructions (default prepend): in direct remote workspace it reads the per-Agent managed instructionsFilePath on the Paperclip host and prepends it to the stdin prompt, while OpenCode still loads the project's own AGENTS.md. directWorkspaceInstructions=ignore preserves the old behavior; relative/non-absolute paths are skipped with a note. Tests in execute.remote.test.ts cover prepend and ignore."
+        },
+        {
+          "name": "commit",
+          "value": "c10a161c89c335efe704390b1d87500fd3be937f",
+          "description": "feat: enforce KM writer governance and direct instructions; files: packages/plugins/plugin-business-status/{src/logic.ts,src/worker.ts,src/manifest.ts,src/ui/index.tsx,src/shared.ts,tests/plugin.test.mjs,README.md,package.json}, packages/adapters/opencode-local/{src/server/execute.ts,src/server/execute.remote.test.ts,package.json}, doc/agents/*.AGENTS.md, packages/skills-catalog/..."
+        },
+        {
+          "name": "taskSummaryGovernanceAdapter",
+          "value": "【任务 2026-11-13】生产级 governance + writer 校验 + direct adapter instructions。\n\n【结果】Governance 放在公司 Plugin Settings：profileWriterAgentId / snapshotWriterAgentIds / allowBoardBackfill；用 agent.id，不固定名字；KM 单写 profile+snapshot，Lead 只提供证据；缺失配置 409 governance-not-configured，非 writer 403 writer-not-authorized。插件 1.5.0 已部署 47，tests 15/15。opencode-local 0.4.0 增加 directWorkspaceInstructions=prepend：direct mode 读取每 Agent managed instructions 并 prepend，同时保留项目 AGENTS.md；ignore 保留旧行为；execute.remote.test.ts 10/10。commit：c10a161c89c335efe704390b1d87500fd3be937f。\n\n【待办】47 的 Plugin Settings 尚未设置 KM writer id，写入会返回 governance-not-configured；adapter 需要下一次镜像构建才在 47 生效。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "governanceAdapterAt",
+          "value": "2026-11-13T12:25:00Z"
         }
       ]
     }
