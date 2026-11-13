@@ -4892,8 +4892,8 @@
         },
         {
           "name": "pluginVersion",
-          "value": "1.1.2",
-          "description": "Removed the cockpit 'Data sources and configuration' section; deployed to the 47 local plugin install."
+          "value": "1.2.0",
+          "description": "Adds the metric DAG and recursive drill-down UI."
         },
         {
           "name": "installPath",
@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 9/9; server bundled-plugins test expectation updated. Skill catalog manifest regenerated and validated with 18 catalog skills. UI removal verified on 47: plugin loader activated 1.1.2, health status ok, served UI bundle HTTP 200 (34496 bytes) without the old label. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Fork package: build passed, typecheck passed, node tests 10/10 (adds nested inputs + cycle/unknown/self reference validation); skill catalog manifest validated with 18 skills. Deployed to 47 as 1.2.0: plugin loader activated 1.2.0, health status ok, served UI bundle HTTP 200 (37837 bytes) with the new Inputs/Leaf copy and without the old Process metrics table. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -4946,8 +4946,8 @@
         },
         {
           "name": "framework",
-          "value": "Results + drivers + causal links; per-company profile; UI Configure JSON editor; no hardcoded business KPIs.",
-          "description": "Industry-style generic cockpit framework."
+          "value": "Results + drivers + a metric input DAG; per-company profile; home shows results only; detail pages show definition, calculation, provenance and recursive input cards; no hardcoded business KPIs.",
+          "description": "Industry-style generic cockpit framework with nested metric drill-down."
         },
         {
           "name": "correction",
@@ -5042,6 +5042,23 @@
         {
           "name": "uiTaskSummaryAt",
           "value": "2026-11-13T09:30:00Z"
+        },
+        {
+          "name": "uiDrilldown",
+          "value": "Home shows only final results. Clicking a result opens a detail view with its definition, calculation, provenance and input cards. Each input card opens the same view for that metric, recursively. A driver can be an input to another driver. Leaf metrics stop drilling and show source/sourceRef/commit/digest/asOf/note."
+        },
+        {
+          "name": "commit",
+          "value": "810bf52433f87944fa5ac6fae3eb6d7cd33162ac",
+          "description": "feat: add nested metric drill-down to business cockpit; files: packages/plugins/plugin-business-status/{src/shared.ts,src/profile.ts,src/ui/index.tsx,tests/plugin.test.mjs,README.md,package.json}, packages/skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md, packages/skills-catalog/generated/catalog.json"
+        },
+        {
+          "name": "taskSummaryDagUi",
+          "value": "【任务 2026-11-13】Business Cockpit 分层 DAG + 递归钻取 UI。\n\n【结果】首页只显示 result；点击 result 进入详情，展示定义、计算方法、provenance 和输入卡片；输入卡片可继续下钻；driver 可作为另一个 driver 的输入；叶子显示 source/sourceRef/commit/digest/asOf/note。profile 新增 inputs 字段，校验未知输入、自引用和环。版本 1.2.0；build/typecheck/tests 10/10；已部署 47，health ok，UI bundle 37837 bytes，旧 Process metrics 表已移除。commit：810bf52433f87944fa5ac6fae3eb6d7cd33162ac。\n\n【关键决策】inputs 在本版仅用于解释层级和 provenance，不用来重算父指标；值仍来自 paperclip/snapshot/static。后续如需要可加 computed/expression 引擎。\n\n【坑】DriverValue 的 affects 在 value 层而不是 definition 层，UI 类型收窄已修正。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "dagUiSummaryAt",
+          "value": "2026-11-13T09:50:00Z"
         }
       ]
     }
