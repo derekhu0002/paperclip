@@ -4653,6 +4653,11 @@
         {
           "name": "verificationLatest",
           "value": "QWE-169 done; cwd=/root/repos/qwenpaw-anti-defend-kg-management; branch master; single worktree; ARGO schema 6/1/7; semantic invoked; addArchitectureElement kg-manager-metered-argo-mcp-2026-11-13; validate passed; commits 4899660/37ff376"
+        },
+        {
+          "name": "commit",
+          "value": "7fd63c6d81",
+          "description": "chore(argo): record kg-manager legacy-env rebuild and metered billing verification (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
