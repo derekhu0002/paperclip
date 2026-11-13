@@ -168,6 +168,7 @@ RUN rm -rf packages/paperclip-runner/runner/target
 # Grok's native executable stays an external sandbox prerequisite; this pack
 # contains only its launcher.
 FROM build AS runner-provider-pack
+ARG PAPERCLIP_SKIP_PROVIDER_PACK=""
 # Provider CLIs are fetched by `pnpm deploy` at pack-build time. Point that
 # deploy at a reachable npm mirror so a restricted build network does not stall
 # on registry.npmjs.org; runtime behavior is unchanged.
@@ -176,12 +177,12 @@ ENV NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
 # Unstamped local builds remain usable, but cannot qualify a remote pack.
 # Never invent a source revision to make an unqualified pack look verified.
 RUN mkdir -p /provider-pack /provider-pack-transport \
-  && if [ -n "${PAPERCLIP_BUILD_COMMIT}" ]; then \
+  && if [ -n "${PAPERCLIP_BUILD_COMMIT}" ] && [ "${PAPERCLIP_SKIP_PROVIDER_PACK}" != "1" ]; then \
     PAPERCLIP_RUNNER_SOURCE_REVISION="${PAPERCLIP_BUILD_COMMIT}" node packages/paperclip-runner/scripts/build-provider-pack.mjs /provider-pack \
       && node scripts/create-provider-pack-archive.mjs /provider-pack \
       && mv /provider-pack.archives /provider-pack.archive.json /provider-pack-transport/; \
   else \
-    echo "Skipping remote provider pack: supply a full PAPERCLIP_BUILD_COMMIT to enable remote OpenCode/ACPX execution"; \
+    echo "Skipping remote provider pack (PAPERCLIP_SKIP_PROVIDER_PACK=1 or no PAPERCLIP_BUILD_COMMIT)"; \
   fi
 
 FROM base AS production
