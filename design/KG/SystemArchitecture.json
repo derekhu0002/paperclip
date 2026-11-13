@@ -107,6 +107,10 @@
         {
           "view_id": "project-manager-qwenpaw-value-stream-001",
           "view_name": "项目经理 · QwenPaw 攻防价值流插件记忆"
+        },
+        {
+          "view_id": "project-manager-business-status-001",
+          "view_name": "项目经理 · 业务操盘台插件记忆"
         }
       ],
       "attributes": [
@@ -4817,6 +4821,59 @@
       "id": "qwenpaw-value-stream-plugin-2026-11-13",
       "name": "QwenPaw 攻防价值流看板插件部署与 E2E 验收（2026-11-13）",
       "type": "Requirement"
+    },
+    {
+      "id": "business-status-plugin-2026-11-13",
+      "type": "Requirement",
+      "name": "业务操盘台插件（paperclip.business-status）上线与双 profile 验证（2026-11-13）",
+      "description": "【目标】按“业务操盘”而非架构治理重做看板：顶部关键结果（KR），下面展示影响结果的过程指标与杠杆排序；不同业务用 profile 配置自己的结果与因果链。\n\n【结果与证据】\n- 插件源码：D:/Projects/paperclip-plugins/business-status（独立 git 仓库），commit 6f7225b0980cdc3c63856768f4e409bf5cb02947；包 @qwenpaw/paperclip-plugin-business-status v1.0.0；插件 id=paperclip.business-status。\n- 安装：47 实例本地路径 /home/paperclip/.paperclip/plugins/business-status；status=ready；sidebar「业务操盘台」+ page(:companyPrefix/business-status) + dashboardWidget；不绑定公司，所有公司可用。\n- 数据模型：profile = results(KR) + drivers(过程指标) + links(因果权重)；默认模板 default-delivery，QwenPaw 模板 qwenpaw-security；每公司通过 POST /profile 切换。\n- API：GET /overview、POST /metrics（snapshot 回填）、POST /profile（切换 profile）；未声明 id/缺 asOf/非数值进 rejected；缺失显示待回填，不补 0。\n- 默认交付 profile 由 Paperclip 数据计算：目标进度、交付吞吐、交付周期、预算消耗、阻塞风险；驱动：WIP、队列等待、长期阻塞、评审积压、Agent 可用率、单交付成本。\n- QwenPaw profile：KR=检测覆盖 96.8%/控制缓解 54.8%/缺口关闭 58.3%，驱动=遥测源覆盖 100%/剧本就绪 0%/未关闭缺口 15/已验证覆盖待回填/交付物流量待回填；已把旧插件 6 项真实指标回填到新插件快照。\n- UI 验证：Playwright 打开 /QWE/business-status（攻防验证操盘台，3 KR/5 驱动/2 杠杆）与 /ARGA/business-status（交付业务操盘台，5 KR/6 驱动，交付吞吐 3/10 告警）；均无加载错误；截图 C:/Users/REMOTE~1/AppData/Local/Temp/opencode/business-status-qwe.png、business-status-arga.png。\n\n【关键决策】\n1) 放弃 4A/固定 KPI 清单，改为“结果-过程因果图”模型；不同业务配置不同 profile，代码不硬编码业务指标。\n2) 通用过程指标优先用 Paperclip 自身 issues/goals/agents 计算，业务特有指标走 snapshot 回填（带 provenance）。\n3) 旧 qwenpaw.value-stream 保留为 QwenPaw 的“价值流”二级页；新业务操盘台成为主入口。\n4) 默认交付模板的阈值是模板占位，后续需要公司级 override/配置编辑器；当前先验证模型和交互。\n\n【坑/后续】1) 默认 profile 的第一个 KR 可能没有驱动（goal-progress），UI 已改为默认选中“有驱动且 current”的 KR。2) 默认交付吞吐 target 20 对小公司过严，已降为 10/5/2；仍建议公司级 override。3) ARGA 的 goal-progress/budget-burn 因无 active goals/预算显示待回填，属真实缺失。4) 旧插件与新插件同时存在两个侧边栏入口，后续可下线旧入口或合并为二级页。5) 宿主 bridge 不转发 /api/plugins/* 的问题仍在；Agent 更新新看板需用公网宿主 + Agent API Key（现有 QwenPaw 公司 Secret 可复用）。",
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "6f7225b0980cdc3c63856768f4e409bf5cb02947",
+          "description": "feat: generic business operating cockpit plugin (paperclip.business-status); files: src/*, tests/*, dist/*"
+        },
+        {
+          "name": "artifactPath",
+          "value": "D:\\Projects\\paperclip-plugins\\business-status"
+        },
+        {
+          "name": "pluginId",
+          "value": "paperclip.business-status"
+        },
+        {
+          "name": "pluginVersion",
+          "value": "1.0.0"
+        },
+        {
+          "name": "installPath",
+          "value": "/home/paperclip/.paperclip/plugins/business-status"
+        },
+        {
+          "name": "page",
+          "value": "https://paperclip.derekworkspacev5.com/QWE/business-status"
+        },
+        {
+          "name": "profiles",
+          "value": "default-delivery (all companies), qwenpaw-security (QWE)"
+        },
+        {
+          "name": "verification",
+          "value": "pnpm typecheck/build/test 7/7; install ready; Playwright QWE+ARGA both pass; QWE 96.8/54.8/58.3; ARGA delivery throughput 3/10 warn"
+        },
+        {
+          "name": "followups",
+          "value": "per-company profile overrides/config editor; merge old value-stream sidebar into secondary page; expose plugin tools or bridge /api/plugins/* for agent updates"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -5156,6 +5213,16 @@
       "parent_element_id": "project-manager-001",
       "view_id": "project-manager-qwenpaw-value-stream-001",
       "view_name": "项目经理 · QwenPaw 攻防价值流插件记忆"
+    },
+    {
+      "view_id": "project-manager-business-status-001",
+      "view_name": "项目经理 · 业务操盘台插件记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "通用业务操盘台 Paperclip 插件（paperclip.business-status）的设计、部署、双 profile 验证与后续（2026-11-13）。",
+      "included_elements": [
+        "business-status-plugin-2026-11-13"
+      ],
+      "included_relationships": []
     }
   ]
 }
