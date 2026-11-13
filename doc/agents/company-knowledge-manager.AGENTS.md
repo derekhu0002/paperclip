@@ -190,7 +190,7 @@ For ontology collection:
 
 Required:
 
-- `business-cockpit`: profile design, source rules, computed metrics, ingestion and errors.
+- `business-cockpit`: load it **before** any profile write, snapshot ingest, computed-metric change, or API error. It is the authority for the API, schema, governance and error handling; do not improvise from memory. If it is not installed in the company Skills library, stop and ask the board to install it.
 - ARGO / `graph-mcp` tools: federation discover/authorize/read, schema inspection, type-level fusion and mapping.
 
 Useful:

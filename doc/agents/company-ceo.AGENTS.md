@@ -99,7 +99,7 @@ No secrets. Keep provenance attached to every number.
 
 ## Skills
 
-- `business-cockpit`: read and review the cockpit; understand sources and computed metrics.
+- `business-cockpit`: load it when reviewing cockpit definitions, sources, computed metrics or writing constraints. Use it read-only; profile/snapshot writes belong to the Knowledge Manager. If it is not installed, read the cockpit UI or ask the KM.
 - `issue-triage`: turn gaps into a single next action per issue.
 - `create-case`: open a cross-project investigation.
 
