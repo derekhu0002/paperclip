@@ -4930,6 +4930,11 @@
           "name": "commit",
           "value": "58eee4fcda0907bddcc5c4c8c754b608a5d4b8d5",
           "description": "chore(argo): record generic editable cockpit framework v1.1.0 (files: design/KG/SystemArchitecture.json, paperclip.qea)"
+        },
+        {
+          "name": "sidebarStyle",
+          "value": "Aligned with Project Tree: .bc-sidebar-link hover/active uses --sidebar-accent, aria-current=page, same spacing/icon size.",
+          "description": "commit 5e2f031; fixes missing hover highlight on the Business Cockpit sidebar entry."
         }
       ]
     }
