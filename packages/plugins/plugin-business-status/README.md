@@ -36,7 +36,7 @@ Metric sources:
 | POST | `/api/plugins/paperclip.business-status/api/profile` | Create or replace the cockpit profile. |
 | POST | `/api/plugins/paperclip.business-status/api/metrics` | Upsert snapshot values. |
 
-The full profile schema, host-computed metric keys and Agent workflow are in [AGENT-API.md](AGENT-API.md).
+The full profile schema, host-computed metric keys and Agent workflow are in the bundled skill `paperclipai/bundled/paperclip-operations/business-cockpit` (Skills → Catalog). The skill ships in the image but is not installed or enabled by default.
 
 ## Build and verify
 

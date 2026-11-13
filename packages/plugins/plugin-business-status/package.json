@@ -6,8 +6,7 @@
   "private": true,
   "files": [
     "dist",
-    "README.md",
-    "AGENT-API.md"
+    "README.md"
   ],
   "paperclipPlugin": {
     "manifest": "./dist/manifest.js",

@@ -254,7 +254,7 @@ test("empty or missing values array is rejected as a whole", () => {
   assert.equal(missing.values.length, 0);
 });
 
-test("plugin source, README and agent API contain no Chinese characters", () => {
+test("plugin source, README and bundled skill contain no Chinese characters", () => {
   const files = [
     "src/shared.ts",
     "src/logic.ts",
@@ -263,7 +263,7 @@ test("plugin source, README and agent API contain no Chinese characters", () => 
     "src/manifest.ts",
     "src/ui/index.tsx",
     "README.md",
-    "AGENT-API.md",
+    "../../skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md",
   ];
   for (const file of files) {
     const text = readText(file);

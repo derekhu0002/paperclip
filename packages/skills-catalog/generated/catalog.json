@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "packageName": "@paperclipai/skills-catalog",
   "packageVersion": "0.3.1",
-  "generatedAt": "2026-11-09T20:56:52.178Z",
+  "generatedAt": "2026-11-13T08:51:22.404Z",
   "skills": [
     {
       "id": "paperclipai:bundled:docs:doc-maintenance",
@@ -37,6 +37,41 @@
         }
       ],
       "contentHash": "sha256:2e02299210fd17c1fe1867b4ee8c144a11b6fe1fe481f83b8268cfbaaf10f9aa"
+    },
+    {
+      "id": "paperclipai:bundled:paperclip-operations:business-cockpit",
+      "key": "paperclipai/bundled/paperclip-operations/business-cockpit",
+      "kind": "bundled",
+      "category": "paperclip-operations",
+      "slug": "business-cockpit",
+      "name": "business-cockpit",
+      "description": "Maintain a company's Paperclip Business Cockpit (paperclip.business-status): design key results and the process drivers that move them, then ingest evidence-backed snapshot metrics through the plugin API.",
+      "path": "catalog/bundled/paperclip-operations/business-cockpit",
+      "entrypoint": "SKILL.md",
+      "trustLevel": "markdown_only",
+      "compatibility": "compatible",
+      "defaultInstall": false,
+      "recommendedForRoles": [
+        "manager",
+        "general"
+      ],
+      "requires": [],
+      "tags": [
+        "paperclip",
+        "business-status",
+        "cockpit",
+        "metrics",
+        "knowledge-management"
+      ],
+      "files": [
+        {
+          "path": "SKILL.md",
+          "kind": "skill",
+          "sizeBytes": 8155,
+          "sha256": "45719eeb64fd4865092f03e5b3e8ca261529175bade4fda504c6f43fb73e2913"
+        }
+      ],
+      "contentHash": "sha256:221bb75fc687d3b3453d237c7c98f547cb22b54debb9617fefbf13448c5efb9a"
     },
     {
       "id": "paperclipai:bundled:paperclip-operations:issue-triage",
