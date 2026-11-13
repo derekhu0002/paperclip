@@ -4898,6 +4898,11 @@
           "name": "supersededPlugin",
           "value": "qwenpaw.value-stream",
           "description": "Deleted 2026-11-13 at user request (plugin row purged, package dir removed). business-status is now the only business board; old element qwenpaw-value-stream-plugin-2026-11-13 is RETIRED."
+        },
+        {
+          "name": "uiBranding",
+          "value": "Business Cockpit + gauge icon",
+          "description": "commit 209283cc; sidebar/page/widget UI deployed. Installed DB manifest displayName still updates on next plugin upgrade."
         }
       ]
     }
