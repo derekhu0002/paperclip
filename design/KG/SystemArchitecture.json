@@ -5192,6 +5192,33 @@
         {
           "name": "splitAgentsAt",
           "value": "2026-11-13T11:50:00Z"
+        },
+        {
+          "name": "directWorkspaceRouterPath",
+          "value": "doc/agents/direct-workspace.AGENTS.md",
+          "description": "Project-root AGENTS.md router for direct workspace mode; maps PAPERCLIP_AGENT_ID to a separate role file."
+        },
+        {
+          "name": "directWorkspaceRolesPath",
+          "value": "doc/agents/direct-workspace.roles.example.json",
+          "description": "Agent-id -> role-file map template."
+        },
+        {
+          "name": "directWorkspaceConstraint",
+          "value": "In opencode-local direct remote workspace, the adapter explicitly ignores instructionsFilePath and the execution host loads the project's own AGENTS.md. Per-Agent managed AGENTS.md works in managed/non-direct mode, but not in direct mode. Workaround without a separate project: keep a role-neutral project AGENTS.md router, map PAPERCLIP_AGENT_ID to .paperclip/agents/<role>.AGENTS.md, and keep role-specific instructions/memory separate. Long-term: patch the adapter to prepend the per-Agent managed bundle in direct mode (opt-in)."
+        },
+        {
+          "name": "commit",
+          "value": "ebf442a041ecbdd55c551581e33e77cef8457723",
+          "description": "docs: add direct-workspace agent role router; files: doc/agents/direct-workspace.AGENTS.md, doc/agents/direct-workspace.roles.example.json"
+        },
+        {
+          "name": "taskSummaryDirectWorkspace",
+          "value": "【任务 2026-11-13】处理 direct workspace 模式下两个 Agent 共用项目 AGENTS.md 的问题。\n\n【结论】opencode-local direct remote 模式显式忽略 instructionsFilePath，执行主机加载项目自己的 AGENTS.md；因此 per-Agent managed AGENTS.md 只在 managed/non-direct 模式生效。无需独立项目：项目根 AGENTS.md 作为 role-neutral router，按 PAPERCLIP_AGENT_ID 指向 .paperclip/agents/company-ceo.AGENTS.md 或 company-knowledge-manager.AGENTS.md；角色文件分开，记忆使用各自 Agent/Actor 范围。长期可在 fork 的 adapter 中增加 opt-in，直接模式 prepend 每 Agent 的 managed instructions。\n\n【产出】direct-workspace.AGENTS.md、direct-workspace.roles.example.json。commit：ebf442a041ecbdd55c551581e33e77cef8457723。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "directWorkspaceAt",
+          "value": "2026-11-13T12:00:00Z"
         }
       ]
     }
