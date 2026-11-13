@@ -253,3 +253,27 @@ Rules:
 - Do not put secrets in notes, comments or descriptions.
 - Keep every metric company-scoped; never read or write another company's cockpit.
 - If a project has no evidence for a metric, say so explicitly instead of estimating.
+
+## Error handling
+
+`POST /profile` returns HTTP 400 with `{ "error": "Invalid cockpit profile: ..." }`. The message contains the metric path and a fix hint. Read it, edit the profile, and resubmit. Never work around a cycle, unknown input, invalid aggregation or computed leaf.
+
+`POST /metrics` returns HTTP 201 with `{ saved, savedIds, rejected, snapshotUpdatedAt }` when at least one value is accepted, or HTTP 400 with `{ error: "no valid metric values supplied", rejected }` when none is accepted. Every rejected row has `{ id, reason, message }`:
+
+| reason | meaning | action |
+| --- | --- | --- |
+| `unknown-metric-id` | id is not in the active profile | add/fix the metric id or the profile |
+| `metric-not-ingestible` | metric is `paperclip`, `static` or `computed` | do not retry; ingest a `snapshot` leaf instead |
+| `invalid-value` | value is not a finite number | send a numeric value |
+| `missing-or-invalid-asOf` | `asOf` is not ISO-8601 | send an ISO timestamp |
+| `missing-id` | row has no metric id | add the id |
+
+If the same error repeats twice, stop and report the exact `reason` and `message` to the CEO/human. Do not bypass the API, edit plugin state directly, or invent a value.
+
+## Success checklist
+
+- Profile validation passed; a `computed` metric has at least one input and a valid aggregation.
+- Every leaf is `paperclip`, `snapshot` or `static`; no leaf is `computed`.
+- Only `snapshot` ids were sent to `POST /metrics`; every accepted value has `asOf` and provenance.
+- `GET /overview` shows the expected current/awaiting values; computed values are derived, not ingested.
+- Every `awaiting-data` item has a named missing source and a follow-up issue for the owner.
