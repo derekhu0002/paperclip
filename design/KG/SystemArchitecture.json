@@ -4892,8 +4892,8 @@
         },
         {
           "name": "pluginVersion",
-          "value": "1.1.1",
-          "description": "Version bump forces Paperclip to reload the plugin UI module (cache key uses plugin.updatedAt/version)."
+          "value": "1.1.2",
+          "description": "Removed the cockpit 'Data sources and configuration' section; deployed to the 47 local plugin install."
         },
         {
           "name": "installPath",
@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 9/9; server bundled-plugins test expectation updated. Skill catalog manifest regenerated and validated with 18 catalog skills. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Fork package: build passed, typecheck passed, node tests 9/9; server bundled-plugins test expectation updated. Skill catalog manifest regenerated and validated with 18 catalog skills. UI removal verified on 47: plugin loader activated 1.1.2, health status ok, served UI bundle HTTP 200 (34496 bytes) without the old label. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -5020,6 +5020,28 @@
           "name": "commit",
           "value": "16974727d7b0930bf354d0ff36414f8d08ad296b",
           "description": "chore(argo): record business cockpit skill replacement; files: design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "uiChange",
+          "value": "Removed the 'Data sources and configuration' collapsible section from the cockpit page. Served UI bundle /_plugins/b9ea0c69-5324-447f-b55a-11a2af24d692/ui/index.js returns HTTP 200 and no longer contains the label."
+        },
+        {
+          "name": "commit",
+          "value": "f682feb72e74e302375fe03b93e78ca02755be53",
+          "description": "ui: remove cockpit data sources section; files: packages/plugins/plugin-business-status/src/ui/index.tsx, src/shared.ts, package.json"
+        },
+        {
+          "name": "commit",
+          "value": "79597838ce83159b4316a4eadd549204a0d7670c",
+          "description": "style: normalize cockpit UI line endings; file: packages/plugins/plugin-business-status/src/ui/index.tsx"
+        },
+        {
+          "name": "taskSummaryUiRemoval",
+          "value": "【任务 2026-11-13】移除 Business Cockpit 页面的 'Data sources and configuration' 区块。结果：src/ui/index.tsx 删除该 section；插件版本 1.1.2；47 本地安装已更新并重启容器；服务端 UI bundle HTTP 200 且不再包含旧标题；build/typecheck/tests 9/9 通过。commits：f682feb72e74e302375fe03b93e78ca02755be53、79597838ce83159b4316a4eadd549204a0d7670c。目标 T2：business-status-plugin-2026-11-13。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "uiTaskSummaryAt",
+          "value": "2026-11-13T09:30:00Z"
         }
       ]
     }
