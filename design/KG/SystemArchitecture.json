@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 9/9; server bundled-plugins test expectation updated. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Fork package: build passed, typecheck passed, node tests 9/9; server bundled-plugins test expectation updated. Skill catalog manifest regenerated and validated with 18 catalog skills. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -4941,7 +4941,7 @@
         },
         {
           "name": "agentInterface",
-          "value": "GET /api/plugins/paperclip.business-status/api/overview; POST /api/profile; POST /api/metrics; schema and workflow in AGENT-API.md.",
+          "value": "GET /api/plugins/paperclip.business-status/api/overview; POST /api/profile; POST /api/metrics; profile schema and Agent workflow in the bundled skill paperclipai/bundled/paperclip-operations/business-cockpit (kind=bundled, defaultInstall=false; available in Skills catalog, not enabled by default).",
           "description": "Agent designs or updates the cockpit profile and ingests snapshot values."
         },
         {
@@ -4993,6 +4993,20 @@
           "name": "commit",
           "value": "c2e8e39900982c6c3427ccb39124a18b44f471db",
           "description": "merge: origin/dev/local-install ARGO memory into business-status history; pushed to origin/dev/local-install (includes plugin fork integration 383ed32e)."
+        },
+        {
+          "name": "commit",
+          "value": "e5db2d969748e8087d981dcfe655697cc09a64bc",
+          "description": "docs: replace business-status agent API doc with bundled skill; files: packages/skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md, packages/skills-catalog/generated/catalog.json, packages/plugins/plugin-business-status/{AGENT-API.md deleted, README.md, package.json, tests/plugin.test.mjs}"
+        },
+        {
+          "name": "bundledSkill",
+          "value": "paperclipai/bundled/paperclip-operations/business-cockpit",
+          "description": "Replaces AGENT-API.md. Category paperclip-operations; bundled in the image but not installed or enabled by default."
+        },
+        {
+          "name": "skillPath",
+          "value": "packages/skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md"
         }
       ]
     }
