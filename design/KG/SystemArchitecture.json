@@ -4660,6 +4660,38 @@
           "description": "chore(argo): record kg-manager legacy-env rebuild and metered billing verification (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
+    },
+    {
+      "id": "kg-manager-role-agents-md-2026-11-13",
+      "name": "kg-manager 知识管理角色与职责定义（AGENTS.md，2026-11-13）",
+      "type": "Requirement",
+      "description": "【任务】为 QwenPaw kg-manager（知识管理 Agent）定义角色认知与职责 AGENTS.md。文件：/root/repos/qwenpaw-anti-defend-kg-management/AGENTS.md（101 行），WSL commit 38c234f。\n\n【职责模型（人类确认）】\n1) 向每个项目 Lead Agent 收集项目 Schema；项目 Schema 所有权归 Lead，kg-manager 只读、不修改。\n2) 基于组织业务 + 各项目 Schema，在本仓库 ARGO 图中构建组织级 Schema（组织业务层 + 每项目一个 Project Schema Contract + 映射层）。\n3) 组织 Schema 与项目 Schema 建立可追溯 Mapping（图内关系为权威，knowledge/schema-map.json 为导出）。\n4) 基于 Mapping 与项目知识图谱内容构建组织业务看板；每个指标必须带 sourceProject、项目元素 id、commit、asOf、SLA、ownerLeadAgentId。\n5) 维护看板并定期（默认周度）向 Lead 收集数据刷新；超过 SLA 必须标记 stale，不得伪装成当前。\n\n【采集协议】只通过 Paperclip issue 与 Lead 交互，要求可执行证据（repo/branch/commit、graphKey/schemaKind、element/relationship/view 计数、canonical digest、增量变更、validate 结果）；优先走 graph-mcp 联邦 discover/authorize/read（按引用，不复制）；未注册项目用 Lead 导出的只读快照 + commit/digest。\n\n【关键决策】direct remote workspace 模式下 Paperclip 不读取 instructionsFilePath（packages/adapters/opencode-local/src/server/execute.ts:607-643），执行机从真实工作目录加载 AGENTS.md；因此角色内容写入仓库 AGENTS.md 并提交，而不是只写托管 instructions bundle。不重复全局 ARGO 规则。\n\n【坑】托管 instructions 文件仅含通用一句 “You are an agent in a Paperclip company.”，且 direct 模式忽略它；仓库 AGENTS.md 才是有效指令位置。\n\n【目标 T2】project-manager-kg-manager-001 / kg-manager-role-agents-md-2026-11-13。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-13"
+        },
+        {
+          "name": "paperclipAgent",
+          "value": "5d060393-4b7c-469b-93cf-2506afe66d72 | kg-manager"
+        },
+        {
+          "name": "repoFile",
+          "value": "/root/repos/qwenpaw-anti-defend-kg-management/AGENTS.md"
+        },
+        {
+          "name": "commit",
+          "value": "38c234f"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -4985,7 +5017,8 @@
       "parent_element_id": "project-manager-001",
       "description": "QwenPaw 攻防实验室 kg-manager Agent 的配置完成与 direct workspace / ARGO MCP 读写验收记录（2026-11-13）。",
       "included_elements": [
-        "kg-manager-onboarding-2026-11-13"
+        "kg-manager-onboarding-2026-11-13",
+        "kg-manager-role-agents-md-2026-11-13"
       ],
       "included_relationships": []
     }
