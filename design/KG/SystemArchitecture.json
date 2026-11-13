@@ -5282,6 +5282,42 @@
         {
           "name": "skillActivationAt",
           "value": "2026-11-13T12:35:00Z"
+        },
+        {
+          "name": "containerImage",
+          "value": "paperclip-fork:89bb8675d3 (6.49GB), built from 89bb8675d3eed745d80552d307041a675c4c5652 with --target production, USER_UID/GID=998, PAPERCLIP_SKIP_PROVIDER_PACK=1; transferred with docker save/load; running container paperclip.",
+          "description": "Current phase-4 container image; provider pack intentionally skipped because the Pi native closure pin mismatched. Legacy opencode_local remote runs are unaffected."
+        },
+        {
+          "name": "deploymentVerification",
+          "value": "Health status=ok commit=89bb8675d3...; /QWE/business-status HTTP 200; plugin UI bundle HTTP 200 (44135 bytes) with governance copy; plugin-loader business-status 1.5.0 and project-tree 0.1.0; adapter package 0.4.0 with directWorkspaceInstructions present. Governance configured for QwenPaw: profileWriterAgentId/snapshotWriterAgentIds=5d060393-4b7c-469b-93cf-2506afe66d72, allowBoardBackfill=false. Board metric/profile writes return 403 writer-not-authorized; KM agent key passes writer check (unknown test id returns 400 unknown-metric-id); temporary verification keys revoked."
+        },
+        {
+          "name": "architectureAudit",
+          "value": "Fork vs upstream/master: 298 commits ahead, 78 modified upstream files + 80 added files; 97 code files / ~8.9k insertions in server/ui/adapters/plugins. Invasive core edits are concentrated in server routes/services for issues/projects/work-timeline/heartbeat, UI IssuesList/ProjectProperties/AgentConfigForm/NewProjectDialog plus new IssueExecution*/GraphEvidence* components, opencode-local adapter (10 files), shared/db project migration, Dockerfile/.dockerignore. server/src/fork has only 2 isolated guard files; plugin packages, business-status plugin and skills are additive. Reduction opportunities: move fork-only execution/graph UI into a plugin/package, keep project-binding/workspace policy in server/src/fork, keep adapter changes in the adapter package, keep plugin bundling minimal, and avoid mixing ARGO memory commits into runtime code history."
+        },
+        {
+          "name": "commit",
+          "value": "21caf75a161490d98e519772072ba6825e048fc3",
+          "description": "chore(docker): exclude local agent configs from build context"
+        },
+        {
+          "name": "commit",
+          "value": "89bb8675d3eed745d80552d307041a675c4c5652",
+          "description": "chore(docker): allow skipping provider pack in local image builds"
+        },
+        {
+          "name": "commit",
+          "value": "75c42051f6af84d833dfe1cccada287a5b853ace",
+          "description": "docs(deploy): record current 89bb container image"
+        },
+        {
+          "name": "taskSummaryDeploy47",
+          "value": "【任务 2026-11-13】架构侵入性审计 + 生产镜像构建 + 47 部署 + 真实环境验证。\n\n【架构】fork 领先 upstream 298 commits；78 个 upstream 文件被修改 + 80 个新增；97 个代码文件约 8.9k 行。核心侵入集中在 issue/project/work-timeline/heartbeat、UI IssuesList/ProjectProperties/AgentConfigForm、新的执行/图谱 UI 组件、opencode-local adapter、shared/db migration、Dockerfile。server/src/fork 仅 2 个隔离 guard；插件/技能是新增。建议把 fork-only 执行/图谱 UI 抽到插件/包、继续把 fork 策略放 server/src/fork、保持 adapter 改动局部化。\n\n【镜像/部署】Windows Docker Desktop 构建 paperclip-fork:89bb8675d3（production target，UID/GID 998，跳过 provider pack），docker save/load 到 47，重建 running container；health commit=89bb，插件 1.5.0，adapter 0.4.0。\n\n【真实验证】/QWE/business-status 200；UI bundle 44135 bytes；QwenPaw governance 已配置 KM 5d060393；overview 200（3 KR current 96.8/54.8/58.3）；board profile/metric 写入 403 writer-not-authorized；KM agent key 通过 writer 检查（未知 id 400 unknown-metric-id）；临时 board/agent keys 已 revoke。\n\n【目标 T2】business-status-plugin-2026-11-13。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "deploy47At",
+          "value": "2026-11-14T00:05:00Z"
         }
       ]
     }
