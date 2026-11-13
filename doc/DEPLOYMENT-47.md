@@ -1,4 +1,4 @@
-# Deploying Paperclip to the phase-4 instance (47)
+﻿# Deploying Paperclip to the phase-4 instance (47)
 
 This document is the canonical runbook for the phase-4 production instance.
 It is a hard rule set, not a suggestion: the 2026-10-24 incident review found
@@ -34,8 +34,8 @@ stamp. A mismatch between the health commit and the deployed build is a defect.
    runbook does not require it; an interrupted install can leave a partially
    linked `node_modules`.
 6. **Back up before replacing anything.**
-   - `ui-dist` 閳?`/root/backups/ui-dist-pre-<slug>-<utc-timestamp>`
-   - checkout 閳?git branch `backup-47-pre-<slug>-<utc-timestamp>`
+   - `ui-dist` 闁?`/root/backups/ui-dist-pre-<slug>-<utc-timestamp>`
+   - checkout 闁?git branch `backup-47-pre-<slug>-<utc-timestamp>`
 
 ## 3. Branch model on 47
 
@@ -163,9 +163,11 @@ Also confirm `git status --porcelain -uno` is empty and
 The instance now runs from an image; the source-checkout service is disabled but
 kept as a rollback path. Container facts:
 
-- Image: `paperclip-fork:3cb59953eb38` (6.32GB, built from
-  `3cb59953eb38525aeffea6c8e3f8c7590f8411ab`, transferred with
-  `docker save | ssh docker load`). Published to ACR as
+- Image: `paperclip-fork:89bb8675d3` (6.49GB, built from
+  `89bb8675d3eed745d80552d307041a675c4c5652` with `--target production` and
+  `PAPERCLIP_SKIP_PROVIDER_PACK=1`, transferred with
+  `docker save | ssh docker load`). The previous `paperclip-fork:3cb59953eb38`
+  ACR image remains historical. Published to ACR as
   `crpi-33yedsa348aqgw1p.cn-shenzhen.personal.cr.aliyuncs.com/paperclip/paperclip-fork:3cb59953eb38`
   with `latest` aliasing the same digest
   `sha256:7ef283cfea7d8a53c286a65e97106753c332c4066bdfb1b9df8733ac2b1053ad`.
@@ -234,11 +236,11 @@ df -h /
 
 Two things grow silently and must be checked by count, not by feel:
 
-- `du -xsh /home/paperclip/.paperclip/instances/default/data/backups` — hourly
+- `du -xsh /home/paperclip/.paperclip/instances/default/data/backups` 鈥?hourly
   full `pg_dump` copies. Effective retention is the instance setting
   `backupRetention` (`dailyDays`/`weeklyWeeks`/`monthlyMonths`), read from the
   DB on every run; `database.backup.retentionDays` in `config.json` is NOT used
   by the pruner and only shows up in the startup banner.
-- `docker system df` — anything over ~13GB means an old image survived.
+- `docker system df` 鈥?anything over ~13GB means an old image survived.
 
 `df -h /` must stay below 80%.
