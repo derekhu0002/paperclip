@@ -4892,8 +4892,8 @@
         },
         {
           "name": "pluginVersion",
-          "value": "1.3.0",
-          "description": "Metric meaning, weighted inputs, directed-graph cycle validation and stable header controls."
+          "value": "1.3.1",
+          "description": "Shows gap ratio and impact explicitly on input cards and the input relationship table."
         },
         {
           "name": "installPath",
@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 11/11 (nested inputs, weighted inputs, unknown/self/cycle validation, link-induced cycle, one driver -> multiple results). Skill catalog manifest validated with 18 skills. Deployed to 47 as 1.3.0: plugin loader activated 1.3.0, health ok, served UI bundle HTTP 200 (42404 bytes) with meaning, input relationship, weight and fallback copy. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Fork package: build passed, typecheck passed, node tests 11/11. Deployed to 47 as 1.3.1: plugin loader activated 1.3.1, health ok, served UI bundle HTTP 200 (42978 bytes) with explicit Gap ratio/Impact copy. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -5045,7 +5045,7 @@
         },
         {
           "name": "uiDrilldown",
-          "value": "Home shows only final results. Clicking a result opens a detail view with a meaning/why-it-matters explanation, definition, calculation, input relationship (weight and note per input), provenance and input cards. Input cards drill recursively. A driver can influence multiple results; the path is a drill-down path, not a tree. Leaf metrics show source/sourceRef/commit/digest/asOf/note."
+          "value": "Home shows only final results. Detail view shows meaning, definition, calculation, input relationship with weight/gap ratio/impact/note, provenance and input cards. Input cards drill recursively. A driver can influence multiple results; the path is a drill-down path, not a tree. Leaf metrics show source/sourceRef/commit/digest/asOf/note."
         },
         {
           "name": "commit",
@@ -5076,6 +5076,19 @@
         {
           "name": "meaningWeightsAt",
           "value": "2026-11-13T10:12:00Z"
+        },
+        {
+          "name": "commit",
+          "value": "02bc8eca517b4df9ec828b853fb9bdb1d007b803",
+          "description": "fix: show gap ratio and impact explicitly; files: packages/plugins/plugin-business-status/{src/ui/index.tsx,src/shared.ts,package.json,tests/plugin.test.mjs}"
+        },
+        {
+          "name": "taskSummaryGapRatio",
+          "value": "【任务 2026-11-13】澄清 WIP 示例的 gap ratio 与 impact，并在 UI 显式展示。\n\n【结论】example profile 的 WIP 是 lower-is-better，target=10，current=0：normalizedGap = max(0,(0-10)/10)=0；impact = gapRatio × |link.weight| = 0 × 0.30 = 0.00。用户看到的 10 是 target 或 '10 ahead'（比目标好 10），不是 gap ratio/impact。若希望 0→10 被视为有 gap，应把 direction 改为 higher-is-better。\n\n【结果】InputCard 和 Input relationship 现在同时显示 weight、gap ratio、impact；版本 1.3.1 已部署 47；build/typecheck/tests 11/11。commit：02bc8eca517b4df9ec828b853fb9bdb1d007b803。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "gapRatioClarityAt",
+          "value": "2026-11-13T10:16:00Z"
         }
       ]
     }
