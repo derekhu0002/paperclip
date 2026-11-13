@@ -5318,6 +5318,32 @@
         {
           "name": "deploy47At",
           "value": "2026-11-14T00:05:00Z"
+        },
+        {
+          "name": "qwenpawSkillInstall",
+          "value": "Installed catalog skill paperclipai/bundled/paperclip-operations/business-cockpit into QwenPaw company 1ba5e77b... (action=created), attached it to KM agent 5d060393-4b7c-469b-93cf-2506afe66d72 via /api/agents/:id/skills/sync mode=add; desiredSkills now includes the skill. Temporary board key revoked. The skill is present in the deployed image catalog with defaultInstall=false."
+        },
+        {
+          "name": "qwenpawKmAgents",
+          "value": "Appended section 13 (Business Cockpit governance and skill trigger) to /root/repos/qwenpaw-anti-defend-kg-management/AGENTS.md; local commit 4da2f21. This is the live KM project instruction used by direct workspace.",
+          "description": "KM single writer, board governance IDs, load business-cockpit before writes/errors, source/leaf rules."
+        },
+        {
+          "name": "ceoAgentsStatus",
+          "value": "doc/agents/company-ceo.AGENTS.md and company-knowledge-manager.AGENTS.md ship in the image. The KM template was applied to the live QwenPaw KM repo; the CEO template has not been applied to a live CEO repo because its workspace path was not identified."
+        },
+        {
+          "name": "commit",
+          "value": "4da2f21",
+          "description": "docs: add business cockpit governance and skill trigger (external QwenPaw KM repo AGENTS.md)"
+        },
+        {
+          "name": "taskSummaryAgentsSkill",
+          "value": "【任务 2026-11-14】确认 AGENTS.md 与 skill 的实际生效位置。\n\n【结果】镜像包含 doc/agents 模板和 business-cockpit skill（catalog defaultInstall=false）。QwenPaw 公司已从 catalog 安装 skill，并挂到 KM Agent 5d060393 的 desiredSkills；临时 board key 已 revoke。QwenPaw KM 仓库 AGENTS.md 追加第 13 节（KM 单写、Board governance、先加载 skill、错误处理），本地 commit 4da2f21。CEO 模板尚未应用到具体 CEO 仓库，因为未定位其 workspace。\n\n【目标 T2】business-status-plugin-2026-11-13。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "agentsSkillAt",
+          "value": "2026-11-14T00:20:00Z"
         }
       ]
     }
