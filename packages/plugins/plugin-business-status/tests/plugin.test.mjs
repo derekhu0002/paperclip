@@ -432,6 +432,137 @@ test("computed metrics require inputs, aggregation and ratio roles", () => {
   assert.ok(badRatio.errors.some((error) => error.includes("numerator")));
 });
 
+test("QwenPaw detection coverage computed model is end-to-end deterministic", () => {
+  const profile = {
+    name: "QwenPaw Detection Coverage",
+    results: [
+      {
+        id: "detection-coverage-rate",
+        label: "Detection Coverage",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 0.8,
+        warn: 0.6,
+        critical: 0.4,
+        source: "snapshot",
+        sourceRef: "detection-coverage-rate",
+      },
+      {
+        id: "detection-coverage-model",
+        label: "Detection Coverage Model",
+        description: "A computed coverage score from telemetry and validated coverage.",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 0.8,
+        warn: 0.6,
+        critical: 0.4,
+        source: "computed",
+        aggregation: "weighted-sum",
+        inputs: [
+          { id: "telemetry-source-coverage", weight: 0.4 },
+          { id: "validated-coverage-rate", weight: 0.6 },
+        ],
+      },
+    ],
+    drivers: [
+      {
+        id: "telemetry-source-coverage",
+        label: "Telemetry Source Coverage",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 0.9,
+        source: "snapshot",
+        sourceRef: "telemetry-source-coverage",
+        affects: ["detection-coverage-rate"],
+      },
+      {
+        id: "validated-coverage-rate",
+        label: "Validated Coverage",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 0.7,
+        source: "snapshot",
+        sourceRef: "validated-coverage-rate",
+        affects: ["detection-coverage-rate"],
+      },
+    ],
+    links: [
+      { from: "telemetry-source-coverage", to: "detection-coverage-rate", weight: 0.4 },
+      { from: "validated-coverage-rate", to: "detection-coverage-rate", weight: 0.6 },
+    ],
+  };
+  const validation = profileModule.validateProfile(profile);
+  assert.equal(validation.ok, true);
+  const allowed = profileModule.snapshotIdsForProfile(validation.profile);
+  const sources = profileModule.metricSourcesForProfile(validation.profile);
+  assert.deepEqual([...allowed].sort(), [
+    "detection-coverage-rate",
+    "telemetry-source-coverage",
+    "validated-coverage-rate",
+  ]);
+  assert.equal(sources.get("detection-coverage-model"), "computed");
+
+  const ingested = logic.parseSnapshotValues(
+    {
+      values: [
+        { id: "detection-coverage-rate", value: 30 / 31, asOf: "2026-11-13T05:43:06Z", source: "qwenpaw-blue", note: "30/31" },
+        { id: "telemetry-source-coverage", value: 1, asOf: "2026-11-13T05:43:06Z", source: "qwenpaw-blue", note: "19/19" },
+        { id: "validated-coverage-rate", value: 0.5, asOf: "2026-11-13T05:43:06Z", source: "qwenpaw-blue", note: "50/100" },
+      ],
+    },
+    allowed,
+    sources,
+  );
+  assert.equal(ingested.values.length, 3);
+  const snapshotValues = Object.fromEntries(
+    ingested.values.map((value) => [
+      value.id,
+      {
+        value: value.value,
+        asOf: value.asOf,
+        source: value.source,
+        commit: value.commit,
+        digest: value.digest,
+        note: value.note,
+      },
+    ]),
+  );
+  const snapshot = {
+    schema: "paperclip.business-status.snapshot/v1",
+    updatedAt: "2026-11-13T05:43:06Z",
+    values: snapshotValues,
+  };
+  const payload = logic.buildCockpitPayload(validation.profile, {}, snapshot, now, "company-1");
+  const measured = payload.results.find((result) => result.definition.id === "detection-coverage-rate");
+  const modeled = payload.results.find((result) => result.definition.id === "detection-coverage-model");
+  assert.equal(measured.value, 30 / 31);
+  assert.equal(measured.state, "current");
+  assert.equal(modeled.value, 0.7);
+  assert.equal(modeled.state, "current");
+  assert.equal(modeled.provenance.source, "computed");
+  assert.match(modeled.provenance.note, /Computed from 2 input/);
+
+  const missingValidated = logic.buildCockpitPayload(
+    validation.profile,
+    {},
+    { ...snapshot, values: { ...snapshotValues, "validated-coverage-rate": undefined } },
+    now,
+    "company-1",
+  );
+  const awaiting = missingValidated.results.find((result) => result.definition.id === "detection-coverage-model");
+  assert.equal(awaiting.state, "awaiting-data");
+  assert.match(awaiting.provenance.note, /validated-coverage-rate/);
+
+  const rejectedComputed = logic.parseSnapshotValues(
+    { values: [{ id: "detection-coverage-model", value: 0.9, asOf: "2026-11-13T05:43:06Z" }] },
+    allowed,
+    sources,
+  );
+  assert.equal(rejectedComputed.values.length, 0);
+  assert.equal(rejectedComputed.rejected[0].reason, "metric-not-ingestible");
+  assert.match(rejectedComputed.rejected[0].message, /computed/);
+});
+
 test("default Paperclip metrics are computed from issues, goals and agents", () => {
   const computed = logic.computePaperclipMetrics({ issues, goals, agents, now });
   assert.equal(computed["goal-progress"].value, 1);
