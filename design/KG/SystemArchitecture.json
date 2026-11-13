@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 14/14, including a QwenPaw detection-coverage end-to-end test (profile -> snapshot ingestion -> measured 30/31 -> computed 0.7 -> missing input awaiting -> computed ingestion rejected). Skill catalog manifest validated with 18 skills. Deployed to 47 as 1.4.0: plugin loader activated 1.4.0, health ok, served UI bundle HTTP 200 (43810 bytes). Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Fork package: build passed, typecheck passed, node tests 14/14. Skill catalog manifest validated with 18 skills; business-cockpit skill now includes error-handling and success-checklist sections. Company Operator template created at doc/agents/company-operator.AGENTS.md. Deployed plugin remains 1.4.0 on 47; the updated skill/template ship in the next image build. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -5136,6 +5136,28 @@
         {
           "name": "ownershipAt",
           "value": "2026-11-13T11:30:00Z"
+        },
+        {
+          "name": "agentTemplatePath",
+          "value": "doc/agents/company-operator.AGENTS.md",
+          "description": "Template for a merged CEO + Knowledge Manager Agent on the company top-level project."
+        },
+        {
+          "name": "agentTemplateScope",
+          "value": "One Company Operator, two explicit modes (CEO and Metric Steward). CEO owns outcomes/targets/weights/cadence/investigation/intervention. Steward owns definitions/sources/lineage/versions/missing data/audit. Project Agents write snapshot leaves; the plugin computes computed metrics and enforces ingestion. Material target/contract changes require board approval."
+        },
+        {
+          "name": "commit",
+          "value": "f0ee83e0fcc8d930566ddd742bd23fd3dbf5f45f",
+          "description": "docs: add company operator agent template and cockpit error guidance; files: doc/agents/company-operator.AGENTS.md, packages/skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md, packages/skills-catalog/generated/catalog.json"
+        },
+        {
+          "name": "taskSummaryOperatorTemplate",
+          "value": "【任务 2026-11-13】明确公司指标的 owner/steward 分工，补 Company Operator AGENT.md 模板，并更新 business-cockpit skill 的错误处理。\n\n【结论】建议每个公司一个 Company Operator（CEO + KM 合并），放在公司总 Project；CEO 是 owner，KM 是 steward；project Agents 写 snapshot 叶子，plugin 算 computed；插件安装/代码由 host/engineering 负责。合并的代价是自我审计风险，保留独立审计/board approval 作为补偿。\n\n【产出】doc/agents/company-operator.AGENTS.md；skill 增加 Error handling 和 Success checklist；node tests 14/14。commit：f0ee83e0fcc8d930566ddd742bd23fd3dbf5f45f。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "operatorTemplateAt",
+          "value": "2026-11-13T11:40:00Z"
         }
       ]
     }
