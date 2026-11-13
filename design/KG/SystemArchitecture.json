@@ -4632,6 +4632,11 @@
         {
           "name": "verification",
           "value": "QWE-168 done; run aceb302f succeeded (adapterDispatch=opencode_local, cwd remote); ARGO read schema 4/1/7 + semantic invoked + memory_search; ARGO write addArchitectureElement+validate passed; commits b16514b/59dbd2a/7464b0c"
+        },
+        {
+          "name": "commit",
+          "value": "bb7c2479e6",
+          "description": "chore(argo): record kg-manager onboarding and ARGO MCP read/write acceptance (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
