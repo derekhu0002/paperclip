@@ -4695,6 +4695,15 @@
           "name": "commit",
           "value": "edfbb3e8a7",
           "description": "chore(argo): record kg-manager role definition AGENTS.md (files: design/KG/SystemArchitecture.json, paperclip.qea)"
+        },
+        {
+          "name": "schemaAgnosticMapping",
+          "value": "映射以 knowledge/schema-map.json 为权威，使用中性词汇（realizes/serves/part-of/measures/...）与逐项目类型适配器 knowledge/adapters/<projectId>.json；项目 schemaKind 可为 workspace/override 自定义本体；不得把项目类型臆造或强转为 ArchiMate。项目快照用其自己的 schema bundle 验证。"
+        },
+        {
+          "name": "commit",
+          "value": "e5ea963",
+          "description": "docs(agents): make mapping schema-agnostic for custom project schemas (file: AGENTS.md in kg repo)"
         }
       ]
     }
