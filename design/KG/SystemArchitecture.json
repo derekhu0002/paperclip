@@ -5219,6 +5219,31 @@
         {
           "name": "directWorkspaceAt",
           "value": "2026-11-13T12:00:00Z"
+        },
+        {
+          "name": "kmOntologyResponsibilities",
+          "value": "Knowledge Manager also owns company ontology federation/fusion: (1) collect each project Lead's project schema/ontology read-only; project schema ownership stays with the Lead; (2) build the company-level fused ontology (org business layer + per-project schema contracts + mapping layer); (3) maintain traceable mapping (graph authoritative, knowledge/schema-map.json export); (4) map company metrics to project types/elements with sourceProject, project element id, commit, asOf, SLA, ownerLeadAgentId; (5) refresh weekly and mark stale past SLA; never present stale data as current. Collection is via Paperclip issues and executable evidence (repo/branch/commit, graphKey/schemaKind, counts, canonical digest, validate), preferring graph-mcp federation discover/authorize/read by reference; unregistered projects use a read-only snapshot."
+        },
+        {
+          "name": "ontologyModel",
+          "value": "Type-level fusion: merge same kind+semantic node/edge types into one canonical type; same-name different semantics stay provider-qualified with conflict + fusionDecision; fuse node types before edge types and validate endpoints; record providers (projectId, graphKey, schemaKind/language, source type, definition, endpoints, bundleDigest, commit, ownerLeadAgentId, access); store type definitions + provider routing + fusion decisions only, no project instances; authoritative fused ontology at knowledge/ontology/fused-ontology.json; instance data only in TTL cache/snapshot."
+        },
+        {
+          "name": "adapterPlan",
+          "value": "Short term: role-neutral project AGENTS.md router + PAPERCLIP_AGENT_ID -> .paperclip/agents/<role>.AGENTS.md, because opencode-local direct workspace ignores instructionsFilePath. Long term: opt-in adapter prepend of each Agent's managed instructions in direct mode, preserving project AGENTS.md; then CEO/KM role files load per Agent without a separate project. The Knowledge Manager role file includes ontology fusion; the CEO role file does not."
+        },
+        {
+          "name": "commit",
+          "value": "e05126ba0191eb00c323c3bb96c79209e36279f2",
+          "description": "docs: add company ontology fusion to knowledge manager role; files: doc/agents/company-knowledge-manager.AGENTS.md, doc/agents/company-ceo.AGENTS.md"
+        },
+        {
+          "name": "taskSummaryOntologyRole",
+          "value": "【任务 2026-11-13】把公司本体融合职责补回 Knowledge Manager 角色，并明确 CEO/KM/Lead 分工。\n\n【回忆确认】此前 kg-manager 职责模型：向每个项目 Lead 收集项目 Schema（Lead 拥有，KM 只读）；构建组织级 Schema（组织业务层 + 每项目 Project Schema Contract + 映射层）；维护可追溯 mapping（图内关系权威，schema-map.json 导出）；指标必须带 sourceProject、项目元素 id、commit、asOf、SLA、ownerLeadAgentId；周度刷新，超 SLA 标 stale。融合本体是 type-level：同 kind+语义合并 canonical，同名不同义 provider 限定 + conflict，边类型先融合节点，记录 providers，不存项目实例。\n\n【结果】KM 模板已加入 Company ontology and mapping 段与决策/错误/成功检查；CEO 模板明确 KM 拥有本体融合、CEO 只消费 cockpit。commit：e05126ba0191eb00c323c3bb96c79209e36279f2。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "ontologyRoleAt",
+          "value": "2026-11-13T12:15:00Z"
         }
       ]
     }
