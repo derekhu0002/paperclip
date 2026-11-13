@@ -278,11 +278,12 @@ function InputCard({ input, impact, onOpen }: { input: MetricInputView; impact?:
         <span style={{ fontSize: 13, fontWeight: 600 }}>{metric.definition.label}</span>
         {badge(entry.role === "result" ? "Result" : "Driver", "info")}
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 20, fontWeight: 650, fontVariantNumeric: "tabular-nums", color: awaiting ? C.muted : C.fg }}>
           {metric.displayValue ?? "—"}
         </span>
         <span style={{ color: C.muted, fontSize: 11 }}>Target {targetText(metric)}</span>
+        <span style={{ color: C.muted, fontSize: 11 }}>{directionLabel(metric.definition.direction)}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
         {badge(awaiting ? "Awaiting data" : statusText(metric.status), awaiting ? "unknown" : metric.status)}
@@ -446,7 +447,7 @@ function MetricDetail({
                 <div key={input.entry.value.definition.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
                   <span style={{ fontSize: 12 }}>
                     {input.entry.value.definition.label}
-                    <span style={{ color: C.muted, fontSize: 11 }}> · {input.entry.role === "result" ? "result" : "driver"}</span>
+                    <span style={{ color: C.muted, fontSize: 11 }}> · {input.entry.role === "result" ? "result" : "driver"} · {directionLabel(input.entry.value.definition.direction)}</span>
                   </span>
                   <span style={{ color: input.weight != null ? C.info : C.muted, fontSize: 11, whiteSpace: "nowrap" }}>
                     {input.weight != null ? `weight ${input.weight.toFixed(2)}` : "weight not declared"}
