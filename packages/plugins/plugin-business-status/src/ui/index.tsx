@@ -294,8 +294,11 @@ function InputCard({ input, impact, onOpen }: { input: MetricInputView; impact?:
         <span style={{ color: input.weight != null ? C.info : C.muted }}>
           {input.weight != null ? `Weight ${input.weight.toFixed(2)}` : "Weight not declared"}
         </span>
-        {impact != null ? <span style={{ color: C.info }}>Impact {impact.toFixed(2)}</span> : null}
+        <span style={{ color: C.muted }}>
+          Gap ratio {metric.gapRatio == null ? "—" : metric.gapRatio.toFixed(2)}
+        </span>
       </div>
+      {impact != null ? <div style={{ color: C.info, fontSize: 11 }}>Impact {impact.toFixed(2)}</div> : null}
       {input.note ? <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.5 }}>{input.note}</div> : null}
       <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.5 }}>
         {metric.provenance.formula ?? metric.definition.formula ?? "No formula provided."}
@@ -437,21 +440,26 @@ function MetricDetail({
           <div style={{ color: C.muted, fontSize: 12 }}>Leaf metric: no inputs influence this metric directly.</div>
         ) : (
           <div style={{ display: "grid", gap: 0 }}>
-            {inputs.map((input) => (
-              <div key={input.entry.value.definition.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 12 }}>
-                  {input.entry.value.definition.label}
-                  <span style={{ color: C.muted, fontSize: 11 }}> · {input.entry.role === "result" ? "result" : "driver"}</span>
-                </span>
-                <span style={{ color: input.weight != null ? C.info : C.muted, fontSize: 11, whiteSpace: "nowrap" }}>
-                  {input.weight != null ? `weight ${input.weight.toFixed(2)}` : "weight not declared"}
-                </span>
-                <span style={{ gridColumn: "1 / -1", color: C.muted, fontSize: 11 }}>
-                  {input.source === "link" ? "Weight from causal link." : input.source === "affects" ? "Input from affects; no weight." : "Weight from inputs."}
-                  {input.note ? ` ${input.note}` : ""}
-                </span>
-              </div>
-            ))}
+            {inputs.map((input) => {
+              const impact = entry.role === "result" && input.entry.role === "driver" ? impactFor(input.entry.value, definition.id) : undefined;
+              return (
+                <div key={input.entry.value.definition.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.border}` }}>
+                  <span style={{ fontSize: 12 }}>
+                    {input.entry.value.definition.label}
+                    <span style={{ color: C.muted, fontSize: 11 }}> · {input.entry.role === "result" ? "result" : "driver"}</span>
+                  </span>
+                  <span style={{ color: input.weight != null ? C.info : C.muted, fontSize: 11, whiteSpace: "nowrap" }}>
+                    {input.weight != null ? `weight ${input.weight.toFixed(2)}` : "weight not declared"}
+                  </span>
+                  <span style={{ gridColumn: "1 / -1", color: C.muted, fontSize: 11 }}>
+                    {input.source === "link" ? "Weight from causal link." : input.source === "affects" ? "Input from affects; no weight." : "Weight from inputs."}
+                    {` Gap ratio ${input.entry.value.gapRatio == null ? "—" : input.entry.value.gapRatio.toFixed(2)}.`}
+                    {impact != null ? ` Impact ${impact.toFixed(2)}.` : ""}
+                    {input.note ? ` ${input.note}` : ""}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

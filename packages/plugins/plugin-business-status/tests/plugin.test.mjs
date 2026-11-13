@@ -79,7 +79,7 @@ const securityProfile = {
 test("manifest exposes the generic cockpit contract in English", () => {
   assert.equal(manifest.id, "paperclip.business-status");
   assert.equal(manifest.apiVersion, 1);
-  assert.equal(manifest.version, "1.3.0");
+  assert.equal(manifest.version, "1.3.1");
   assert.equal(manifest.displayName, "Business Cockpit");
   const slotTypes = manifest.ui.slots.map((slot) => slot.type).sort();
   assert.deepEqual(slotTypes, ["dashboardWidget", "page", "sidebar"]);
