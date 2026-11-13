@@ -4662,6 +4662,11 @@
         {
           "name": "stopIncident20261113",
           "value": "QWE-170（融合本体）：人类在 03:27:14 STOP 了 run 55400241（cancelled），但 issue 仍停在 in_progress 且无 owner run，触发 recovery.invariant_violation I7_visible_next_action / no_owner_no_wake。停止后 timer run 186eb8d9（03:27:14–03:30:30）接续并提交 d90daee（融合本体 v1.0.0，46 types / 4 providers）与 5616717；tests 12/12 通过。修复：在 QWE-170 补证据评论（comment d5b55365）并置 status=cancelled（2026-11-13T03:36:37Z），invariant 清除。后续 QWE-171 已完成融合本体 v1.1.0（50 types / 64 routes / 7-7 项目覆盖）并派生 QWE-172..176 采集/裁决任务。教训：Paperclip 的 STOP 只取消当前 run，不改变 issue 状态；要真正停止工作应暂停 Agent 或取消/阻塞 issue，否则 timer wake 可继续。QWE-170 的执行工作区 56c851ce 仍为 active，待回收。"
+        },
+        {
+          "name": "commit",
+          "value": "9fef6db633",
+          "description": "chore(argo): record QWE-170 stop-incident recovery for kg-manager (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     },
