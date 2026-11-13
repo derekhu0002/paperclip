@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 13/13 (computed weighted-sum/ratio, missing input -> awaiting, leaf computed rejection, aggregation/role validation, computed ingestion rejection with metric-not-ingestible, DAG cycle/unknown/self validation). Skill catalog manifest validated with 18 skills. Deployed to 47 as 1.4.0: plugin loader activated 1.4.0, health ok, served UI bundle HTTP 200 (43810 bytes). Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Fork package: build passed, typecheck passed, node tests 14/14, including a QwenPaw detection-coverage end-to-end test (profile -> snapshot ingestion -> measured 30/31 -> computed 0.7 -> missing input awaiting -> computed ingestion rejected). Skill catalog manifest validated with 18 skills. Deployed to 47 as 1.4.0: plugin loader activated 1.4.0, health ok, served UI bundle HTTP 200 (43810 bytes). Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -5119,6 +5119,23 @@
         {
           "name": "computedAt",
           "value": "2026-11-13T11:20:00Z"
+        },
+        {
+          "name": "ownershipModel",
+          "value": "CEO owns the business metric system: outcomes, targets, weights, metric contracts, operating cadence, investigation, intervention and accountability. The knowledge-management Agent is the metric steward: definitions, source registry, lineage, versioning, missing-data registry, reconciliation and contract hygiene. Domain/project Agents produce leaf evidence with provenance and execute interventions. The plugin enforces structure, ingestion permissions, computed evaluation and deterministic error feedback. The CEO does not delegate accountability to the KM Agent; the KM Agent maintains the contract the CEO owns."
+        },
+        {
+          "name": "commit",
+          "value": "85e7ce51986d9b581cb05d0a4de046cf109cb54c",
+          "description": "test: add QwenPaw detection coverage end-to-end; file: packages/plugins/plugin-business-status/tests/plugin.test.mjs"
+        },
+        {
+          "name": "taskSummaryOwnership",
+          "value": "【任务 2026-11-13】补 QwenPaw detection coverage 端到端测试，并明确业务指标体系责任分工。\n\n【测试】profile -> parse snapshot -> build payload：measured Detection Coverage 30/31=0.9677；computed Detection Coverage Model=0.7（0.4×telemetry 1.0 + 0.6×validated 0.5）；缺 validated 时 awaiting；直接回填 computed 返回 metric-not-ingestible。node tests 14/14。commit：85e7ce51986d9b581cb05d0a4de046cf109cb54c。\n\n【责任分工】CEO 是业务指标体系的 owner，负责目标、口径、权重、节奏、调查、干预和结果；KM Agent 是 metric steward，负责定义、来源登记、lineage、版本、缺失数据、对账和契约卫生；domain Agents 负责叶子证据和行动；plugin 负责结构/回填权限/computed 求值/确定性错误反馈。CEO 不把问责委托给 KM Agent。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "ownershipAt",
+          "value": "2026-11-13T11:30:00Z"
         }
       ]
     }
