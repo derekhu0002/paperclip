@@ -4718,6 +4718,11 @@
           "name": "commit",
           "value": "c30d273",
           "description": "docs(agents): model org ontology as type-level fusion with provider routing (file: AGENTS.md in kg repo)"
+        },
+        {
+          "name": "commit",
+          "value": "c271e5e17e",
+          "description": "chore(argo): record fused-ontology model and provider routing for kg-manager (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
