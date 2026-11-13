@@ -4704,6 +4704,11 @@
           "name": "commit",
           "value": "e5ea963",
           "description": "docs(agents): make mapping schema-agnostic for custom project schemas (file: AGENTS.md in kg repo)"
+        },
+        {
+          "name": "commit",
+          "value": "65d6da04d6",
+          "description": "chore(argo): record schema-agnostic mapping rule for kg-manager role (files: design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ]
     }
