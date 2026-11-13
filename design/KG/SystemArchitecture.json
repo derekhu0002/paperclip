@@ -4892,8 +4892,8 @@
         },
         {
           "name": "pluginVersion",
-          "value": "1.3.1",
-          "description": "Shows gap ratio and impact explicitly on input cards and the input relationship table."
+          "value": "1.3.2",
+          "description": "Shows Higher is better / Lower is better on input cards and input relationship rows."
         },
         {
           "name": "installPath",
@@ -4910,7 +4910,7 @@
         },
         {
           "name": "verification",
-          "value": "Fork package: build passed, typecheck passed, node tests 11/11. Deployed to 47 as 1.3.1: plugin loader activated 1.3.1, health ok, served UI bundle HTTP 200 (42978 bytes) with explicit Gap ratio/Impact copy. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
+          "value": "Fork package: build passed, typecheck passed, node tests 11/11. Deployed to 47 as 1.3.2: plugin loader activated 1.3.2, health ok, served UI bundle HTTP 200 (43229 bytes) containing both Higher is better and Lower is better. Full server vitest not run locally because the Windows/WSL node_modules lacks zod/supertest; CI will run it."
         },
         {
           "name": "followups",
@@ -5045,7 +5045,7 @@
         },
         {
           "name": "uiDrilldown",
-          "value": "Home shows only final results. Detail view shows meaning, definition, calculation, input relationship with weight/gap ratio/impact/note, provenance and input cards. Input cards drill recursively. A driver can influence multiple results; the path is a drill-down path, not a tree. Leaf metrics show source/sourceRef/commit/digest/asOf/note."
+          "value": "Home shows only final results. Detail view shows meaning, definition, calculation, input relationship with role, direction (higher/lower is better), weight, gap ratio, impact and note, provenance and input cards. Input cards drill recursively. A driver can influence multiple results; the path is a drill-down path, not a tree. Leaf metrics show source/sourceRef/commit/digest/asOf/note."
         },
         {
           "name": "commit",
@@ -5089,6 +5089,19 @@
         {
           "name": "gapRatioClarityAt",
           "value": "2026-11-13T10:16:00Z"
+        },
+        {
+          "name": "commit",
+          "value": "07625d838b7161bbb05a9b750a6aff22d6491182",
+          "description": "ui: show direction on input relationships; files: packages/plugins/plugin-business-status/{src/ui/index.tsx,src/shared.ts,package.json,tests/plugin.test.mjs}"
+        },
+        {
+          "name": "taskSummaryDirection",
+          "value": "【任务 2026-11-13】在 input 关系展示中补上方向。\n\n【结果】InputCard 的 target 行显示 Higher is better / Lower is better；Input relationship 每行显示 role + direction，并继续显示 weight / gap ratio / impact / note。版本 1.3.2 已部署 47；build/typecheck/tests 11/11。commit：07625d838b7161bbb05a9b750a6aff22d6491182。\n\n【目标 T2】business-status-plugin-2026-11-13 / view project-manager-business-status-001。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "directionDisplayAt",
+          "value": "2026-11-13T10:22:00Z"
         }
       ]
     }
