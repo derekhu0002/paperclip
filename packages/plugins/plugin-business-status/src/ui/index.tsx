@@ -160,36 +160,46 @@ function impactFor(driver: DriverValue, resultId: string): number {
   return driver.impacts.find((impact) => impact.resultId === resultId)?.impact ?? 0;
 }
 
-function leverAction(driver: DriverValue): string {
-  const current = driver.displayValue ?? "—";
-  const target = formatMetricValue(driver.definition.target, driver.definition.unit) ?? "—";
-  const verb = driver.definition.direction === "higher-is-better" ? "Improve" : "Reduce";
-  return `${verb} ${driver.definition.label} (${current} → ${target})`;
+type MetricEntry =
+  | { role: "result"; value: MetricValue }
+  | { role: "driver"; value: DriverValue };
+
+function metricIndex(payload: CockpitPayload): Map<string, MetricEntry> {
+  const index = new Map<string, MetricEntry>();
+  for (const value of payload.results) index.set(value.definition.id, { role: "result", value });
+  for (const value of payload.drivers) index.set(value.definition.id, { role: "driver", value });
+  return index;
 }
 
-function ResultCard({
-  result,
-  selected,
-  onSelect,
-}: {
-  result: MetricValue;
-  selected: boolean;
-  onSelect: () => void;
-}) {
+function inputsFor(payload: CockpitPayload, index: Map<string, MetricEntry>, id: string): MetricEntry[] {
+  const entry = index.get(id);
+  if (!entry) return [];
+  const explicit = entry.value.definition.inputs ?? [];
+  if (explicit.length > 0) {
+    return explicit.map((inputId) => index.get(inputId)).filter((input): input is MetricEntry => Boolean(input));
+  }
+  if (entry.role === "result") {
+    return payload.drivers
+      .filter((driver) => driver.affects.includes(id) || driver.impacts.some((impact) => impact.resultId === id))
+      .sort((a, b) => impactFor(b, id) - impactFor(a, id))
+      .map((driver) => ({ role: "driver" as const, value: driver }));
+  }
+  return [];
+}
+
+function ResultCard({ result, onOpen }: { result: MetricValue; onOpen: () => void }) {
   const awaiting = result.state === "awaiting-data";
   const color = statusColor(result.status);
   return (
     <button
       type="button"
-      onClick={onSelect}
+      onClick={onOpen}
       style={{
         ...card,
         textAlign: "left",
         cursor: "pointer",
         display: "grid",
         gap: 8,
-        borderColor: selected ? C.info : C.border,
-        background: selected ? C.accent : C.card,
         color: C.fg,
       }}
     >
@@ -210,33 +220,194 @@ function ResultCard({
       <div style={{ height: 5, background: C.border, borderRadius: 999, overflow: "hidden" }}>
         <div style={{ width: `${progressPercent(result)}%`, height: "100%", background: color }} />
       </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, color: C.info, fontSize: 11 }}>
+        <span>Open calculation →</span>
+      </div>
     </button>
   );
 }
 
-function DriverRow({ driver, selectedResultId, maxImpact }: { driver: DriverValue; selectedResultId: string; maxImpact: number }) {
-  const impact = impactFor(driver, selectedResultId);
-  const width = maxImpact > 0 ? Math.max(2, (impact / maxImpact) * 100) : 0;
-  const awaiting = driver.state === "awaiting-data";
+function InputCard({ entry, impact, onOpen }: { entry: MetricEntry; impact?: number; onOpen: () => void }) {
+  const metric = entry.value;
+  const awaiting = metric.state === "awaiting-data";
   return (
-    <div style={{ display: "grid", gap: 5, padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
+    <button
+      type="button"
+      onClick={onOpen}
+      style={{ ...card, textAlign: "left", cursor: "pointer", display: "grid", gap: 8, color: C.fg }}
+    >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: C.fg }}>{driver.definition.label}</span>
-        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 12, fontVariantNumeric: "tabular-nums", color: awaiting ? C.muted : C.fg }}>
-            {driver.displayValue ?? "—"}
-          </span>
-          {badge(awaiting ? "Awaiting data" : statusText(driver.status), awaiting ? "unknown" : driver.status)}
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{metric.definition.label}</span>
+        {badge(entry.role === "result" ? "Result" : "Driver", "info")}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <span style={{ fontSize: 20, fontWeight: 650, fontVariantNumeric: "tabular-nums", color: awaiting ? C.muted : C.fg }}>
+          {metric.displayValue ?? "—"}
+        </span>
+        <span style={{ color: C.muted, fontSize: 11 }}>Target {targetText(metric)}</span>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+        {badge(awaiting ? "Awaiting data" : statusText(metric.status), awaiting ? "unknown" : metric.status)}
+        <span style={{ color: C.muted, fontSize: 11 }}>
+          {metric.provenance.source ?? "—"} · {shortTime(metric.asOf)}
         </span>
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, color: C.muted, fontSize: 11 }}>
-        <span>Target {formatMetricValue(driver.definition.target, driver.definition.unit) ?? "—"}</span>
-        <span>Impact {impact > 0 ? impact.toFixed(2) : "—"}</span>
+      {impact != null ? <div style={{ color: C.info, fontSize: 11 }}>Impact {impact.toFixed(2)}</div> : null}
+      <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.5 }}>
+        {metric.provenance.formula ?? metric.definition.formula ?? "No formula provided."}
       </div>
-      <div style={{ height: 4, background: C.border, borderRadius: 999, overflow: "hidden" }}>
-        <div style={{ width: `${width}%`, height: "100%", background: statusColor(driver.status) }} />
-      </div>
+      <div style={{ color: C.info, fontSize: 11 }}>Open metric →</div>
+    </button>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "5px 0", borderBottom: `1px solid ${C.border}` }}>
+      <span style={{ color: C.muted, fontSize: 11 }}>{label}</span>
+      <span style={{ fontSize: 12, textAlign: "right", overflowWrap: "anywhere" }}>{value}</span>
     </div>
+  );
+}
+
+function MetricDetail({
+  entry,
+  inputs,
+  pathEntries,
+  onOpen,
+  onBack,
+  onHome,
+  onJump,
+}: {
+  entry: MetricEntry;
+  inputs: MetricEntry[];
+  pathEntries: MetricEntry[];
+  onOpen: (id: string) => void;
+  onBack: () => void;
+  onHome: () => void;
+  onJump: (index: number) => void;
+}) {
+  const metric = entry.value;
+  const definition = metric.definition;
+  const awaiting = metric.state === "awaiting-data";
+  const isDriver = entry.role === "driver";
+  const affects = entry.role === "driver" ? entry.value.affects : [];
+  const impacts = entry.role === "driver" ? entry.value.impacts : [];
+
+  return (
+    <>
+      <nav style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 11 }}>
+        <button type="button" style={{ ...button(), padding: "4px 9px" }} onClick={onBack}>
+          ← Back
+        </button>
+        <button type="button" style={{ ...button(), padding: "4px 9px" }} onClick={onHome}>
+          Business Cockpit
+        </button>
+        {pathEntries.map((pathEntry, index) => (
+          <span key={`${pathEntry.value.definition.id}-${index}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ color: C.muted }}>/</span>
+            <button type="button" style={{ ...button(), padding: "2px 7px" }} onClick={() => onJump(index)}>
+              {pathEntry.value.definition.label}
+            </button>
+          </span>
+        ))}
+      </nav>
+
+      <header style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <h1 style={{ fontSize: 20, margin: 0 }}>{definition.label}</h1>
+            {badge(isDriver ? "Driver" : "Result", "info")}
+            {badge(awaiting ? "Awaiting data" : statusText(metric.status), awaiting ? "unknown" : metric.status)}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 6 }}>
+            <span style={{ fontSize: 28, fontWeight: 650, fontVariantNumeric: "tabular-nums", color: awaiting ? C.muted : C.fg }}>
+              {metric.displayValue ?? "—"}
+            </span>
+            <span style={{ color: C.muted, fontSize: 11 }}>
+              Target {targetText(metric)} · {gapText(metric)}
+            </span>
+          </div>
+        </div>
+        <div style={{ color: C.muted, fontSize: 11, textAlign: "right" }}>
+          <div>as-of {shortTime(metric.asOf)}</div>
+          <div>source {metric.provenance.source ?? "—"}</div>
+        </div>
+      </header>
+
+      <section style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
+        <div style={card}>
+          <strong style={{ fontSize: 14 }}>Definition</strong>
+          <div style={{ marginTop: 8 }}>
+            <DetailRow label="Role" value={isDriver ? "Driver" : "Result"} />
+            <DetailRow label="Unit" value={definition.unit} />
+            <DetailRow label="Direction" value={directionLabel(definition.direction)} />
+            <DetailRow label="Target" value={formatMetricValue(definition.target, definition.unit) ?? "—"} />
+            <DetailRow label="Warn" value={formatMetricValue(definition.warn, definition.unit) ?? "—"} />
+            <DetailRow label="Critical" value={formatMetricValue(definition.critical, definition.unit) ?? "—"} />
+            <DetailRow label="Source" value={definition.source} />
+            <DetailRow label="Source ref" value={definition.sourceRef ?? "—"} />
+          </div>
+        </div>
+
+        <div style={card}>
+          <strong style={{ fontSize: 14 }}>Calculation</strong>
+          <p style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, margin: "8px 0 14px" }}>
+            {definition.formula ?? metric.provenance.formula ?? "No formula provided."}
+          </p>
+          <strong style={{ fontSize: 14 }}>Provenance</strong>
+          <div style={{ marginTop: 8 }}>
+            <DetailRow label="Source" value={metric.provenance.source ?? definition.source} />
+            <DetailRow label="Source ref" value={metric.provenance.sourceRef ?? definition.sourceRef ?? "—"} />
+            {metric.provenance.commit ? <DetailRow label="Commit" value={<code style={mono}>{metric.provenance.commit}</code>} /> : null}
+            {metric.provenance.digest ? <DetailRow label="Digest" value={<code style={mono}>{metric.provenance.digest}</code>} /> : null}
+            {metric.provenance.note ? <DetailRow label="Note" value={metric.provenance.note} /> : null}
+            {metric.provenance.reportedBy ? <DetailRow label="Reported by" value={metric.provenance.reportedBy} /> : null}
+            <DetailRow label="As of" value={shortTime(metric.asOf)} />
+          </div>
+        </div>
+      </section>
+
+      {isDriver ? (
+        <section style={card}>
+          <strong style={{ fontSize: 14 }}>Affects</strong>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+            {affects.length > 0
+              ? affects.map((resultId) => <span key={resultId} style={{ ...mono, color: C.muted }}>{resultId}</span>)
+              : <span style={{ color: C.muted, fontSize: 12 }}>No downstream result declared.</span>}
+          </div>
+          {impacts.length > 0 ? (
+            <div style={{ marginTop: 10, display: "grid", gap: 4 }}>
+              {impacts.map((impact) => (
+                <div key={impact.resultId} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.muted }}>
+                  <span>{impact.resultId}</span>
+                  <span>weight {impact.weight.toFixed(2)} · impact {impact.impact.toFixed(2)}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section style={card}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+          <strong style={{ fontSize: 14 }}>Inputs ({inputs.length})</strong>
+          <span style={{ color: C.muted, fontSize: 11 }}>Click a card to inspect its definition, calculation and inputs.</span>
+        </div>
+        {inputs.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6, marginTop: 10 }}>
+            Leaf metric: no inputs are declared. This is where the measurement comes from.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginTop: 10 }}>
+            {inputs.map((input) => {
+              const impact = entry.role === "result" && input.role === "driver" ? impactFor(input.value, definition.id) : undefined;
+              return <InputCard key={input.value.definition.id} entry={input} impact={impact} onOpen={() => onOpen(input.value.definition.id)} />;
+            })}
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 
@@ -303,7 +474,7 @@ function ConfigureDrawer({
           </button>
         </div>
         <p style={{ color: C.muted, fontSize: 12, margin: 0, lineHeight: 1.6 }}>
-          Edit the JSON profile for this company. The profile defines key results, process drivers, causal weights, targets and metric sources. It is stored per company; the Agent can also write it through{" "}
+          Edit the JSON profile for this company. The profile defines key results, process drivers, metric inputs, causal weights, targets and metric sources. It is stored per company; the Agent can also write it through{" "}
           <code style={{ color: C.info }}>POST /api/plugins/{PLUGIN_ID}/api/profile</code>.
         </p>
         <textarea
@@ -336,7 +507,7 @@ function ConfigureDrawer({
           </button>
         </div>
         <div style={{ color: C.muted, fontSize: 11, lineHeight: 1.7 }}>
-          Metric sources: <code style={{ color: C.info }}>paperclip</code> (computed by the host), <code style={{ color: C.info }}>snapshot</code> (ingested through the metrics API), <code style={{ color: C.info }}>static</code> (fixed value). See AGENT-API.md for the full schema.
+          Metric sources: <code style={{ color: C.info }}>paperclip</code> (computed by the host), <code style={{ color: C.info }}>snapshot</code> (ingested through the metrics API), <code style={{ color: C.info }}>static</code> (fixed value). Use <code style={{ color: C.info }}>inputs</code> to nest one metric under another. See the bundled business-cockpit skill for the full schema.
         </div>
       </div>
     </div>
@@ -396,31 +567,17 @@ function Cockpit({
   refresh: () => void;
   onConfigure: () => void;
 }) {
-  const initialResultId = useMemo(() => {
-    const withDrivers = payload.results.find((entry) =>
-      payload.drivers.some((driver) => driver.impacts.some((impact) => impact.resultId === entry.definition.id)),
-    );
-    const current = payload.results.find((entry) => entry.state === "current");
-    return (withDrivers ?? current ?? payload.results[0])?.definition.id ?? "";
-  }, [payload]);
-  const [selectedResultId, setSelectedResultId] = useState(initialResultId);
+  const [path, setPath] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
+  const index = useMemo(() => metricIndex(payload), [payload]);
   useEffect(() => {
-    if (!payload.results.some((entry) => entry.definition.id === selectedResultId)) {
-      setSelectedResultId(initialResultId);
-    }
-  }, [initialResultId, payload.results, selectedResultId]);
-  const result = payload.results.find((entry) => entry.definition.id === selectedResultId) ?? payload.results[0] ?? null;
-  const selectedId = result?.definition.id ?? "";
-
-  const linkedDrivers = useMemo(() => {
-    return payload.drivers
-      .filter((driver) => driver.impacts.some((impact) => impact.resultId === selectedId))
-      .sort((a, b) => impactFor(b, selectedId) - impactFor(a, selectedId));
-  }, [payload.drivers, selectedId]);
-
-  const maxImpact = linkedDrivers.reduce((max, driver) => Math.max(max, impactFor(driver, selectedId)), 0);
-  const levers = payload.levers.filter((lever) => lever.results.includes(selectedId)).slice(0, 4);
+    if (path.length === 0) return;
+    const valid = path.filter((id) => index.has(id));
+    if (valid.length !== path.length) setPath(valid);
+  }, [index, path]);
+  const pathEntries = path.map((id) => index.get(id)).filter((entry): entry is MetricEntry => Boolean(entry));
+  const focused = pathEntries[pathEntries.length - 1] ?? null;
+  const inputs = focused ? inputsFor(payload, index, focused.value.definition.id) : [];
 
   async function copyExample() {
     const example = `curl -sS -X POST "$PAPERCLIP_API_URL/api/plugins/${PLUGIN_ID}/api/metrics" \\\n  -H "Authorization: Bearer <board-or-agent-token>" \\\n  -H "Content-Type: application/json" \\\n  -d '${JSON.stringify({ companyId, values: [{ id: "detection-coverage-rate", value: 0.62, asOf: new Date().toISOString(), source: "provider-graph", commit: "<sha>", digest: "sha256:<digest>" }] })}'`;
@@ -467,116 +624,32 @@ function Cockpit({
         </div>
       </header>
 
-      <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
-        {payload.results.map((entry) => (
-          <ResultCard
-            key={entry.definition.id}
-            result={entry}
-            selected={entry.definition.id === selectedId}
-            onSelect={() => setSelectedResultId(entry.definition.id)}
-          />
-        ))}
-      </section>
-
-      {result ? (
-        <section style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(0, 1.5fr) minmax(280px, 1fr)" }}>
-          <div style={card}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 8 }}>
-              <div>
-                <strong style={{ fontSize: 14 }}>{result.definition.label} · Process drivers</strong>
-                <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>
-                  Current {result.displayValue ?? "—"} · Target {targetText(result)} · {gapText(result)}
-                </div>
-              </div>
-              {badge(result.state === "awaiting-data" ? "Awaiting data" : statusText(result.status), result.state === "awaiting-data" ? "unknown" : result.status)}
-            </div>
-            {linkedDrivers.length === 0 ? (
-              <div style={{ color: C.muted, fontSize: 12 }}>No process drivers are linked to this result.</div>
-            ) : (
-              linkedDrivers.map((driver) => (
-                <DriverRow key={driver.definition.id} driver={driver} selectedResultId={selectedId} maxImpact={maxImpact} />
-              ))
-            )}
+      {focused ? (
+        <MetricDetail
+          entry={focused}
+          inputs={inputs}
+          pathEntries={pathEntries}
+          onOpen={(id) => setPath((current) => (current.includes(id) ? current : [...current, id]))}
+          onBack={() => setPath((current) => current.slice(0, -1))}
+          onHome={() => setPath([])}
+          onJump={(position) => setPath((current) => current.slice(0, position + 1))}
+        />
+      ) : (
+        <>
+          <div style={{ color: C.muted, fontSize: 12 }}>
+            Select a result to inspect its definition, calculation, inputs and provenance.
           </div>
-
-          <div style={card}>
-            <strong style={{ fontSize: 14 }}>Levers</strong>
-            <p style={{ color: C.muted, fontSize: 11, margin: "4px 0 10px", lineHeight: 1.5 }}>
-              Ranked by gap × causal weight. Move the top lever first.
-            </p>
-            {levers.length === 0 ? (
-              <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
-                All configured drivers are on target, so they do not explain the gap on "{result.definition.label}". Add a driver or review the causal model.
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: 8 }}>
-                {levers.map((lever, index) => {
-                  const driver = payload.drivers.find((entry) => entry.definition.id === lever.driverId);
-                  return (
-                    <div key={lever.driverId} style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 9 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600 }}>
-                          {index + 1}. {lever.label}
-                        </span>
-                        {badge(statusText(lever.status), lever.status)}
-                      </div>
-                      <div style={{ color: C.muted, fontSize: 11, marginTop: 3 }}>{driver ? leverAction(driver) : "—"}</div>
-                      <div style={{ color: C.info, fontSize: 11, marginTop: 2 }}>Impact score {lever.impact.toFixed(2)}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-      ) : null}
-
-      <section style={card}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-          <strong style={{ fontSize: 14 }}>Process metrics</strong>
-          <span style={{ color: C.muted, fontSize: 11 }}>Only drivers in the profile are shown. Missing values stay "awaiting data"; they are never filled with 0.</span>
-        </div>
-        <div style={{ overflowX: "auto", border: `1px solid ${C.border}`, borderRadius: 8 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: C.accent, color: C.muted, textAlign: "left" }}>
-                {["Driver", "Current", "Target", "Direction", "Status", "Affects", "Formula / Source"].map((title) => (
-                  <th key={title} style={{ padding: "8px 10px", fontWeight: 600, whiteSpace: "nowrap" }}>{title}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {payload.drivers.map((driver) => {
-                const awaiting = driver.state === "awaiting-data";
-                return (
-                  <tr key={driver.definition.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                    <td style={{ padding: "8px 10px", color: C.fg, whiteSpace: "nowrap" }}>{driver.definition.label}</td>
-                    <td style={{ padding: "8px 10px", fontVariantNumeric: "tabular-nums", color: awaiting ? C.muted : C.fg }}>
-                      {driver.displayValue ?? "—"}
-                    </td>
-                    <td style={{ padding: "8px 10px", color: C.muted }}>
-                      {formatMetricValue(driver.definition.target, driver.definition.unit) ?? "—"}
-                    </td>
-                    <td style={{ padding: "8px 10px", color: C.muted, whiteSpace: "nowrap" }}>
-                      {directionLabel(driver.definition.direction)}
-                    </td>
-                    <td style={{ padding: "8px 10px", whiteSpace: "nowrap" }}>
-                      {badge(awaiting ? "Awaiting data" : statusText(driver.status), awaiting ? "unknown" : driver.status)}
-                    </td>
-                    <td style={{ padding: "8px 10px", color: C.muted, ...mono }}>{driver.affects.join(", ") || "—"}</td>
-                    <td style={{ padding: "8px 10px", color: C.muted, minWidth: 220 }}>
-                      {driver.provenance.formula ?? driver.definition.formula ?? "—"}
-                      <div style={{ ...mono, color: C.muted, marginTop: 2 }}>
-                        {driver.provenance.source ?? "—"} · {shortTime(driver.asOf)}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+          <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
+            {payload.results.map((entry) => (
+              <ResultCard
+                key={entry.definition.id}
+                result={entry}
+                onOpen={() => setPath([entry.definition.id])}
+              />
+            ))}
+          </section>
+        </>
+      )}
     </div>
   );
 }

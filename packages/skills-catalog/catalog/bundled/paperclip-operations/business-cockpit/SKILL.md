@@ -72,7 +72,8 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
       "critical": 2,
       "source": "paperclip",
       "sourceRef": "delivery-throughput",
-      "formula": "Issues completed in the last 30 days."
+      "formula": "Issues completed in the last 30 days.",
+      "inputs": ["wip"]
     }
   ],
   "drivers": [
@@ -88,10 +89,25 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
       "sourceRef": "wip",
       "formula": "Issues currently in progress.",
       "affects": ["delivery-throughput"]
+    },
+    {
+      "id": "flow-efficiency",
+      "label": "Flow Efficiency",
+      "unit": "ratio",
+      "direction": "higher-is-better",
+      "target": 0.6,
+      "warn": 0.4,
+      "critical": 0.2,
+      "source": "snapshot",
+      "sourceRef": "flow-efficiency",
+      "formula": "Active time / total cycle time.",
+      "inputs": ["wip"],
+      "affects": ["delivery-throughput"]
     }
   ],
   "links": [
-    { "from": "wip", "to": "delivery-throughput", "weight": 0.3 }
+    { "from": "wip", "to": "delivery-throughput", "weight": 0.3 },
+    { "from": "flow-efficiency", "to": "delivery-throughput", "weight": 0.2 }
   ]
 }
 ```
@@ -110,8 +126,11 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
 | `sourceRef` | for `paperclip` | Host-computed metric key. |
 | `formula` | no | Plain-language formula shown in the UI. |
 | `value` | for `static` | Fixed numeric value. |
+| `inputs` | no | Metric ids that explain how this metric is composed. Any result or driver id; must exist and must not create a cycle. |
 
-A driver also requires `affects`: a non-empty array of result ids it is expected to move.
+`inputs` turns results and drivers into one metric DAG. A driver can be an input to another driver, and a result can be an input to another metric. In this version `inputs` is explanatory: the plugin shows the hierarchy and provenance but does not recompute a parent value from its inputs. A metric with no `inputs` is a leaf; its value comes from `paperclip`, `snapshot` or `static`.
+
+A driver's `affects` is optional. When present, it lists downstream result ids used by the lever ranking.
 
 A link connects a driver id (`from`) to a result id (`to`) with a weight between `-1` and `1`. The cockpit ranks levers by driver gap multiplied by the absolute weight.
 
@@ -175,6 +194,7 @@ Rules:
    - 5 to 8 drivers that can move those results.
    - A target, warning and critical threshold for each.
    - Causal links with weights.
+   - `inputs` on any metric that is composed from other metrics; use it to expose the hierarchy down to leaf measurements. `inputs` may reference results or drivers and must stay acyclic.
    - `paperclip` source where the host already computes it; `snapshot` for project-specific evidence.
 3. `POST profile` with the full profile. It replaces the company's previous profile.
 4. Collect snapshot values from the project graph, issues, runs or documents. Include `source`, `commit`, `digest`, `asOf` and a note with numerator/denominator.

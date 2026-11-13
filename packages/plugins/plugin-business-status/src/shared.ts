@@ -1,5 +1,5 @@
 export const PLUGIN_ID = "paperclip.business-status";
-export const PLUGIN_VERSION = "1.1.2";
+export const PLUGIN_VERSION = "1.2.0";
 export const STATUS_ROUTE_PATH = "business-status";
 
 export const PROFILE_NAMESPACE = "profile";
@@ -25,6 +25,7 @@ export interface MetricDefinition {
   sourceRef?: string;
   formula?: string;
   value?: number | null;
+  inputs?: string[];
 }
 
 export interface DriverDefinition extends MetricDefinition {

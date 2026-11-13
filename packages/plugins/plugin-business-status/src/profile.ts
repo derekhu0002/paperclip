@@ -108,13 +108,26 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
     if (!isFiniteNumber(input.value)) errors.push(`${prefix}.value is required when source=static`);
     else value = input.value;
   }
-  let affects: string[] | undefined;
+  let affects: string[] = [];
   if (kind === "driver") {
     const raw = input.affects;
-    if (!Array.isArray(raw) || raw.length === 0 || !raw.every((entry) => typeof entry === "string" && entry.trim())) {
-      errors.push(`${prefix}.affects must be a non-empty array of result ids`);
+    if (raw !== undefined) {
+      if (!Array.isArray(raw) || !raw.every((entry) => typeof entry === "string" && entry.trim())) {
+        errors.push(`${prefix}.affects must be an array of result ids`);
+      } else {
+        affects = [...new Set(raw.map((entry) => (entry as string).trim()))];
+      }
+    }
+  }
+  const rawInputs = input.inputs;
+  let inputs: string[] | undefined;
+  if (rawInputs !== undefined) {
+    if (!Array.isArray(rawInputs) || !rawInputs.every((entry) => typeof entry === "string" && entry.trim())) {
+      errors.push(`${prefix}.inputs must be an array of metric ids`);
     } else {
-      affects = [...new Set(raw.map((entry) => (entry as string).trim()))];
+      const cleaned = [...new Set(rawInputs.map((entry) => (entry as string).trim()))];
+      if (id && cleaned.includes(id)) errors.push(`${prefix}.inputs cannot reference its own metric id`);
+      inputs = cleaned;
     }
   }
   if (errors.length > 0) return { ok: false, errors };
@@ -130,8 +143,39 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
     ...(sourceRef ? { sourceRef } : {}),
     ...(formula ? { formula } : {}),
     ...(value !== undefined ? { value } : {}),
+    ...(inputs && inputs.length > 0 ? { inputs } : {}),
   };
-  return kind === "driver" ? { ok: true, metric: { ...metric, affects: affects! } as DriverDefinition, errors } : { ok: true, metric, errors };
+  return kind === "driver" ? { ok: true, metric: { ...metric, affects } as DriverDefinition, errors } : { ok: true, metric, errors };
+}
+
+function findInputCycle(metrics: MetricDefinition[]): string[] | null {
+  const byId = new Map(metrics.map((metric) => [metric.id, metric]));
+  const state = new Map<string, 0 | 1 | 2>();
+  const stack: string[] = [];
+
+  function visit(id: string): string[] | null {
+    const current = state.get(id) ?? 0;
+    if (current === 1) {
+      return [...stack.slice(stack.indexOf(id)), id];
+    }
+    if (current === 2) return null;
+    state.set(id, 1);
+    stack.push(id);
+    for (const inputId of byId.get(id)?.inputs ?? []) {
+      if (!byId.has(inputId)) continue;
+      const cycle = visit(inputId);
+      if (cycle) return cycle;
+    }
+    stack.pop();
+    state.set(id, 2);
+    return null;
+  }
+
+  for (const metric of metrics) {
+    const cycle = visit(metric.id);
+    if (cycle) return cycle;
+  }
+  return null;
 }
 
 export function validateProfile(input: unknown): { ok: true; profile: BusinessProfile } | { ok: false; errors: string[] } {
@@ -176,6 +220,17 @@ export function validateProfile(input: unknown): { ok: true; profile: BusinessPr
     for (const affect of driver.affects) {
       if (!resultIds.has(affect)) errors.push(`driver ${driver.id} affects unknown result ${affect}`);
     }
+  }
+
+  const allIds = new Set([...resultIds, ...driverIds]);
+  for (const metric of [...results, ...drivers]) {
+    for (const inputId of metric.inputs ?? []) {
+      if (!allIds.has(inputId)) errors.push(`metric ${metric.id} has unknown input ${inputId}`);
+    }
+  }
+  if (errors.length === 0) {
+    const cycle = findInputCycle([...results, ...drivers]);
+    if (cycle) errors.push(`profile.inputs contain a cycle: ${cycle.join(" -> ")}`);
   }
 
   const links: CausalLink[] = [];

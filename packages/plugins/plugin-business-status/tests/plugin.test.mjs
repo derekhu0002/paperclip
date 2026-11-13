@@ -79,7 +79,7 @@ const securityProfile = {
 test("manifest exposes the generic cockpit contract in English", () => {
   assert.equal(manifest.id, "paperclip.business-status");
   assert.equal(manifest.apiVersion, 1);
-  assert.equal(manifest.version, "1.1.1");
+  assert.equal(manifest.version, "1.2.0");
   assert.equal(manifest.displayName, "Business Cockpit");
   const slotTypes = manifest.ui.slots.map((slot) => slot.type).sort();
   assert.deepEqual(slotTypes, ["dashboardWidget", "page", "sidebar"]);
@@ -126,6 +126,77 @@ test("profile validation rejects malformed definitions", () => {
     results: [{ ...profileModule.STARTER_PROFILE.results[0], source: "static" }],
   });
   assert.equal(staticWithoutValue.ok, false);
+});
+
+test("profile validation supports nested metric inputs and rejects cycles", () => {
+  const nested = {
+    name: "Nested Cockpit",
+    results: [
+      {
+        id: "coverage",
+        label: "Coverage",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 0.8,
+        source: "snapshot",
+        sourceRef: "coverage",
+        inputs: ["telemetry", "validated"],
+      },
+    ],
+    drivers: [
+      {
+        id: "telemetry",
+        label: "Telemetry",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 0.9,
+        source: "snapshot",
+        sourceRef: "telemetry",
+      },
+      {
+        id: "validated",
+        label: "Validated",
+        unit: "ratio",
+        direction: "higher-is-better",
+        target: 0.7,
+        source: "snapshot",
+        sourceRef: "validated",
+        inputs: ["telemetry"],
+      },
+    ],
+    links: [],
+  };
+  const valid = profileModule.validateProfile(nested);
+  assert.equal(valid.ok, true);
+  assert.deepEqual(valid.profile.results[0].inputs, ["telemetry", "validated"]);
+  assert.deepEqual(valid.profile.drivers.find((driver) => driver.id === "validated").inputs, ["telemetry"]);
+  const payload = logic.buildCockpitPayload(valid.profile, {}, null, now, "company-1");
+  assert.deepEqual(payload.drivers.find((driver) => driver.definition.id === "validated").definition.inputs, ["telemetry"]);
+
+  const cycle = profileModule.validateProfile({
+    ...nested,
+    drivers: nested.drivers.map((driver) =>
+      driver.id === "validated" ? { ...driver, inputs: ["coverage"] } : driver,
+    ),
+  });
+  assert.equal(cycle.ok, false);
+  assert.ok(cycle.errors.some((error) => error.includes("cycle")));
+
+  const unknown = profileModule.validateProfile({
+    ...nested,
+    results: [{ ...nested.results[0], inputs: ["missing"] }],
+  });
+  assert.equal(unknown.ok, false);
+  assert.ok(unknown.errors.some((error) => error.includes("unknown input")));
+
+  const self = profileModule.validateProfile({
+    ...nested,
+    drivers: nested.drivers.map((driver) =>
+      driver.id === "telemetry" ? { ...driver, inputs: ["telemetry"] } : driver,
+    ),
+  });
+  assert.equal(self.ok, false);
+  assert.ok(self.errors.some((error) => error.includes("own metric id")));
 });
 
 test("default Paperclip metrics are computed from issues, goals and agents", () => {

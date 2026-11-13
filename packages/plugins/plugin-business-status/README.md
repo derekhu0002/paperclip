@@ -9,8 +9,10 @@ This is a framework, not a fixed KPI wall. It ships one editable profile model p
 A profile has three parts:
 
 - `results`: the outcomes the business is accountable for (3–5 recommended).
-- `drivers`: the process metrics that influence the results, each with `affects`.
+- `drivers`: the process metrics that influence the results. `affects` is optional and lists the downstream results used by the lever ranking.
 - `links`: causal edges from a driver to a result with a weight from -1 to 1.
+
+Any metric can also declare `inputs`: a list of metric ids that explain how it is composed. This turns results and drivers into one metric DAG: a driver can be an input to another driver, and a result can be an input to another metric. The plugin validates that every input exists and that the graph is acyclic.
 
 The UI ranks levers by `driver gap × abs(weight)`. A driver with no gap does not appear as an actionable lever; if no configured driver explains a result gap, the UI says so instead of inventing a cause.
 
@@ -20,8 +22,14 @@ Metric sources:
 - `snapshot`: ingested by a project/Agent with provenance.
 - `static`: fixed value, only when intentional.
 
+`inputs` is explanatory in this version: the plugin does not recompute a parent value from its inputs. A leaf metric is a metric with no `inputs`; its value and provenance come from `paperclip`, `snapshot` or `static`.
+
 ## UI
 
+- Home: only the company's final results.
+- Click a result: open its detail page with the definition, calculation, provenance and input cards.
+- Click an input card: drill into that metric using the same definition/calculation/inputs layout.
+- Leaf metrics show where the measurement comes from (`source`, `sourceRef`, `commit`, `digest`, `asOf`, `note`) and stop drilling.
 - Sidebar entry: **Business Cockpit**.
 - Page: `/:companyPrefix/business-status`.
 - Dashboard widget: top results for the company.
