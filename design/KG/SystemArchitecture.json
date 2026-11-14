@@ -5344,6 +5344,32 @@
         {
           "name": "agentsSkillAt",
           "value": "2026-11-14T00:20:00Z"
+        },
+        {
+          "name": "downloadUrl",
+          "value": "http://47.107.161.168/downloads/dl-cfcc1c580e34/paperclip-fork-89bb8675d3.tar.gz",
+          "description": "Temporary docker load archive (gzip) for paperclip-fork:89bb8675d3; README and .sha256 in same directory; expires in 24h via systemd timer."
+        },
+        {
+          "name": "downloadSha256",
+          "value": "98c75582dd340866a66d083c5d536253c3aab6b560b6cdafd13f66a9270109e6"
+        },
+        {
+          "name": "downloadExpiresAt",
+          "value": "2026-11-15T00:11:49Z",
+          "description": "24h from 2026-11-14T00:11:49Z; systemd timer paperclip-dl-dl-cfcc1c580e34-cleanup.timer. README: http://47.107.161.168/downloads/dl-cfcc1c580e34/README.txt"
+        },
+        {
+          "name": "externalImageGaps",
+          "value": "Image contains server runtime, UI, migrations, built-in project-tree and business-status plugins, skills catalog, and opencode-local 0.4.0 adapter. It does NOT contain: Paperclip instance data (DB, config.json, .env/PAPERCLIP_AGENT_JWT_SECRET, secrets/master.key, companies/agents/instructions, company skills, storage); the remote execution host OpenCode 1.19.5 and /etc/opencode or ~/.config/opencode MCP argo/graph-mcp; the Paperclip Runner provider pack (absent; legacy opencode_local remote works, native Runner/ACPX/sandbox may not); agent CLIs inside the container for local execution; per-agent managed instructions and cockpit governance/skill assignments (stored in instance data). The download is a docker-load tar.gz, not a registry pull. External Web deploy must supply these or migrate instance state."
+        },
+        {
+          "name": "taskSummaryExternalImage",
+          "value": "【任务 2026-11-14】开放 47 镜像临时下载并评估外部部署完备性。\n\n【下载】paperclip-fork:89bb8675d3 docker save | gzip -1，1.5G；URL http://47.107.161.168/downloads/dl-cfcc1c580e34/paperclip-fork-89bb8675d3.tar.gz；sha256 98c75582...；README 同目录；24h systemd timer 自动清理。HEAD 200，range 206。\n\n【完备性】镜像是 server/UI/插件/技能/迁移/adapter 的生产镜像，但不是自包含 all-in-one：缺实例 DB/config/.env/master.key/companies/agents/instructions/company skills/storage；缺执行机 OpenCode 1.19.5 与 /etc/opencode、~/.config/opencode 的 argo/graph-mcp MCP；缺 provider pack（legacy opencode_local 远端可用，native Runner/ACPX/sandbox 不可用）；容器内没有 agent CLI；governance/skill 分配和 per-agent instructions 在实例数据里。下载是 docker load tar.gz，不是 registry pull。\n\n【目标 T2】business-status-plugin-2026-11-13。\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "externalImageAt",
+          "value": "2026-11-14T00:15:00Z"
         }
       ]
     }
