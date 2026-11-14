@@ -5372,6 +5372,47 @@
           "value": "2026-11-14T00:15:00Z"
         }
       ]
+    },
+    {
+      "id": "intranet-deployment-89bb-2026-11-14",
+      "type": "Requirement",
+      "name": "内网迁移部署 Runbook（paperclip-fork 89bb8675d3，2026-11-14）",
+      "description": "【目标】把当前 47 生产镜像和实例迁移到内网，提供可执行部署方法。\n\n【镜像】paperclip-fork:89bb8675d3（6.49GB，linux/amd64，production target，commit 89bb8675d3eed745d80552d307041a675c4c5652）。临时下载 http://47.107.161.168/downloads/dl-cfcc1c580e34/paperclip-fork-89bb8675d3.tar.gz，sha256 98c75582dd340866a66d083c5d536253c3aab6b560b6cdafd13f66a9270109e6，24h 过期；README 同目录。\n\n【Runbook】doc/DEPLOYMENT-INTRANET-89bb.md（commit fceed94fd4）。步骤：离开 47 网络前下载 tar；内网 docker load；停源容器后打包 instances/default 的 config.json/.env/secrets/companies/skills/data/db；恢复到 /home/paperclip/.paperclip 并 chown 998:998；同路径挂载运行容器，传完整 PAPERCLIP_BUILD_COMMIT、PAPERCLIP_HOME、PAPERCLIP_CONFIG、PAPERCLIP_PUBLIC_URL、PAPERCLIP_BIND_HOST=0.0.0.0；验证 health commit/UI/migrations/plugin 1.5.0；迁移 DB 则保留治理/skill/instructions，fresh DB 则重新配置。\n\n【完备性/缺口】镜像含 server/UI/迁移/project-tree/business-status 1.5.0/skills catalog/opencode-local 0.4.0/doc/agents 模板；不含实例 DB/config/.env/JWT secret/master.key/companies/agents/instructions/company skills/storage；不含执行机 OpenCode 1.19.5、/etc/opencode、~/.config/opencode 的 argo/graph-mcp MCP；provider pack 缺失（legacy opencode_local 远端可用，native Runner/ACPX/sandbox 不可用）；容器内没有 agent CLI；下载是 docker load tar.gz，不是 registry pull；镜像是 amd64。内网 Web 若要求 registry，需 docker tag/push 到内网 registry。\n\n【目标 T2】project-manager-business-status-001。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "artifactPath",
+          "value": "doc/DEPLOYMENT-INTRANET-89bb.md"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:89bb8675d3"
+        },
+        {
+          "name": "imageCommit",
+          "value": "89bb8675d3eed745d80552d307041a675c4c5652"
+        },
+        {
+          "name": "downloadUrl",
+          "value": "http://47.107.161.168/downloads/dl-cfcc1c580e34/paperclip-fork-89bb8675d3.tar.gz"
+        },
+        {
+          "name": "downloadSha256",
+          "value": "98c75582dd340866a66d083c5d536253c3aab6b560b6cdafd13f66a9270109e6"
+        },
+        {
+          "name": "commit",
+          "value": "fceed94fd4eb2f6fc1eb85198f56ca65edf17f87",
+          "description": "docs(deploy): add intranet migration runbook for 89bb image"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -5718,7 +5759,8 @@
       "parent_element_id": "project-manager-001",
       "description": "通用业务操盘台 Paperclip 插件（paperclip.business-status）的设计、部署、双 profile 验证与后续（2026-11-13）。",
       "included_elements": [
-        "business-status-plugin-2026-11-13"
+        "business-status-plugin-2026-11-13",
+        "intranet-deployment-89bb-2026-11-14"
       ],
       "included_relationships": []
     }
