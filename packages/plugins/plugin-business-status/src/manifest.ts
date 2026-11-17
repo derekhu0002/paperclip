@@ -7,7 +7,7 @@ const manifest: PaperclipPluginManifestV1 = {
   version: PLUGIN_VERSION,
   displayName: "Business Cockpit",
   description:
-    "A company-scoped business operating cockpit. Key results on top, the process drivers that move them below, and a per-company editable profile that defines results, drivers, causal weights, targets and metric sources.",
+    "A company-scoped business operating cockpit with a configurable Business Board page. Key results on top, the process drivers that move them below, and a per-company editable profile that defines results, drivers, causal weights, targets and metric sources.",
   author: "paperclip",
   categories: ["ui"],
   capabilities: [
@@ -18,7 +18,6 @@ const manifest: PaperclipPluginManifestV1 = {
     "issues.read",
     "plugin.state.read",
     "plugin.state.write",
-    "ui.dashboardWidget.register",
     "ui.page.register",
     "ui.sidebar.register",
   ],
@@ -91,12 +90,6 @@ const manifest: PaperclipPluginManifestV1 = {
         displayName: "Business Cockpit",
         exportName: "BusinessStatusPage",
         routePath: STATUS_ROUTE_PATH,
-      },
-      {
-        type: "dashboardWidget",
-        id: "business-status-widget",
-        displayName: "Business Cockpit",
-        exportName: "BusinessStatusWidget",
       },
     ],
   },

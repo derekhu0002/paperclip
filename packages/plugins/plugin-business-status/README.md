@@ -41,15 +41,41 @@ Bindings use `agent.id` (UUID), never the Agent name. A missing configuration re
 
 ## UI
 
-- Home: only the company's final results.
-- Click a result: open its detail page with the metric's meaning, definition, calculation, input relationship (weights and notes), provenance and input cards.
+- Home: the configurable business board (results and drivers).
+- Click a board tile or table row: open its detail page with the metric's meaning, definition, calculation, input relationship (weights and notes), provenance and input cards.
 - Click an input card: drill into that metric using the same layout.
 - Leaf metrics show where the measurement comes from (`source`, `sourceRef`, `commit`, `digest`, `asOf`, `note`) and stop drilling.
 - Sidebar entry: **Business Cockpit**.
 - Page: `/:companyPrefix/business-status`.
-- Dashboard widget: top results for the company.
 - **Configure** opens a JSON editor for the active profile.
+- **Customize board** opens the board layout drawer.
 - Missing values show **Awaiting data**; they are never filled with `0`.
+
+## Cockpit home board
+
+The cockpit home is the business board; the metric detail drill-down is unchanged.
+The plugin does **not** declare a dashboard widget and does not add anything to
+the host Dashboard.
+
+- The board reads the same profile and the same computed/snapshot values as the
+  cockpit; the profile remains the single metric definition.
+- Each selected metric can render as **Number**, **Bar**, **Bullet**, or
+  **Gauge** in the **Cards** view; the **Table** view shows a dense
+  metric/value/status/target/source comparison.
+- **Show driver influence** draws a directed driver-to-result graph. Edge
+  color shows positive/negative influence, edge width shows the absolute
+  weight, and hovering an edge shows the driver, result, weight, direction and
+  current impact. Result nodes open the metric detail.
+- **Customize board** opens a board-only drawer: add or remove any result/driver,
+  reorder the selected list, choose each metric's display, choose 2/3/4/6
+  columns, and toggle groups, targets/gaps, source/as-of, and driver influence.
+- The layout is company-scoped plugin state; it is a board preference, not part
+  of the cockpit profile, so it does not require the Knowledge Manager writer
+  grant.
+- If a selected metric disappears from the profile, the board ignores it and the
+  drawer reports how many saved metrics were removed.
+- Leave the selection empty to show a "no metrics selected" state; Customize
+  can restore it.
 
 ## API
 

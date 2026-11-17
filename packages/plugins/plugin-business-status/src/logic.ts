@@ -675,4 +675,14 @@ export function statusTone(status: MetricStatus): "ok" | "warn" | "critical" | "
 
 export { STATUS_ROUTE_PATH };
 
+export {
+  barProgress,
+  buildInfluenceRows,
+  defaultDashboardLayout,
+  defaultDashboardLayoutFromPayload,
+  normalizeDashboardLayout,
+  resolveDashboardMetrics,
+  validateDashboardLayout,
+} from "./shared.js";
+
 

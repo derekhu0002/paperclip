@@ -5,13 +5,18 @@ import {
   type PluginContext,
 } from "@paperclipai/plugin-sdk";
 import {
+  DASHBOARD_KEY,
+  DASHBOARD_NAMESPACE,
   METRICS_KEY,
   METRICS_NAMESPACE,
   PLUGIN_ID,
   PROFILE_KEY,
   PROFILE_NAMESPACE,
+  normalizeDashboardLayout,
+  validateDashboardLayout,
   type BusinessProfile,
   type CockpitPayload,
+  type DashboardLayout,
   type Snapshot,
   type SnapshotValue,
 } from "./shared.js";
@@ -36,6 +41,11 @@ const PROFILE_SCOPE = {
   namespace: PROFILE_NAMESPACE,
   stateKey: PROFILE_KEY,
 };
+const DASHBOARD_SCOPE = {
+  scopeKind: "company" as const,
+  namespace: DASHBOARD_NAMESPACE,
+  stateKey: DASHBOARD_KEY,
+};
 
 let pluginContext: PluginContext | null = null;
 
@@ -50,6 +60,24 @@ function snapshotScope(companyId: string) {
 
 function profileScope(companyId: string) {
   return { ...PROFILE_SCOPE, scopeId: companyId };
+}
+
+function dashboardScope(companyId: string) {
+  return { ...DASHBOARD_SCOPE, scopeId: companyId };
+}
+
+async function readDashboardLayout(ctx: PluginContext, companyId: string): Promise<DashboardLayout | null> {
+  try {
+    const raw = await ctx.state.get(dashboardScope(companyId));
+    return normalizeDashboardLayout(raw);
+  } catch (error) {
+    ctx.logger.warn("failed to read business cockpit dashboard layout", { companyId, error: String(error) });
+    return null;
+  }
+}
+
+async function writeDashboardLayout(ctx: PluginContext, companyId: string, layout: DashboardLayout): Promise<void> {
+  await ctx.state.set(dashboardScope(companyId), layout);
 }
 
 async function readProfile(ctx: PluginContext, companyId: string): Promise<BusinessProfile | null> {
@@ -278,6 +306,12 @@ const plugin = definePlugin({
       return buildForCompany(ctx, companyId);
     });
 
+    ctx.data.register("dashboard-layout", async (params) => {
+      const companyId = String(params.companyId ?? "");
+      if (!companyId) throw new Error("companyId is required");
+      return { layout: await readDashboardLayout(ctx, companyId) };
+    });
+
     ctx.actions.register("save-profile", async (params, context) => {
       const companyId = String(params.companyId ?? context.companyId ?? "");
       if (!companyId) throw new Error("companyId is required");
@@ -295,6 +329,30 @@ const plugin = definePlugin({
       }
       const profile = await saveProfileForCompany(ctx, companyId, params.profile);
       return { companyId, profile };
+    });
+
+    ctx.actions.register("save-dashboard-layout", async (params, context) => {
+      const companyId = String(params.companyId ?? context.companyId ?? "");
+      if (!companyId) throw new Error("companyId is required");
+      if (context.actor.type !== "user") {
+        throw new Error("only board users can customize the dashboard board");
+      }
+      const profile = await readProfile(ctx, companyId);
+      const validation = validateDashboardLayout(params.layout, profile);
+      if (!validation.ok) {
+        throw new Error(`Invalid dashboard layout: ${validation.errors.join("; ")}`);
+      }
+      await writeDashboardLayout(ctx, companyId, validation.layout);
+      await logActivity(
+        ctx,
+        companyId,
+        `Updated business cockpit dashboard board (${validation.layout.metricIds.length} metric(s)).`,
+        {
+          metricIds: validation.layout.metricIds,
+          columns: validation.layout.columns,
+        },
+      );
+      return { companyId, layout: validation.layout };
     });
 
     ctx.logger.info("business-status plugin ready", { pluginId: PLUGIN_ID });

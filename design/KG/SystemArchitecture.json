@@ -111,6 +111,10 @@
         {
           "view_id": "project-manager-business-status-001",
           "view_name": "项目经理 · 业务操盘台插件记忆"
+        },
+        {
+          "view_id": "project-manager-qwenpaw-lab-ops-001",
+          "view_name": "项目经理 · QwenPaw 实验室运维记忆"
         }
       ],
       "attributes": [
@@ -241,7 +245,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-11-10"
+          "value": "2026-11-17T14:55:00Z"
         },
         {
           "name": "memoryTier",
@@ -253,7 +257,7 @@
         },
         {
           "name": "handoff",
-          "value": "CTI-24/CTI-25 待 agent 完成；47 运行 50fb2810c（记忆门禁 v2 已生效）；ACR 50fb2810c+latest 已发布；下载 http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar；后续仅图谱提交 c9c237300 未部署。上会话细节见 T2 threat-intel-center-migration-2026-11-01 / paperclip-upstream-merge-assessment-2026-10-21。"
+          "value": "1) Source is NOT committed: business-status plugin changes (1.8.0) and doc/plans/2026-11-17-knowledge-lens.md are local only; 47 has an artifact preview that the next image rebuild will overwrite. 2) Knowledge Lens is a discussion draft only; no code. Next session: inspect K's mapping artifact shape/path, then finalize the lens plan. 3) UI typecheck/vitest remain blocked by broken node_modules symlinks on this Windows checkout."
         },
         {
           "name": "agentChatFinding",
@@ -518,7 +522,7 @@
         },
         {
           "name": "sessionDate",
-          "value": "2026-11-03"
+          "value": "2026-11-17"
         },
         {
           "name": "vsocOrgV2",
@@ -622,9 +626,9 @@
           "value": "paperclip-upstream-merge-assessment-2026-10-21（本次事实属性）, threat-intel-center-migration-2026-11-01（上一会话）"
         }
       ],
-      "description": "【本次目标】把「Paperclip 组织级 RSI」从讨论落成正式架构提案，并在威胁情报中心（CTI）部署首个组织级 RSI 能力。\n\n【交付】\n1) 提案 doc/plans/2026-11-10-paperclip-org-rsi.md：四环（感知/变异/选择/遗传）+ 四篇参考映射（Harness²/Evo²/RRSI/OO-Harness）+ 三岗制 + A/B/C 变异分级 + 反退化 + 6 条可执行验收。KG: org-rsi-proposal-2026-11-10。\n2) CTI 部署（Tier 3）：仓库 /home/repos/threat-intel/cti-org-rsi（commit c1aac4e/1e19893，argo-init 全绿，Neo4j db=cti-org-rsi）；环境 e937a80c；三岗 638471af/8d4e0cb8/5b163715（均 ready，reportsTo=49d7b778）；项目「组织进化」447758e4（parent=vso-intel）与 private「组织进化评估电池」6c8269ae（EB-1/2/3）；routine 9d35ca85（周度记分卡）与 2e7b2c9c（月度进化周期）；RSI-SCORE-1 已启动，RSI-CYCLE-1 backlog 待释放。\n\n【关键决策】三岗向负责人汇报以保独立；评估电池用 private project 做 RRSI 留出集；agent runner=legacy；密钥全走 secret_ref；临时 board key 用完即 revoke。\n\n【坑】runner=auto 带 command 报 422→用 legacy；新 agent 需 test-environment 才 ready；PowerShell 直传复杂 ssh 命令会坏→scp 脚本；secret_ref 自动建 binding；语义去重需 allowDuplicate。\n\n【遗留】RSI-SCORE-1 首期记分卡 run 仍在 running（需人工确认产出 6 项指标）；RSI-CYCLE-1 待记分卡完成后由 board 释放到 todo；基因组账本（company export→git）尚未接入自动 routine；doc/DEPLOYMENT-47.md 仍有前序未提交改动（非本次）。\n\n【T2】design/KG/SystemArchitecture.json#org-rsi-proposal-2026-11-10；#cti-org-rsi-deployment-2026-11-10（commit 854cdc7ce）。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#cti-org-rsi-deployment-2026-11-10",
+      "description": "【本次目标】排查并恢复 QwenPaw 攻防实验室（company 1ba5e77b，47 实例）卡住的任务。\n\n【结果】已恢复。两条 process_detached run（QWE-204 197417bb / QWE-214 4b984402，11-16T16:09Z 起）先 kill WSL 端 21 个孤儿 bridge server，再用临时 board key 取消；发现并绕开 SSH 共享 workspace 租约 provider_resource_shared 互锁（手动置 released）；QWE-214 用 recovery-actions/resolve 恢复 todo，QWE-204 已由 agent 自行 done。链路现正常：QWE-209 done → QWE-206 in_progress，QWE-215 复验进行中。\n\n【关键决策】先清孤儿进程再 cancel，避免重复写 workspace；限流保持 maxConcurrent=1；不擅自替 agent 做复验结论。\n\n【坑/缺陷】settleEnvironmentRunLease 对 ssh/shared_workspace 租约误判 provider_resource_shared，导致崩溃后 active 租约永不自愈并阻塞 recovery resolve（已记 T2，建议产品修复）。\n\n【遗留】14 条 11-16 active 租约与 3 条 pending_cleanup destroy_failed 待清理；QWE-186 等 Board 人工裁决。\n\n【T2】design/KG/SystemArchitecture.json#qwenpaw-stuck-recovery-2026-11-17（view project-manager-qwenpaw-lab-ops-001）。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#qwenpaw-stuck-recovery-2026-11-17",
       "id": "project-manager-session-summary",
-      "name": "T1 会话总结（2026-11-10：ARG-19 恢复 + opencode_local 批量补齐 external_directory）",
+      "name": "T1 会话总结（2026-11-17：QwenPaw 攻防实验室卡死恢复）",
       "type": "Requirement"
     },
     {
@@ -5370,6 +5374,25 @@
         {
           "name": "externalImageAt",
           "value": "2026-11-14T00:15:00Z"
+        },
+        {
+          "name": "dashboardBoard2026-11-17",
+          "value": "【整改 + 看板优化 2026-11-17】曾误改上游核心（shared 类型/validator、ui/src/plugins/slots、ui/src/pages/Dashboard）实现顶部 placement；已全部 git checkout 恢复，当前 packages/shared 与 ui/src 零改动。保留的非侵入改动仅在 plugin-business-status：1) 完整看板（results/drivers、tile、总体状态、Customize/Open cockpit）；2) 每指标可配 Number/Bar（bar 按 target/threshold 归一化）；3) Show driver influence：按 payload.links 展示 driver→result 权重与 impact 的正负条形图；4) Customize 抽屉可动态选择 profile 内任意指标、排序、每指标显示方式、列数、分组/target/source/influence 开关；company-scoped state；board-only；失效 metric 自动剔除；5) 默认=全部 results + 最多 6 个高影响 drivers；默认 Number，影响图默认开。Files: packages/plugins/plugin-business-status/**. Verification: plugin build + 16/16 tests + tsc + token gates; UI typecheck/vitest 仍因本机 node_modules 断链未跑。【待批准】顶部放置：不改 core 的唯一办法是插件侧 DOM portal（脆弱）；最小 core 改动是仅 ui/src/pages/Dashboard.tsx 把 dashboardWidget outlet 移到 ActiveAgentsPanel 之前（1 文件，约 8 行，影响所有 dashboard widget；生产当前只有 business-status）。未获批准前不实施。未提交。",
+          "description": "Corrected after the non-invasive review: core changes reverted; plugin-only board with charts and influence."
+        },
+        {
+          "name": "taskSummary20261117",
+          "value": "【任务】把 Business Board 合并到 Business Cockpit 首页，并把 influence 改成可 hover 的有向连接图。\n\n【实现】插件 1.8.0；删除 business-board page/sidebar；Cockpit 首页渲染看板，tile/table 行点击进入原 MetricDetail 下钻；Cards/Table、Number/Bar/Bullet/Gauge；新 InfluenceGraph：driver→result 贝塞尔连线、正负颜色、线宽按权重、hover tooltip 显示 weight/方向/impact、结果节点可点入；无 dashboardWidget。\n\n【验证】build + 16/16 tests + tsc + token gates；47 部署 1.8.0 ready，UI bundle 200，QWE cockpit 200，health ok。UI typecheck/vitest 仍受本机 node_modules 断链阻塞。未提交源码；artifact 预览。\n\n【目标 T2】business-status-plugin-2026-11-13。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13"
+        },
+        {
+          "name": "businessBoardPage2026-11-17",
+          "value": "【最终方向（人类确认）】不复用宿主 Dashboard，插件里新增独立 Business Board 页面；宿主 Dashboard 不再呈现 Business Cockpit。核心零改动（packages/shared 与 ui/src diff 为空）。\n\n【实现】plugin-business-status 1.7.0：\n- manifest 删除 dashboardWidget slot 与 ui.dashboardWidget.register 能力；新增 page(business-board)+sidebar(Business Board, order 29)，保留 page(business-status)+sidebar(Business Cockpit, 30)。\n- BusinessBoardPage 读取同一 cockpit payload（profile 定义 + computed/snapshot/static 值）与 board layout；提供 Customize、Refresh、Open cockpit；无 profile/无选中指标时有明确空状态。\n- 呈现形式：Cards 与 Table 两种视图；Cards 下每个指标可选 Number / Bar / Bullet / Gauge；Bar/Bullet 用 target/threshold 归一化，Gauge 为半圆 SVG。\n- 指标间影响：Show driver influence 基于 profile.links 展示 driver→result 的权重、impact 与正负条形图。\n- Customize 抽屉：动态从 profile 选择任意 result/driver、排序、每指标显示方式、视图、列数、分组/target/source/influence 开关；company-scoped state；board-only；失效指标自动剔除并提示。\n- 默认：全部 results + 最多 6 个高影响 drivers；Cards/Number；影响图开。\n\n【验证】plugin esbuild build pass；node --test 16/16 pass；plugin tsc --noEmit pass；token gates clean；core diff empty。UI typecheck/vitest 仍受本机 node_modules 断链阻塞。未提交。",
+          "description": "Final design accepted by the human: no host Dashboard reuse, plugin-only Business Board page."
+        },
+        {
+          "name": "deploy47_20261117",
+          "value": "【47 部署（2026-11-17T13:42Z，1.8.0）】容器 paperclip，image 89bb；已安装插件路径 /home/paperclip/.paperclip/plugins/business-status。artifact hot-update（dist/package.json/README），备份 /root/business-status-installed-backup-20261117T134245Z.tgz，docker restart paperclip。\n\n【1.8.0 变更】删除独立 Business Board 页面与侧栏；看板合并到 Business Cockpit 首页（下钻 MetricDetail 不变，tile/table 行可点入）；新增 Cards/Table、Number/Bar/Bullet/Gauge；influence 改为 SVG 有向图（driver→result，颜色正/负、线宽按 |weight|、hover 显示 weight/方向/impact），结果节点可点入；manifest 仅一个 page+sidebar，无 dashboardWidget。\n\n【验证】health ok（commit 89bb）；plugins 表 business-status=1.8.0/ready；slots 仅 business-status page+sidebar；UI bundle /_plugins/b9ea0c69-5324-447f-b55a-11a2af24d692/ui/index.js=200/79044 bytes 且含 Driver influence，不再含 BusinessBoardPage；/QWE/business-status=200；日志 1.8.0 activated。\n\n【注意】仍是 artifact 预览部署；镜像 commit 未变；源码未提交，下次镜像重建会回退到已提交 1.5.0。回滚：使用备份 tar 解回插件目录并重启。",
+          "description": "Final artifact hot-update on 47: 1.8.0, board merged into cockpit home, influence graph."
         }
       ]
     },
@@ -5413,6 +5436,238 @@
           "description": "docs(deploy): add intranet migration runbook for 89bb image"
         }
       ]
+    },
+    {
+      "id": "qwe189-stuck-recovery-2026-11-16",
+      "type": "Requirement",
+      "name": "QWE-189 卡死恢复：47 实例 server 崩溃导致全链路 process_detached（2026-11-16）",
+      "description": "【现象】QWE-189（company 1ba5e77b「QwenPaw 攻防实验室」）停在 in_progress 无新输出；commander（f2440fd0）与 7 个子 issue agent 各有 1 个 status=running 但 errorCode=process_detached 的 run，占满各自 maxConcurrentRuns=1，后续 run 全部 queued。\n\n【根因】47（root@47.107.161.168，docker 容器 paperclip）内 server 进程因未捕获 socket EPIPE 崩溃并重启（RestartCount=3），所有经 SSH 在 100.87.205.43 远程执行的 legacy run 丢失内存句柄，proveRunProcessGone 判为 unprovable(different_process_space)，recovery 明确不自动释放；被 cancel 的 run 的远端 opencode 进程成为孤儿，继续在同一 workspace 写文件并造成重复工作。\n\n【处置】1) 在容器内经 pg（postgres://paperclip:paperclip@127.0.0.1:54329/paperclip）直查 heartbeat_runs/issues/activity_log；2) 用临时 board API key（board_api_keys 插 sha256(pcp_board_...) + 10~25 分钟过期，用完 update revoked_at 后 delete；沿用本实例既有做法）调 POST /api/heartbeat-runs/:id/cancel 逐个 operator Stop；3) 先 kill 远端对应 opencode 进程再 cancel；4) 恢复限流：每次只放 1~2 个 run，避免 6 个并发 run 触发 /api/companies/:id/issues 大量 abort → EPIPE → server 再次崩溃；5) 对 QWE-194/QWE-197 用 POST /api/issues/:id/recovery-actions/resolve + executionReconciliation(runId, providerStopped:true, actionOutcome) 清除 execution_reconciliation_required 阻塞，注意 restored 重开路径要求 sourceIssueStatus=todo。\n\n【结果】QWE-189 已产出案例矩阵（PPTX 19 案例）、OpenAI/HF 三路径分析、红蓝演练组织，并创建 human_only G5 授权卡（已被 Board 接受）；QWE-190/191/192/193/195/197/199 done；QWE-194 in_progress（G5 已开始执行）；QWE-196 已恢复 todo 并 wake red-lead；QWE-198 等待 QWE-194；实例稳定（restarts=3、3 个 run 正常输出）。\n\n【经验】process_detached 的既有设计就是“Stop 是 operator action”，不自动释放；远端 SSH run 的 pid 跨进程空间不可证明；恢复必须限流并先清孤儿进程；容器重启会再次把全部在跑 run 打成 detached。",
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-16"
+        }
+      ]
+    },
+    {
+      "description": "【方向修正（人类裁决）】删除 plugin-project-tree，新建 Knowledge Graph 插件（package=plugin-knowledge-graph，pluginKey=paperclip-knowledge-graph，route=knowledge-graph）。Project Tree 只多表达 project→lead，team member 已由 Agent 汇报关系表达；Project 实体与 parentProjectId/leadAgentId 保留。已核对 ui/src/App.tsx 无 /organization 路由，无 core UI 改动。\n\n【模型】一个项目＝一个知识图谱＝该项目工作区（Project → Lead Agent → environment/workspace）。插件可读 project.leadAgentId/environmentId/primaryWorkspace.path（projects.read + project.workspaces.read）；读不到 environment 的 SSH 坐标（SDK 无 environments client，PLUGIN_DATABASE_CORE_READ_TABLES 无 environments），故按 environmentId 手工配置一次 host/port/user/keySecretRef/host fingerprint，workspace 路径自动取 primaryWorkspace.path 可覆盖。\n\n【Phase 1】控制面通过 SSH 拉取图谱 JSON 并落盘（projects/<projectId>/current/{manifest,graph,ontology}.json + history/<commit>-<digest>/ + runs.jsonl），tmp 写入后原子替换；失败保留旧快照并标 stale。不建 Postgres/Neo4j/embedding，不做图检索，不做裁决写回，.qea 不入库。UI 参考 LLM Wiki：sections=projects/overlaps/settings；项目内 Ontology（类型枚举/端点矩阵/actor 契约/校验状态）+ Content（视图树/元素详情/关系/testcases/provenance）；默认过滤 memoryTier 记忆元素。Overlaps 为独立菜单，只读展示 exact_name/same_alias/desc_hash/near_name/cross_ref/type_conflict，按同 schemaKind 分组计算，内存缓存。\n\n【删除清单】包目录、bundled-plugins.ts catalog 与 SELF_HOSTED_AUTO_INSTALL_KEYS、Dockerfile COPY/build、pnpm-lock、已部署实例一次性卸载旧插件。\n\n【传输】主路径控制面拉取（复用现有控制面→执行机方向），受限强制命令+专用只读密钥+host key 固定；备选执行机 push 到插件 inbox，共用同一摄取管线。\n\n【交付】doc/plans/2026-11-17-knowledge-graph-plugin.md：范围、映射、交互、bundle、落盘布局、overlap 规则、工程改造、Phase 1 GIVEN-WHEN-THEN 验收、风险与 3 个待拍板点。\n\n【未完成】未实施代码；未提交。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#graph-review-plugin-proposal-2026-11-17",
+      "attributes": [
+        {
+          "name": "artifactPath",
+          "value": "doc/plans/2026-11-17-knowledge-graph-plugin.md"
+        },
+        {
+          "name": "decisionPending",
+          "value": "①传输主路径（控制面拉取 vs 执行机推送）②环境坐标（手工配置 vs core 只读能力）③Overlaps Phase 1 深度（精确+共享类型 vs 加近似名）"
+        },
+        {
+          "name": "footprint",
+          "value": "plugin-only + bundled catalog registration"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-17"
+        },
+        {
+          "name": "status",
+          "value": "superseded-by-knowledge-lens"
+        },
+        {
+          "name": "transport",
+          "value": "ssh-pull-primary; drop-folder-fallback"
+        },
+        {
+          "name": "supersedes",
+          "value": "plugin-project-tree（整体删除）"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "phase1",
+          "value": "pull JSON + local store + ontology/content view + overlaps read-only; no search/DB/decisions"
+        },
+        {
+          "name": "pluginId",
+          "value": "paperclip-knowledge-graph"
+        },
+        {
+          "name": "routePath",
+          "value": "knowledge-graph"
+        },
+        {
+          "name": "dialogue20261117",
+          "value": "【不引入 Base】人类明确否决 Base ontology/extends/canonical registry：共同语言不需要所有人继承同一个 Base；自定义 Ontology 做 Base 会漏掉用不着的 Agent。【共同语言载体】由知识管理员 K 收集并维护映射；K 的输出不保证完全正确、行为不完全可控，但当前可接受。【固定取数对象】插件必须只读消费 K 的映射产物（固定路径 + 固定 schema + version/digest + sourceCommits + producedAt + producer），不调用 K 的实时行为；校验失败/过期/引用断裂要显式提示并回退上一份。【审核=取证】页面不放审批/驳回按钮；只展示审的对象与证据（K 映射、双方元素/类型、描述、来源 commit、理由/置信、覆盖缺口、asOf 与当前 commit 漂移）；是否驳回在人与 Agent 的任务交互中决定。【算法候选】同 schemaKind 的名字/结构/描述候选只作交叉核对，必须与 K 映射分开显示并标注“算法候选，非共同语言”。【待定】K 映射产物的实际路径/仓库/形状；类型级 vs 元素级；是否含理由/置信；跨本体是否覆盖；映射是否引用稳定 element id。"
+        },
+        {
+          "name": "noBaseDecision",
+          "value": "accepted: no shared base ontology, no inheritance requirement"
+        },
+        {
+          "name": "reviewMode",
+          "value": "evidence-only; no approve/reject buttons; decision happens in task interaction"
+        },
+        {
+          "name": "purpose20261117",
+          "value": "最终目的（人类澄清）：为指标度量体系取证。business-status 的指标 source 分为 paperclip/computed/snapshot/static；snapshot 由知识管理员 K 依据各项目 Lead 的项目知识图谱回填。Knowledge Graph 插件因此是指标的取证面：metric -> provenance(sourceRef/commit/digest/asOf/reportedBy) -> 项目图谱(commit) -> 元素/属性/testcase/关系 -> K 映射（跨项目聚合时）-> 机械核对 + 人工判断。重点审 snapshot 叶子及依赖它们的 computed 结果。可重算指标（对图谱的 count/ratio）应独立重算并与上报值 diff；不可重算的评分展示证据供人判断。Overlap 的真正用途是跨项目聚合的可比性证据，不是通用去重。Review 是取证，无审批按钮。缺口：SnapshotValue 目前只有 sourceRef/commit/digest，缺 sourceProject/elementIds/testcaseIds/mappingIds；profile 无版本快照；K 单写存在自证问题，必须靠独立重算和图谱证据交叉核对。"
+        },
+        {
+          "name": "knowledgeLensDirection",
+          "value": "2026-11-17 讨论后升级为 Knowledge Lens 插件方案（通用 Lens 引擎 + 无 Agent 同步 + Lens Builder/Viewer）。见 knowledge-lens-proposal-2026-11-17 / doc/plans/2026-11-17-knowledge-lens.md。本元素保留初始 Knowledge Graph framing 的历史。"
+        }
+      ],
+      "id": "graph-review-plugin-proposal-2026-11-17",
+      "name": "Knowledge Graph 插件提案：删除 Project Tree，新建项目级图谱（2026-11-17）",
+      "type": "Requirement"
+    },
+    {
+      "id": "knowledge-lens-proposal-2026-11-17",
+      "type": "Requirement",
+      "name": "Knowledge Lens 插件提案：通用图谱透镜与无 Agent 同步（2026-11-17）",
+      "description": "【定位】把通用 Knowledge Graph 插件命名为 Knowledge Lens：只读的图谱工作台 + Lens 引擎。不做建模器/EA，不写回项目图谱，不要求 Base ontology；每个 Lens = 从图谱选出的子图 + 一种表现方式；同步不需要 Agent。\n\n【产品结构】Lens Gallery 首页（每个 Lens 一张 card：缩略图/名称/简介/来源/元素关系数/更新时间/stale，按类分组，新建 Lens、新建类、删除/复制）；Lens Builder（选来源快照 → 选元素与关系 → 选表现方式 → 命名归类）；Lens Viewer（画布缩放平移、拖拽节点位置、边不可编辑、详情/provenance、可重置自动布局）；Sources（项目同步状态、commit/dirty/last sync/stale/错误）。\n\n【Lens 模型】LensCategory（类）与 Lens（来源、pinnedCommit 可选、stylePreset、layoutMode）；LensNode 只存 sourceId/graphKey/elementId/x/y；LensEdge 只存 relationshipId。节点内容来自图谱快照，边来自图谱关系；不能新建/改接连线；元素消失显示引用断裂，不自动删除；默认跟随 current 并显示 drift，可选钉住 commit。\n\n【Builder】视图树 + 类型 facet + 搜索多选；自动列出选中元素之间的关系，可按类型筛选/勾选；快捷选整个 view、某类型全部、1 跳邻域；不能画新边。预设：Architecture（分层图）、Business（泳道/时间线）、Matrix（类型×关系）、Table；Evidence 后续。画布只允许拖动位置，不允许新建/删除节点或改连线。\n\n【同步（无 Agent）】控制面插件 worker 通过 SSH 拉取项目 workspace：每个环境配一次 host/port/user/只读密钥/known_hosts，项目配 workspace/graph/schema 路径；受限强制命令导出 canonical graph+schema+commit/dirty；校验 digest/counts/引用后落盘 snapshot 并索引。备选执行机 syncer/systemd push 到 inbox。约束：插件读不到 environment SSH 坐标（SDK 无 environments client，core 可读表无 environments），故需一次手工配置；zero-config 需 core 只读能力或 host collector。\n\n【存储】建议插件 Postgres namespace：sources/snapshots/elements/relationships/views/lens_categories/lenses/lens_nodes/lens_edges/sync_runs；原始图谱 JSON 落本地文件夹；不建 Neo4j/embedding/Cypher；按 snapshot 隔离。\n\n【与审计/Workflow】同一底座不同 Lens：Evidence（指标→元素→testcase→映射）、Workflow（behavior 子图→泳道）、Business、Org、Observed（Paperclip issue/handoff）、Coverage。Lens 是配置，不是每项目写代码。\n\n【阶段】P1 同步+索引+Gallery+Builder（Architecture/Business/Matrix/Table）+Viewer+拖拽位置；P2 更多预设/跨项目/分享/Evidence/K 映射；P3 Observed Workflow/K 语义提取/只读分享与证据包。\n\n【未定】类的含义（Lens 分类 vs 新元素类型）；单项目 vs 跨项目；跟随 current vs 钉 commit；四个预设是否够；关系只能选不能画；环境坐标手工配置 vs zero-config；分享范围。未定稿、未实现、未改 core、未提交。\n\n【交付】doc/plans/2026-11-17-knowledge-lens.md。",
+      "attributes": [
+        {
+          "name": "status",
+          "value": "discussion-draft"
+        },
+        {
+          "name": "artifactPath",
+          "value": "doc/plans/2026-11-17-knowledge-lens.md"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-17"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "footprint",
+          "value": "plugin-only; no core changes; no implementation yet"
+        },
+        {
+          "name": "syncMode",
+          "value": "control-plane SSH pull without an Agent; host collector fallback"
+        },
+        {
+          "name": "presets",
+          "value": "Architecture, Business, Matrix, Table; Evidence later"
+        },
+        {
+          "name": "openQuestions",
+          "value": "class meaning; single vs cross-project; current vs pinned; presets; relationship selection; env coordinates manual vs zero-config; sharing scope"
+        }
+      ]
+    },
+    {
+      "description": "【现象】11-17 21:5x 人类反馈「千问/QwenPaw 攻防实验室好像卡住了」。company 1ba5e77b 停在两个 running/process_detached run：QWE-204（修复负责人 197417bb，pid 90447，started 2026-11-16T16:09Z）与 QWE-214（回归验证工程师 4b984402，pid 90729，16:10Z）。两 agent maxConcurrent=1 被占满，QWE-209/QWE-211/QWE-203 等排队；QWE-203/206/210 blocked 在依赖链上。\n\n【诊断】1) 47 容器 2026-11-17T13:42:46Z 重启（插件部署），本轮 detached 早于该次重启（11-16T16:09Z），说明是更早一次 server 崩溃/重启遗留。2) 记录 pid 90447/90729 在 WSL 执行机（ocpc，100.87.205.43）已不存在；qwenpaw-lab 各 workspace 残留 21 个 22h~5d 的孤儿 paperclip-bridge-server（remediation 有 24118/57377），无任何 run 进程、近 60 分钟无 workspace 写入。3) 两条 detached run 的 environment_leases 仍 status=active、released_at=null。\n\n【处置】1) 先 kill 全部 qwenpaw-lab 孤儿 bridge server（21 个，pgrep+readlink 校验 cwd，TERM→KILL）。2) 临时 board key（board_api_keys 插 sha256(pcp_board_…)，15 分钟过期，用完 revoke+delete）调 POST /api/heartbeat-runs/:id/cancel 取消两条 run（200，finishedAt=2026-11-17T14:34Z）。3) lease 不自动释放：孤儿租约 settleEnvironmentRunLease 的 keptByAnotherObligation 命中 provider_resource_shared——同 provider+provider_lease_id（ssh://root@100.87.205.43:2222/home/repos/qwenpaw-lab/remediation）有 4 条 active 租约互相当「另一活租约」，谁也结算不了（产品缺陷：ssh 共享 workspace 的 providerLeaseId 是目录而非物理沙箱，顺序 run 必然共享）。4) 运维将 QWE-204/QWE-214 两条租约置 status=released + released_at=now（与历史 750 条正常释放行同形：cleanup_status=null、failure_reason=null）。5) POST /api/issues/:id/recovery-actions/resolve：QWE-214 → outcome=restored、sourceIssueStatus=todo、executionReconciliation(runId, providerStopped:true, actionOutcome:not_performed, 证据) → 200 恢复为 todo 并入队；QWE-204 → 500 continuation_task_ownership_changed，原因是 agent 已在 22:39:20 将 QWE-204 置 done（独立复验 QWE-208 已完成），属已恢复。\n\n【结果】链路恢复：QWE-204 done；QWE-209 done → QWE-206 解除阻塞并 in_progress；QWE-215（verifier 新开 R3 复验）in_progress；QWE-214 todo 排队由 verifier 自行收尾；QWE-203 等 QWE-215，QWE-210 等 QWE-211。运行中 run 均有 last_output 增长，实例稳定（RestartCount=0）。\n\n【遗留/建议】a) 产品缺陷：settleEnvironmentRunLease 的 provider_resource_shared 判定对 ssh/shared_workspace 租约应改为「同一物理沙箱」语义（仅 sandbox 或 reusable 租约才比较 providerLeaseId），否则每次崩溃都会留下永久 active 租约并阻塞 recovery resolve；b) 仍残留 14 条 11-16 的 active 租约（QWE-189..197 等已完成 issue）与 3 条 pending_cleanup destroy_failed 重试，建议连同修复一并清理；c) QWE-186 自 11-14 11:06 in_review，等 Board 用 board key 执行 --apply 或裁决，不是卡死。\n\n【文件】无仓库改动（纯运维）；源：47 嵌入式 pg 54329 + Paperclip HTTP API。",
+      "id": "qwenpaw-stuck-recovery-2026-11-17",
+      "name": "QWE 2026-11-17 卡死恢复：两条 process_detached run + SSH 共享 workspace 租约互锁",
+      "type": "Requirement",
+      "attributes": [
+        {
+          "name": "date",
+          "value": "2026-11-17"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "company",
+          "value": "1ba5e77b-d25b-42fc-8eea-7762210b1422 QwenPaw 攻防实验室"
+        },
+        {
+          "name": "productGap",
+          "value": "environment-run-lease-settlement: provider_resource_shared false positive on ssh shared_workspace leases"
+        },
+        {
+          "name": "verification",
+          "value": "runs/leases/issues re-queried at 22:46 and 22:49 local; QWE-209 done, QWE-206 running, QWE-215 running, no detached runs"
+        }
+      ]
+    },
+    {
+      "attributes": [
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-18"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "paperclipCompany",
+          "value": "1ba5e77b-d25b-42fc-8eea-7762210b1422 | QwenPaw 攻防实验室 | prefix QWE"
+        },
+        {
+          "name": "ceoAgent",
+          "value": "f2440fd0-26e5-475d-afe9-e00f7a136fb4 | 千万破 Commander · qwenpaw-command-lead | role=pm | reportsTo=null | env 5e070759 (WSL2 qwenpaw-command)"
+        },
+        {
+          "name": "kmAgent",
+          "value": "5d060393-4b7c-469b-93cf-2506afe66d72 | KMer | role=general | reportsTo=CEO | env af893f2e (WSL2 kg-mgr)"
+        },
+        {
+          "name": "ceoInstructionsFile",
+          "value": "/home/paperclip/.paperclip/instances/default/companies/1ba5e77b-d25b-42fc-8eea-7762210b1422/agents/f2440fd0-26e5-475d-afe9-e00f7a136fb4/instructions/AGENTS.md | 176 lines | sha256 197088e9f00988b2ec72a83128d7cc01a809eb7a30b6879068231cbe6cebb217"
+        },
+        {
+          "name": "kmInstructionsFile",
+          "value": "/home/paperclip/.paperclip/instances/default/companies/1ba5e77b-d25b-42fc-8eea-7762210b1422/agents/5d060393-4b7c-469b-93cf-2506afe66d72/instructions/AGENTS.md | 213 lines | sha256 ae3b1c6cc15c5f198c020fcd2ae80a430f8044d2bfcde5312f4c02c309675ded"
+        },
+        {
+          "name": "backups",
+          "value": "same dirs, AGENTS.md.bak-20261118 | original 4366 bytes (CEO) / 12200 bytes (KM)"
+        },
+        {
+          "name": "templates",
+          "value": "doc/agents/company-ceo.AGENTS.md; doc/agents/company-knowledge-manager.AGENTS.md"
+        },
+        {
+          "name": "adapterEvidence",
+          "value": "packages/adapters/opencode-local/src/server/execute.ts:612-632 — directWorkspaceInstructions default 'prepend'; managed bundle prepended to stdin prompt, project AGENTS.md still loaded by OpenCode"
+        },
+        {
+          "name": "verification",
+          "value": "27/27 shell assertions passed on 47 (sections, owner paperclip:paperclip, mode 600, backups present); no live model run triggered"
+        }
+      ],
+      "description": "【任务】按此前讨论的 CEO / Knowledge Manager 角色模板，为 QwenPaw 攻防实验室（人类伙伴口语称「Q 攻防安全实验室」，company 1ba5e77b-d25b-42fc-8eea-7762210b1422，QWE）两个顶层角色写入各自托管的 AGENTS.md。\n\n【角色定位（证据）】CEO = 千万破 Commander f2440fd0-26e5-475d-afe9-e00f7a136fb4（公司内唯一 reportsTo=null 的顶层 Agent，仓库 /home/repos/qwenpaw-lab/command）。Knowledge Manager = KMer 5d060393-4b7c-469b-93cf-2506afe66d72（reportsTo=CEO，仓库 /root/repos/qwenpaw-anti-defend-kg-management）。两者保持 per-Agent 指令分离，不合并。\n\n【CEO 文件】中文，基于 doc/agents/company-ceo.AGENTS.md 并落地到本实验室：身份/使命/实验室章程/你拥有/你不拥有/决策权（自主·Board 批准·绝不）/组织与角色/经营节奏（日·周·月）/与 Knowledge Manager 协作/与项目 Agent 协作/工作流与漏洞台账/汇报格式/交付要求/安全边界红线/技能/防卡死要求/只读上游参考/Business Cockpit 治理。原 Commander 章程、沙箱红线、Git 约定、防卡死规则、上游只读参考逐条保留，未丢失。\n\n【KM 文件】保留 203 行模板全文（Identity…Boundaries），追加英文 “QwenPaw lab runtime context”：公司 id、workspace 与 ARGO_REPO_ROOT、CEO id、动态项目清单、Business Cockpit governance writer id、语言、防卡死。\n\n【关键决策】1) 以 Paperclip 托管 instructions bundle（companies/<companyId>/agents/<agentId>/instructions/AGENTS.md）为角色唯一载体；opencode-local 0.4.0 在 direct workspace 默认 prepend 该 bundle，同时仍加载项目 AGENTS.md，因此无需独立项目或仓库内复制角色文件。2) 不覆盖丢失旧规则：先备份 .bak-20261118，再写入/追加。3) 实例中不存在名为「Q 攻防安全实验室」的另一公司，确认即 QwenPaw 攻防实验室。4) KM 模板此前已完整落地，本次只补公司运行上下文，不改模板语义。\n\n【坑/修复】1) PowerShell 传 ssh 会吞掉内层引号与大括号，远端操作改用脚本文件 + scp。2) embedded-postgres 包只有 initdb/pg_ctl/postgres，没有 psql；改用容器内 node 加载 /app/node_modules/.pnpm/pg@8.18.0/node_modules/pg 直连 127.0.0.1:54329。3) 直接改文件后需保持 owner=paperclip:paperclip、mode=600，否则执行侧读取失败。\n\n【验证】47 上 27/27 断言通过：CEO 176 行、KM 213 行；章节齐全；owner paperclip:paperclip；mode 600；备份存在。adapter 代码证据：packages/adapters/opencode-local/src/server/execute.ts:612-632（directWorkspaceInstructions 默认 prepend，读到 managed instructions 后 prepend 到 stdin prompt）。\n\n【无 git commit 原因】两个文件位于 47 的 Paperclip 实例数据目录，不在任何 git 工作树内；改动以本要素 + 文件 sha256 + 备份作为登记。\n\n【目标 T2】view project-manager-qwenpaw-lab-ops-001。",
+      "id": "qwenpaw-ceo-km-agents-md-2026-11-18",
+      "name": "QwenPaw 攻防实验室 CEO 与 Knowledge Manager 角色 AGENTS.md 落地（2026-11-18）",
+      "testcases": [
+        {
+          "Input": "grep -n directWorkspaceInstructions /app/packages/adapters/opencode-local/src/server/execute.ts (in 47 container paperclip); inspect the resolvedInstructionsFilePath + instructionsPrefix branch",
+          "acceptanceCriteria": "line 612 defaults to 'prepend'; line 613 maps only 'ignore' to ignore; instructionsPrefix is built from the managed instructionsFilePath and prepended to the stdin prompt in direct mode",
+          "description": "GIVEN 两个 Agent 的托管 instructions 与各自项目 AGENTS.md，WHEN 在 direct workspace 启动一次运行，THEN 角色指令被 prepend 且项目上下文仍然加载",
+          "name": "Direct workspace 注入角色指令并保留项目上下文",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "sh /tmp/q-acceptance.sh on 47 (27 checks: sections, wc -l, owner, mode, backups)",
+          "acceptanceCriteria": "RESULT_FAIL=0; 27/27 PASS (CEO ≥150 lines with mandate/own/not-own/rights/rhythm/km-collab/report-format/cockpit/no-stall sections; KM keeps template + runtime context + governance id; both owner=paperclip:paperclip, mode=600, .bak-20261118 present)",
+          "description": "GIVEN CEO 与 KM 的 AGENTS.md 已写入，WHEN 执行契约断言脚本，THEN 全部断言通过且 RESULT_FAIL=0",
+          "name": "AGENTS.md 契约断言全通过",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -5517,7 +5772,9 @@
         "1240",
         "project-manager-001",
         "fork-capabilities-2026-10-21",
-        "fork-cap-done-memory-gate"
+        "fork-cap-done-memory-gate",
+        "graph-review-plugin-proposal-2026-11-17",
+        "knowledge-lens-proposal-2026-11-17"
       ],
       "included_relationships": [
         "1161"
@@ -5609,7 +5866,9 @@
         "2026-10-24-47-26999306b6f0",
         "2026-10-24-upstream-114-commits-1215d44f4",
         "2026-10-25-47-3cb59953eb38-acr",
-        "paperclip-done-memory-gate-2026-11-03"
+        "paperclip-done-memory-gate-2026-11-03",
+        "graph-review-plugin-proposal-2026-11-17",
+        "knowledge-lens-proposal-2026-11-17"
       ],
       "included_relationships": []
     },
@@ -5763,6 +6022,17 @@
         "intranet-deployment-89bb-2026-11-14"
       ],
       "included_relationships": []
+    },
+    {
+      "view_id": "project-manager-qwenpaw-lab-ops-001",
+      "view_name": "项目经理 · QwenPaw 实验室运维记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "QwenPaw 攻防实验室（QWE）在 47 Paperclip 实例上的任务卡死诊断、恢复与实例稳定性经验。",
+      "included_elements": [
+        "qwe189-stuck-recovery-2026-11-16",
+        "qwenpaw-stuck-recovery-2026-11-17",
+        "qwenpaw-ceo-km-agents-md-2026-11-18"
+      ]
     }
   ]
 }

@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -79,12 +79,15 @@ const securityProfile = {
 test("manifest exposes the generic cockpit contract in English", () => {
   assert.equal(manifest.id, "paperclip.business-status");
   assert.equal(manifest.apiVersion, 1);
-  assert.equal(manifest.version, "1.5.0");
+  assert.equal(manifest.version, "1.8.0");
   assert.equal(manifest.displayName, "Business Cockpit");
   const slotTypes = manifest.ui.slots.map((slot) => slot.type).sort();
-  assert.deepEqual(slotTypes, ["dashboardWidget", "page", "sidebar"]);
-  const page = manifest.ui.slots.find((slot) => slot.type === "page");
-  assert.equal(page.routePath, "business-status");
+  assert.deepEqual(slotTypes, ["page", "sidebar"]);
+  const pages = manifest.ui.slots.filter((slot) => slot.type === "page");
+  assert.deepEqual(pages.map((slot) => slot.routePath), ["business-status"]);
+  assert.equal(manifest.ui.slots.some((slot) => slot.type === "dashboardWidget"), false);
+  assert.equal(manifest.capabilities.includes("ui.dashboardWidget.register"), false);
+  const page = pages[0];
   assert.equal(page.exportName, "BusinessStatusPage");
   const routes = manifest.apiRoutes.map((route) => route.routeKey).sort();
   assert.deepEqual(routes, ["ingest-metrics", "overview", "save-profile"]);
@@ -719,6 +722,72 @@ test("empty or missing values array is rejected as a whole", () => {
   assert.equal(empty.rejected.length, 0);
   const missing = logic.parseSnapshotValues({}, allowed);
   assert.equal(missing.values.length, 0);
+});
+
+test("dashboard layout validates ids, dedupes, and resolves selected metrics in order", () => {
+  const snapshot = {
+    schema: "paperclip.business-status.snapshot/v1",
+    updatedAt: new Date(now).toISOString(),
+    values: {
+      "detection-coverage-rate": { value: 0.5, asOf: new Date(now).toISOString() },
+      "telemetry-source-coverage": { value: 0.5, asOf: new Date(now).toISOString() },
+      "open-gap-count": { value: 3, asOf: new Date(now).toISOString() },
+    },
+  };
+  const payload = logic.buildCockpitPayload(securityProfile, {}, snapshot, now, "company-1");
+
+  const normalized = logic.normalizeDashboardLayout({
+    metricIds: ["open-gap-count", "open-gap-count", "", 42],
+    displays: { "open-gap-count": "bar", stale: "pie", other: "gauge" },
+    columns: 5,
+  });
+  assert.deepEqual(normalized.metricIds, ["open-gap-count"]);
+  assert.deepEqual(normalized.displays, { "open-gap-count": "bar", other: "gauge" });
+  assert.equal(normalized.columns, 4);
+  assert.equal(normalized.viewMode, "cards");
+  assert.equal(normalized.showGroups, true);
+  assert.equal(normalized.showInfluence, true);
+  assert.equal(logic.normalizeDashboardLayout({ metricIds: [], viewMode: "table" }).viewMode, "table");
+
+  const valid = logic.validateDashboardLayout(
+    { metricIds: ["detection-coverage-rate", "open-gap-count"], columns: 3, showGroups: false },
+    securityProfile,
+  );
+  assert.equal(valid.ok, true);
+  assert.equal(valid.layout.columns, 3);
+  assert.equal(valid.layout.showGroups, false);
+
+  const unknown = logic.validateDashboardLayout({ metricIds: ["missing-metric"] }, securityProfile);
+  assert.equal(unknown.ok, false);
+  assert.ok(unknown.errors.some((error) => error.includes("missing-metric")));
+
+  const resolved = logic.resolveDashboardMetrics(payload, valid.layout);
+  assert.deepEqual(resolved.results.map((entry) => entry.definition.id), ["detection-coverage-rate"]);
+  assert.deepEqual(resolved.drivers.map((entry) => entry.definition.id), ["open-gap-count"]);
+
+  const ordered = logic.resolveDashboardMetrics(payload, {
+    ...valid.layout,
+    metricIds: ["open-gap-count", "detection-coverage-rate"],
+  });
+  assert.deepEqual(ordered.all.map((entry) => entry.definition.id), ["open-gap-count", "detection-coverage-rate"]);
+
+  const fallback = logic.defaultDashboardLayout(securityProfile);
+  assert.deepEqual(fallback.metricIds, ["detection-coverage-rate"]);
+  assert.equal(fallback.columns, 4);
+
+  const recommended = logic.defaultDashboardLayoutFromPayload(payload);
+  assert.ok(recommended.metricIds.includes("detection-coverage-rate"));
+  assert.ok(recommended.metricIds.includes("telemetry-source-coverage"));
+  assert.ok(recommended.metricIds.includes("open-gap-count"));
+
+  const coverage = payload.results.find((entry) => entry.definition.id === "detection-coverage-rate");
+  const progress = logic.barProgress(coverage);
+  assert.ok(progress != null && progress > 0 && progress <= 1);
+
+  const influence = logic.buildInfluenceRows(payload, ["detection-coverage-rate"]);
+  assert.deepEqual(influence.map((row) => row.driverId), ["telemetry-source-coverage", "open-gap-count"]);
+  assert.equal(influence[0].weight, 0.4);
+  assert.equal(influence[0].resultLabel, "Detection Coverage");
 });
 
 test("plugin source, README and bundled skill contain no Chinese characters", () => {

@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+﻿import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   copyTextToClipboard,
   useHostNavigation,
@@ -6,16 +6,25 @@ import {
   usePluginData,
   type PluginPageProps,
   type PluginSidebarProps,
-  type PluginWidgetProps,
 } from "@paperclipai/plugin-sdk/ui";
 import {
   PLUGIN_ID,
   STATUS_ROUTE_PATH,
+  MAX_DASHBOARD_METRICS,
+  barProgress,
+  buildInfluenceRows,
+  defaultDashboardLayout,
+  defaultDashboardLayoutFromPayload,
   directionLabel,
   formatMetricValue,
+  resolveDashboardMetrics,
   type BusinessProfile,
   type CockpitPayload,
+  type DashboardColumnCount,
+  type DashboardLayout,
   type DriverValue,
+  type InfluenceRow,
+  type MetricDisplay,
   type MetricStatus,
   type MetricValue,
 } from "../shared.js";
@@ -53,6 +62,27 @@ const SIDEBAR_STYLES = `
 .bc-sidebar-link:hover { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); }
 .bc-sidebar-link[aria-current="page"] { background: var(--sidebar-accent); color: var(--sidebar-accent-foreground); }
 @media (pointer: coarse) { .bc-sidebar-link { padding-top: 4px; padding-bottom: 4px; } }
+`;
+
+const BOARD_STYLES = `
+.bc-board { display: flex; flex-direction: column; gap: 14px; }
+.bc-board-grid { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 640px) { .bc-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .bc-board-grid { grid-template-columns: repeat(var(--bc-columns, 4), minmax(0, 1fr)); } }
+.bc-board-tile { border: 1px solid var(--border, #2c2f36); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bc-board-label { color: var(--muted-foreground, #98a2b3); font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.bc-board-value { font-size: 22px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.bc-board-bar { height: 6px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+.bc-board-bar-fill { height: 100%; border-radius: 999px; }
+.bc-board-bullet-track { position: relative; height: 10px; border-radius: 3px; background: var(--muted); }
+.bc-board-bullet-fill { height: 100%; border-radius: 3px; }
+.bc-board-bullet-target { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--foreground); border-radius: 1px; transform: translateX(-1px); }
+.bc-board-gauge { display: flex; justify-content: center; }
+.bc-board-meta { color: var(--muted-foreground, #98a2b3); font-size: 11px; line-height: 1.5; }
+.bc-board-group-label { color: var(--muted-foreground, #98a2b3); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.bc-board-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.bc-board-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.bc-board .bc-link-button { display: inline-flex; align-items: center; text-decoration: none; }
 `;
 
 function CockpitIcon({ size = 14 }: { size?: number }) {
@@ -672,6 +702,15 @@ function Cockpit({
 }) {
   const [path, setPath] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
+  const { data: layoutData, refresh: refreshLayout } = usePluginData<{ layout: DashboardLayout | null }>(
+    "dashboard-layout",
+    { companyId },
+  );
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const layout = useMemo(
+    () => layoutData?.layout ?? defaultDashboardLayoutFromPayload(payload),
+    [layoutData?.layout, payload],
+  );
   const index = useMemo(() => metricIndex(payload), [payload]);
   useEffect(() => {
     if (path.length === 0) return;
@@ -713,6 +752,9 @@ function Cockpit({
         </div>
         <div style={{ display: "grid", gap: 6, justifyItems: "end", alignContent: "start", minWidth: 330, flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <button type="button" style={button()} onClick={() => setCustomizeOpen(true)}>
+              Customize board
+            </button>
             <button type="button" style={button()} onClick={onConfigure}>
               Configure
             </button>
@@ -738,21 +780,22 @@ function Cockpit({
           onJump={(position) => setPath((current) => current.slice(0, position + 1))}
         />
       ) : (
-        <>
-          <div style={{ color: C.muted, fontSize: 12 }}>
-            Select a result to inspect its definition, calculation, inputs and provenance.
-          </div>
-          <section style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))" }}>
-            {payload.results.map((entry) => (
-              <ResultCard
-                key={entry.definition.id}
-                result={entry}
-                onOpen={() => setPath([entry.definition.id])}
-              />
-            ))}
-          </section>
-        </>
+        <BusinessBoardBody
+          payload={payload}
+          layout={layout}
+          onCustomize={() => setCustomizeOpen(true)}
+          onOpen={(id) => setPath([id])}
+        />
       )}
+
+      <BoardCustomizeDrawer
+        open={customizeOpen}
+        companyId={companyId}
+        payload={payload}
+        layout={layout}
+        onClose={() => setCustomizeOpen(false)}
+        onSaved={refreshLayout}
+      />
     </div>
   );
 }
@@ -817,52 +860,828 @@ export function BusinessStatusSidebarLink(_props: PluginSidebarProps) {
   );
 }
 
-export function BusinessStatusWidget({ context }: PluginWidgetProps) {
-  const companyId = context.companyId ?? "";
-  const { data, loading } = usePluginData<CockpitPayload>("business-status", { companyId });
-  if (!companyId || loading || !data) {
-    return <section style={{ ...card, color: C.muted, fontSize: 12 }}>Business Cockpit: loading…</section>;
+function overallStatus(results: MetricValue[]): MetricStatus {
+  if (results.length === 0) return "unknown";
+  if (results.some((result) => result.status === "critical")) return "critical";
+  if (results.some((result) => result.status === "warn")) return "warn";
+  if (results.every((result) => result.state === "awaiting-data")) return "unknown";
+  return "ok";
+}
+
+function BulletBar({ entry }: { entry: MetricValue }) {
+  const progress = barProgress(entry) ?? 0;
+  const target = entry.definition.target;
+  const scaleMax = Math.max(
+    Math.abs(target ?? 0),
+    Math.abs(entry.definition.warn ?? 0),
+    Math.abs(entry.definition.critical ?? 0),
+    Math.abs(entry.value ?? 0),
+    1e-9,
+  );
+  const targetPct = target == null ? null : Math.min(100, Math.max(0, (Math.abs(target) / scaleMax) * 100));
+  return (
+    <div className="bc-board-bullet-track" aria-hidden="true">
+      <div
+        className="bc-board-bullet-fill"
+        style={{ width: `${Math.round(progress * 100)}%`, background: statusColor(entry.status) }}
+      />
+      {targetPct != null ? <span className="bc-board-bullet-target" style={{ left: `${targetPct}%` }} /> : null}
+    </div>
+  );
+}
+
+function Gauge({ entry, size = 96 }: { entry: MetricValue; size?: number }) {
+  const progress = barProgress(entry) ?? 0;
+  const radius = (size - 16) / 2;
+  const center = size / 2;
+  const arcLength = Math.PI * radius;
+  const color = statusColor(entry.status);
+  const path = `M ${center - radius} ${center} A ${radius} ${radius} 0 0 1 ${center + radius} ${center}`;
+  return (
+    <div className="bc-board-gauge">
+      <svg width={size} height={center + 12} viewBox={`0 0 ${size} ${center + 12}`} aria-hidden="true">
+        <path d={path} fill="none" stroke="var(--muted)" strokeWidth={8} strokeLinecap="round" />
+        <path
+          d={path}
+          fill="none"
+          stroke={color}
+          strokeWidth={8}
+          strokeLinecap="round"
+          strokeDasharray={`${arcLength * progress} ${arcLength}`}
+        />
+        <text
+          x={center}
+          y={center - 6}
+          textAnchor="middle"
+          fontSize={Math.max(12, size * 0.16)}
+          fontWeight={600}
+          fill="currentColor"
+        >
+          {entry.displayValue ?? "No data"}
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+function BoardTile({
+  entry,
+  display,
+  showTargets,
+  showSource,
+  onOpen,
+}: {
+  entry: MetricValue;
+  display: MetricDisplay;
+  showTargets: boolean;
+  showSource: boolean;
+  onOpen: () => void;
+}) {
+  const definition = entry.definition;
+  const awaiting = entry.state === "awaiting-data";
+  const progress = barProgress(entry);
+  const meta: string[] = [];
+  if (showTargets) {
+    meta.push(definition.target == null ? "No target" : `Target ${targetText(entry)}`);
   }
-  if (!data.configured) {
+  meta.push(directionLabel(definition.direction));
+  if (entry.gapRatio != null) meta.push(`Gap ${(entry.gapRatio * 100).toFixed(0)}%`);
+  if (showSource) meta.push(definition.source);
+  if (entry.asOf) meta.push(`as-of ${shortTime(entry.asOf)}`);
+
+  return (
+    <div
+      className="bc-board-tile"
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      style={{ cursor: "pointer" }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+        <span className="bc-board-label">{definition.label}</span>
+        {badge(awaiting ? "Awaiting data" : statusText(entry.status), awaiting ? "unknown" : entry.status)}
+      </div>
+      {display === "gauge" ? (
+        <Gauge entry={entry} />
+      ) : (
+        <div className="bc-board-value">{entry.displayValue ?? "No data"}</div>
+      )}
+      {display === "bar" && progress != null ? (
+        <div className="bc-board-bar" aria-hidden="true">
+          <div
+            className="bc-board-bar-fill"
+            style={{ width: `${Math.round(progress * 100)}%`, background: statusColor(entry.status) }}
+          />
+        </div>
+      ) : null}
+      {display === "bullet" ? <BulletBar entry={entry} /> : null}
+      <div className="bc-board-meta">{meta.join(" · ")}</div>
+    </div>
+  );
+}
+
+const srOnly: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0, 0, 0, 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
+function truncateLabel(text: string, max = 34): string {
+  return text.length > max ? `${text.slice(0, max - 1)}...` : text;
+}
+
+function InfluenceGraph({
+  payload,
+  resultIds,
+  onOpen,
+}: {
+  payload: CockpitPayload;
+  resultIds: string[];
+  onOpen: (id: string) => void;
+}) {
+  const markerBase = useId().replace(/:/g, "");
+  const [hover, setHover] = useState<{ row: InfluenceRow; x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const rows = buildInfluenceRows(payload, resultIds);
+  if (rows.length === 0) return null;
+
+  const driverIds: string[] = [];
+  const graphResultIds: string[] = [];
+  for (const row of rows) {
+    if (!driverIds.includes(row.driverId)) driverIds.push(row.driverId);
+    if (!graphResultIds.includes(row.resultId)) graphResultIds.push(row.resultId);
+  }
+  const drivers = driverIds
+    .map((id) => payload.drivers.find((entry) => entry.definition.id === id))
+    .filter((entry): entry is DriverValue => Boolean(entry));
+  const results = graphResultIds
+    .map((id) => payload.results.find((entry) => entry.definition.id === id))
+    .filter((entry): entry is MetricValue => Boolean(entry));
+
+  const width = 880;
+  const rowHeight = 46;
+  const top = 26;
+  const height = Math.max(drivers.length, results.length) * rowHeight + top * 2;
+  const driverX = 20;
+  const driverW = 250;
+  const resultW = 270;
+  const resultX = width - 20 - resultW;
+  const nodeH = 30;
+  const maxWeight = Math.max(...rows.map((row) => Math.abs(row.weight)), 0.0001);
+
+  const centerY = (count: number, index: number) =>
+    top + (height - top * 2 - count * rowHeight) / 2 + rowHeight / 2 + index * rowHeight;
+  const driverY = new Map(drivers.map((entry, index) => [entry.definition.id, centerY(drivers.length, index)]));
+  const resultY = new Map(results.map((entry, index) => [entry.definition.id, centerY(results.length, index)]));
+
+  function showTooltip(row: InfluenceRow, event: React.MouseEvent) {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setHover({ row, x: event.clientX - rect.left, y: event.clientY - rect.top });
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <div className="bc-board-group-label">Driver influence</div>
+      <div
+        ref={containerRef}
+        style={{ position: "relative", overflowX: "auto" }}
+        onMouseLeave={() => setHover(null)}
+      >
+        <svg
+          width="100%"
+          height={height}
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label="Driver influence graph"
+          style={{ minWidth: 640, display: "block" }}
+        >
+          <defs>
+            <marker id={`${markerBase}-pos`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" fill={C.ok} />
+            </marker>
+            <marker id={`${markerBase}-neg`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+              <path d="M0,0 L8,4 L0,8 z" fill={C.critical} />
+            </marker>
+          </defs>
+
+          {rows.map((row) => {
+            const y1 = driverY.get(row.driverId);
+            const y2 = resultY.get(row.resultId);
+            if (y1 == null || y2 == null) return null;
+            const x1 = driverX + driverW;
+            const x2 = resultX;
+            const mid = (x1 + x2) / 2;
+            const positive = row.weight >= 0;
+            const color = positive ? C.ok : C.critical;
+            const path = `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`;
+            const active = hover?.row === row;
+            return (
+              <g key={`${row.driverId}:${row.resultId}`}>
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={1.5 + (Math.abs(row.weight) / maxWeight) * 4}
+                  strokeOpacity={active ? 1 : 0.5}
+                  markerEnd={`url(#${markerBase}-${positive ? "pos" : "neg"})`}
+                  pointerEvents="none"
+                />
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={16}
+                  style={{ cursor: "pointer" }}
+                  onMouseEnter={(event) => showTooltip(row, event)}
+                  onMouseMove={(event) => showTooltip(row, event)}
+                />
+              </g>
+            );
+          })}
+
+          {drivers.map((entry) => {
+            const y = driverY.get(entry.definition.id);
+            if (y == null) return null;
+            return (
+              <g key={entry.definition.id} transform={`translate(${driverX}, ${y - nodeH / 2})`}>
+                <rect width={driverW} height={nodeH} rx={6} fill={C.card} stroke={C.border} />
+                <text x={10} y={nodeH / 2 + 4} fontSize={11} fill={C.fg}>
+                  {truncateLabel(entry.definition.label)}
+                </text>
+                <text x={driverW - 10} y={nodeH / 2 + 4} textAnchor="end" fontSize={11} fill={C.muted}>
+                  {entry.displayValue ?? ""}
+                </text>
+              </g>
+            );
+          })}
+
+          {results.map((entry) => {
+            const y = resultY.get(entry.definition.id);
+            if (y == null) return null;
+            return (
+              <g
+                key={entry.definition.id}
+                transform={`translate(${resultX}, ${y - nodeH / 2})`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${entry.definition.label}`}
+                style={{ cursor: "pointer" }}
+                onClick={() => onOpen(entry.definition.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onOpen(entry.definition.id);
+                  }
+                }}
+              >
+                <rect width={resultW} height={nodeH} rx={6} fill={C.accent} stroke={C.border} />
+                <text x={10} y={nodeH / 2 + 4} fontSize={11} fill={C.fg}>
+                  {truncateLabel(entry.definition.label, 36)}
+                </text>
+                <text x={resultW - 10} y={nodeH / 2 + 4} textAnchor="end" fontSize={11} fill={C.muted}>
+                  {entry.displayValue ?? ""}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+
+        {hover ? (
+          <div
+            style={{
+              position: "absolute",
+              left: hover.x + 12,
+              top: hover.y + 12,
+              zIndex: 2,
+              pointerEvents: "none",
+              background: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 8,
+              padding: "8px 10px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+              maxWidth: 300,
+            }}
+          >
+            <div style={{ fontSize: 11, color: C.muted }}>
+              {hover.row.driverLabel} → {hover.row.resultLabel}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: hover.row.weight >= 0 ? C.ok : C.critical,
+              }}
+            >
+              {hover.row.weight >= 0 ? "Positive" : "Negative"} influence · weight{" "}
+              {hover.row.weight >= 0 ? "+" : ""}
+              {hover.row.weight.toFixed(2)}
+            </div>
+            {hover.row.impact != null ? (
+              <div style={{ fontSize: 11, color: C.muted }}>
+                Current impact {hover.row.impact >= 0 ? "+" : ""}
+                {hover.row.impact.toFixed(2)}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <ul style={srOnly}>
+        {rows.map((row) => (
+          <li key={`${row.driverId}:${row.resultId}`}>
+            {row.driverLabel} influences {row.resultLabel} with weight {row.weight.toFixed(2)} (
+            {row.weight >= 0 ? "positive" : "negative"})
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function MetricTable({
+  groups,
+  layout,
+  onOpen,
+}: {
+  groups: Array<{ key: string; label: string | null; entries: MetricValue[] }>;
+  layout: DashboardLayout;
+  onOpen: (id: string) => void;
+}) {
+  const headerCell: CSSProperties = {
+    padding: "6px 8px",
+    fontWeight: 500,
+    fontSize: 11,
+    color: C.muted,
+    textAlign: "left",
+    whiteSpace: "nowrap",
+  };
+  const cell: CSSProperties = { padding: "8px", verticalAlign: "top" };
+  const columns = 4 + (layout.showTargets ? 1 : 0) + (layout.showSource ? 1 : 0);
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <thead>
+          <tr>
+            <th style={headerCell}>Metric</th>
+            <th style={headerCell}>Value</th>
+            <th style={headerCell}>Status</th>
+            {layout.showTargets ? <th style={headerCell}>Target</th> : null}
+            {layout.showSource ? <th style={headerCell}>Source</th> : null}
+            <th style={headerCell}>As of</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((group) => (
+            <Fragment key={group.key}>
+              {group.label ? (
+                <tr>
+                  <td
+                    colSpan={columns}
+                    style={{
+                      padding: "10px 8px 4px",
+                      color: C.muted,
+                      fontSize: 10,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    {group.label}
+                  </td>
+                </tr>
+              ) : null}
+              {group.entries.map((entry) => (
+                <tr
+                  key={entry.definition.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onOpen(entry.definition.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onOpen(entry.definition.id);
+                    }
+                  }}
+                  style={{ borderTop: `1px solid ${C.border}`, cursor: "pointer" }}
+                >
+                  <td style={cell}>{entry.definition.label}</td>
+                  <td style={{ ...cell, fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+                    {entry.displayValue ?? "No data"}
+                  </td>
+                  <td style={cell}>
+                    {badge(
+                      entry.state === "awaiting-data" ? "Awaiting data" : statusText(entry.status),
+                      entry.state === "awaiting-data" ? "unknown" : entry.status,
+                    )}
+                  </td>
+                  {layout.showTargets ? <td style={cell}>{targetText(entry)}</td> : null}
+                  {layout.showSource ? <td style={{ ...cell, color: C.muted }}>{entry.definition.source}</td> : null}
+                  <td style={{ ...cell, color: C.muted }}>{shortTime(entry.asOf)}</td>
+                </tr>
+              ))}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function BusinessBoardBody({
+  payload,
+  layout,
+  onCustomize,
+  onOpen,
+}: {
+  payload: CockpitPayload;
+  layout: DashboardLayout;
+  onCustomize: () => void;
+  onOpen: (id: string) => void;
+}) {
+  const selected = resolveDashboardMetrics(payload, layout);
+  if (selected.results.length === 0 && selected.drivers.length === 0) {
     return (
-      <section style={card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <CockpitIcon size={14} />
-          <strong style={{ fontSize: 13 }}>Business Cockpit</strong>
+      <section aria-label="Business board" style={{ ...card, display: "grid", gap: 10 }}>
+        <div style={{ color: C.muted, fontSize: 12 }}>
+          No metrics selected for the board. Choose results or drivers from the profile.
         </div>
-        <div style={{ color: C.muted, fontSize: 12, marginTop: 8, lineHeight: 1.6 }}>
-          Not configured for this company. Open the cockpit to define results and drivers.
-        </div>
+        <button type="button" style={button(true)} onClick={onCustomize}>
+          Customize board
+        </button>
       </section>
     );
   }
-  const results = data.results.slice(0, 3);
+
+  const groups = layout.showGroups
+    ? [
+        { key: "results", label: "Results", entries: selected.results as MetricValue[] },
+        { key: "drivers", label: "Drivers", entries: selected.drivers as MetricValue[] },
+      ]
+    : [{ key: "all", label: null, entries: selected.all }];
+  const visibleGroups = groups.filter((group) => group.entries.length > 0);
+
   return (
-    <section style={card}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <CockpitIcon size={14} />
-          <strong style={{ fontSize: 13 }}>Business Cockpit</strong>
-        </span>
-        {badge(`as-of ${shortTime(data.asOf)}`, "unknown")}
-      </div>
-      <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>{data.business?.name ?? "Cockpit"}</div>
-      <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
-        {results.map((result) => (
-          <div key={result.definition.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12 }}>
-            <span style={{ color: C.muted }}>{result.definition.label}</span>
-            <span style={{ display: "flex", gap: 5, alignItems: "center" }}>
-              <strong style={{ fontVariantNumeric: "tabular-nums" }}>{result.displayValue ?? "—"}</strong>
-              {badge(result.state === "awaiting-data" ? "Awaiting data" : statusText(result.status), result.state === "awaiting-data" ? "unknown" : result.status)}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div style={{ color: C.muted, fontSize: 11, marginTop: 8 }}>
-        {data.results.length} results · {data.drivers.length} drivers · {data.levers.length} levers
+    <section aria-label="Business board">
+      <style>{BOARD_STYLES}</style>
+      <div className="bc-board">
+        {layout.viewMode === "table" ? (
+          <MetricTable groups={visibleGroups} layout={layout} onOpen={onOpen} />
+        ) : (
+          visibleGroups.map((group) => (
+            <div key={group.key} style={{ display: "grid", gap: 8 }}>
+              {group.label ? <div className="bc-board-group-label">{group.label}</div> : null}
+              <div
+                className="bc-board-grid"
+                style={{ "--bc-columns": layout.columns } as CSSProperties}
+              >
+                {group.entries.map((entry) => (
+                  <BoardTile
+                    key={entry.definition.id}
+                    entry={entry}
+                    display={layout.displays[entry.definition.id] ?? "number"}
+                    showTargets={layout.showTargets}
+                    showSource={layout.showSource}
+                    onOpen={() => onOpen(entry.definition.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+
+        {layout.showInfluence ? (
+          <InfluenceGraph
+            payload={payload}
+            resultIds={selected.results.map((entry) => entry.definition.id)}
+            onOpen={onOpen}
+          />
+        ) : null}
       </div>
     </section>
   );
 }
 
+function knownMetricIds(payload: CockpitPayload): Set<string> {
+  return new Set([
+    ...payload.results.map((entry) => entry.definition.id),
+    ...payload.drivers.map((entry) => entry.definition.id),
+  ]);
+}
+
+function pruneDashboardLayout(layout: DashboardLayout, payload: CockpitPayload): DashboardLayout {
+  const known = knownMetricIds(payload);
+  const metricIds = layout.metricIds.filter((id) => known.has(id));
+  const displays = Object.fromEntries(
+    Object.entries(layout.displays).filter(([id]) => metricIds.includes(id)),
+  ) as Record<string, MetricDisplay>;
+  return { ...layout, metricIds, displays };
+}
+
+function BoardCustomizeDrawer({
+  open,
+  companyId,
+  payload,
+  layout,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  companyId: string;
+  payload: CockpitPayload;
+  layout: DashboardLayout;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const saveLayout = usePluginAction("save-dashboard-layout");
+  const [draft, setDraft] = useState<DashboardLayout>(layout);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraft(pruneDashboardLayout(layout, payload));
+    setError(null);
+    setSaving(false);
+  }, [open, layout]);
+
+  if (!open) return null;
+
+  const metrics = [
+    ...payload.results.map((entry) => ({ id: entry.definition.id, label: entry.definition.label, role: "Result" })),
+    ...payload.drivers.map((entry) => ({ id: entry.definition.id, label: entry.definition.label, role: "Driver" })),
+  ];
+  const selectedIds = new Set(draft.metricIds);
+  const selectedMetrics = draft.metricIds
+    .map((id) => metrics.find((metric) => metric.id === id))
+    .filter((metric): metric is (typeof metrics)[number] => Boolean(metric));
+  const availableMetrics = metrics.filter((metric) => !selectedIds.has(metric.id));
+  const known = knownMetricIds(payload);
+  const staleCount = layout.metricIds.filter((id) => !known.has(id)).length;
+
+  function toggle(id: string) {
+    if (selectedIds.has(id)) {
+      setDraft((prev) => ({ ...prev, metricIds: prev.metricIds.filter((metricId) => metricId !== id) }));
+      setError(null);
+      return;
+    }
+    if (draft.metricIds.length >= MAX_DASHBOARD_METRICS) {
+      setError(`The board supports at most ${MAX_DASHBOARD_METRICS} metrics.`);
+      return;
+    }
+    setDraft((prev) => ({ ...prev, metricIds: [...prev.metricIds, id] }));
+    setError(null);
+  }
+
+  function move(id: string, delta: number) {
+    setDraft((prev) => {
+      const index = prev.metricIds.indexOf(id);
+      const target = index + delta;
+      if (index < 0 || target < 0 || target >= prev.metricIds.length) return prev;
+      const metricIds = [...prev.metricIds];
+      [metricIds[index], metricIds[target]] = [metricIds[target], metricIds[index]];
+      return { ...prev, metricIds };
+    });
+  }
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const layout: DashboardLayout = {
+        ...draft,
+        displays: Object.fromEntries(
+          Object.entries(draft.displays).filter(([id]) => draft.metricIds.includes(id)),
+        ) as Record<string, MetricDisplay>,
+      };
+      await saveLayout({ companyId, layout });
+      onSaved();
+      onClose();
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : String(saveError));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Customize business board"
+      style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.4)", display: "flex", justifyContent: "flex-end" }}
+      onClick={onClose}
+    >
+      <div
+        style={{ width: "min(620px, 100%)", height: "100%", overflowY: "auto", background: C.card, borderLeft: `1px solid ${C.border}`, padding: 18, display: "grid", gap: 14, alignContent: "start" }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CockpitIcon size={16} />
+            <strong style={{ fontSize: 14 }}>Customize business board</strong>
+          </div>
+          <button type="button" style={button()} onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.6 }}>
+          Pick the results and drivers shown on the Business Board page. The board is company-scoped; changing it here does not edit the profile.
+        </div>
+        {staleCount > 0 ? (
+          <div style={{ color: C.warn, fontSize: 11 }}>
+            {staleCount} saved metric{staleCount === 1 ? "" : "s"} no longer exist in the profile and were removed.
+          </div>
+        ) : null}
+
+        <section style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+            <strong style={{ fontSize: 13 }}>Selected ({draft.metricIds.length})</strong>
+            <button
+              type="button"
+              style={button()}
+              onClick={() =>
+                setDraft((prev) => {
+                  const reset = defaultDashboardLayout(payload.profile);
+                  return {
+                    ...reset,
+                    displays: prev.displays,
+                    columns: prev.columns,
+                    viewMode: prev.viewMode,
+                    showGroups: prev.showGroups,
+                    showTargets: prev.showTargets,
+                    showSource: prev.showSource,
+                    showInfluence: prev.showInfluence,
+                  };
+                })
+              }
+            >
+              Reset to results
+            </button>
+          </div>
+          {selectedMetrics.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 12, border: `1px dashed ${C.border}`, borderRadius: 8, padding: 12 }}>
+              No metrics selected. The board will be hidden on the Business Board page.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 6 }}>
+              {selectedMetrics.map((metric, index) => (
+                <div
+                  key={metric.id}
+                  style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px" }}
+                >
+                  <span style={{ ...mono, color: C.muted, width: 18, textAlign: "right" }}>{index + 1}</span>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
+                    {metric.label}
+                    <span style={{ color: C.muted, fontSize: 11 }}> · {metric.role}</span>
+                  </span>
+                  <select
+                    value={draft.displays[metric.id] ?? "number"}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        displays: { ...prev.displays, [metric.id]: event.target.value as MetricDisplay },
+                      }))
+                    }
+                    aria-label={`Display ${metric.label}`}
+                    style={{ ...button(), minHeight: 28, padding: "4px 6px" }}
+                  >
+                    <option value="number">Number</option>
+                    <option value="bar">Bar</option>
+                    <option value="bullet">Bullet</option>
+                    <option value="gauge">Gauge</option>
+                  </select>
+                  <button type="button" style={button(false, index === 0)} onClick={() => move(metric.id, -1)} aria-label={`Move ${metric.label} up`}>
+                    Up
+                  </button>
+                  <button
+                    type="button"
+                    style={button(false, index === selectedMetrics.length - 1)}
+                    onClick={() => move(metric.id, 1)}
+                    aria-label={`Move ${metric.label} down`}
+                  >
+                    Down
+                  </button>
+                  <button type="button" style={button()} onClick={() => toggle(metric.id)} aria-label={`Remove ${metric.label}`}>
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section style={{ display: "grid", gap: 8 }}>
+          <strong style={{ fontSize: 13 }}>Available</strong>
+          {availableMetrics.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 12 }}>Every result and driver is already selected.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 6 }}>
+              {availableMetrics.map((metric) => (
+                <div
+                  key={metric.id}
+                  style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 8px" }}
+                >
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 12 }}>
+                    {metric.label}
+                    <span style={{ color: C.muted, fontSize: 11 }}> · {metric.role}</span>
+                  </span>
+                  <button type="button" style={button()} onClick={() => toggle(metric.id)}>
+                    Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 4 }}>
+            <label style={{ fontSize: 12, color: C.muted }} htmlFor="bc-board-view">View</label>
+            <select
+              id="bc-board-view"
+              value={draft.viewMode}
+              onChange={(event) =>
+                setDraft((prev) => ({ ...prev, viewMode: event.target.value === "table" ? "table" : "cards" }))
+              }
+              style={{ ...button(), cursor: "pointer", justifySelf: "start", minWidth: 120 }}
+            >
+              <option value="cards">Cards</option>
+              <option value="table">Table</option>
+            </select>
+          </div>
+          {draft.viewMode === "cards" ? (
+            <div style={{ display: "grid", gap: 4 }}>
+              <label style={{ fontSize: 12, color: C.muted }} htmlFor="bc-board-columns">Columns</label>
+              <select
+                id="bc-board-columns"
+                value={draft.columns}
+                onChange={(event) => setDraft((prev) => ({ ...prev, columns: Number(event.target.value) as DashboardColumnCount }))}
+                style={{ ...button(), cursor: "pointer", justifySelf: "start", minWidth: 100 }}
+              >
+                {[2, 3, 4, 6].map((columns) => (
+                  <option key={columns} value={columns}>{columns}</option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={draft.showGroups}
+              onChange={(event) => setDraft((prev) => ({ ...prev, showGroups: event.target.checked }))}
+            />
+            Group results and drivers
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={draft.showTargets}
+              onChange={(event) => setDraft((prev) => ({ ...prev, showTargets: event.target.checked }))}
+            />
+            Show targets and gaps
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={draft.showSource}
+              onChange={(event) => setDraft((prev) => ({ ...prev, showSource: event.target.checked }))}
+            />
+            Show metric source and as-of
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+            <input
+              type="checkbox"
+              checked={draft.showInfluence}
+              onChange={(event) => setDraft((prev) => ({ ...prev, showInfluence: event.target.checked }))}
+            />
+            Show driver influence
+          </label>
+        </section>
+
+        {error ? <div style={{ color: C.critical, fontSize: 12 }}>{error}</div> : null}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" style={button()} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" style={button(true, saving)} onClick={() => void save()} disabled={saving}>
+            {saving ? "Saving..." : "Save board"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
