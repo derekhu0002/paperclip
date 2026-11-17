@@ -2606,6 +2606,38 @@ function pendingFinalizeBlockerCondition(companyId: string, issueId: SQL, worksp
             and owning_finalize.finished_at >= latest_blocker_operation.finished_at
         )
       )
+      and not (
+        latest_blocker_operation.status in ('succeeded', 'failed', 'skipped')
+        and exists (
+          select 1 from workspace_operations recovery_finalize
+          where recovery_finalize.company_id = ${companyId}::uuid
+            and recovery_finalize.issue_id = ${issueId}
+            and recovery_finalize.heartbeat_run_id = latest_blocker_operation.heartbeat_run_id
+            and recovery_finalize.phase = 'workspace_finalize' and recovery_finalize.status = 'succeeded'
+            and recovery_finalize.metadata->>'owningService' = 'workspace_recovery'
+            and (recovery_finalize.execution_workspace_id is null
+              or recovery_finalize.execution_workspace_id = ${workspaceId})
+            and recovery_finalize.started_at >= coalesce(latest_blocker_operation.finished_at, latest_blocker_operation.started_at)
+        )
+      )
+      and not (
+        latest_blocker_operation.status in ('succeeded', 'failed', 'skipped')
+        and exists (
+          select 1 from heartbeat_runs settled_owner_run
+          where settled_owner_run.company_id = ${companyId}::uuid
+            and settled_owner_run.id = latest_blocker_operation.heartbeat_run_id
+            and settled_owner_run.status in (${sql.join([...TERMINAL_HEARTBEAT_RUN_STATUSES].map(status => sql`${status}`), sql`, `)})
+        )
+        and exists (
+          select 1 from workspace_operations settled_run_finalize
+          where settled_run_finalize.company_id = ${companyId}::uuid
+            and settled_run_finalize.issue_id = ${issueId}
+            and settled_run_finalize.heartbeat_run_id = latest_blocker_operation.heartbeat_run_id
+            and settled_run_finalize.phase = 'workspace_finalize' and settled_run_finalize.status = 'succeeded'
+            and (settled_run_finalize.execution_workspace_id is null
+              or settled_run_finalize.execution_workspace_id = ${workspaceId})
+        )
+      )
   )`;
 }
 
