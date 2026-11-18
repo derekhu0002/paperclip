@@ -115,6 +115,10 @@
         {
           "view_id": "project-manager-qwenpaw-lab-ops-001",
           "view_name": "项目经理 · QwenPaw 实验室运维记忆"
+        },
+        {
+          "view_id": "project-manager-cockpit-governance-001",
+          "view_name": "项目经理 · Cockpit 治理与 KMer 上线记忆"
         }
       ],
       "attributes": [
@@ -5668,6 +5672,40 @@
         }
       ],
       "type": "Requirement"
+    },
+    {
+      "description": "【决策】Business Cockpit 的 profile 与 snapshot 分离，避免『出题和考试同一人』：CEO 是 profile 唯一 writer；Knowledge Manager（KMer）是 snapshot 数值唯一 writer，负责按公司本体起草/校验 profile 并报漂移，但不提交 profile。\n\n【强制点】插件 paperclip.business-status（plugin id b9ea0c69-5324-447f-b55a-11a2af24d692）的每公司配置：profileWriterAgentId=CEO，snapshotWriterAgentIds=[KMer]，allowBoardBackfill=false。只改文档不改配置会让 CEO 得到 403 writer-not-authorized。\n\n【交付】commit 12cc1de701（7 files）：doc/agents/company-ceo.AGENTS.md、doc/agents/company-knowledge-manager.AGENTS.md、packages/skills-catalog/catalog/bundled/paperclip-operations/business-cockpit/SKILL.md、packages/plugins/plugin-business-status/src/{logic,manifest,worker}.ts、doc/FORK-AGENT-RULES.md。\n\n【8 组织落地】AIC 66563a2a(KMer 6bbf24da, hire 审批 5ac46a4d)、Argo economy 1d978dc8(de2c4530)、argo 54b2a2a2(952768f1)、IPD 833b4f12(0e94c16b, 审批 a0093116)、AI security d56a6bbb(f29b1254)、CTI f1b9f8ac(bc645b7a)、vsoc 29f175e7(fb0d15a4)、QwenPaw 1ba5e77b(5d060393)。每个组织：安装 business-cockpit 技能、翻转插件治理配置、给 CEO/KMer 的 managed AGENTS.md 追加 Cockpit 分工覆盖段并更新 capabilities。\n\n【关键坑】1) POST /companies/:cid/agents 不传 runner=legacy 会被转成 paperclip_runner（provider codex, verifying）；2) 新建 agent 需要 arm 验证：lifecycle/retry + heartbeat invoke，随后 PATCH status=idle 或验证完成后自动 ready；3) SSH 远端绝对路径 workspace 必须 directRemoteWorkspace=true，否则 lease 阶段报 EACCES mkdir /mnt/d；4) API 读 agent env 会打码，无法克隆 provider 配置（OPENCODE_CONFIG_CONTENT 等），新建 KMer 只带 model，依赖远端 opencode 自身凭据；5) view 有 15 元素上限。\n\n【遗留】47 上已安装的 business-cockpit 技能仍是旧文案：install-catalog 返回 unchanged，因为实例里打包的 @paperclipai/skills-catalog 还是旧构建；需重建/部署镜像后再跑 install-catalog --force。插件 hints 同理（47 上为外部安装 v1.8.0）。vsoc CEO 原本没有任何 instructions bundle，已创建仅含 board 规则 + Cockpit 分工的最小 bundle（1611 bytes），未注入完整 CEO 角色模板。",
+      "attributes": [
+        {
+          "description": "docs(agents): split cockpit profile and snapshot writers (7 files)",
+          "name": "commit",
+          "value": "12cc1de701"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-11-18"
+        },
+        {
+          "name": "commit",
+          "value": "5ed1c9ea9f",
+          "description": "docs(agents): delegation-first CEO rule with company map; pushed to 8 CEO bundles"
+        },
+        {
+          "name": "delegationRule",
+          "value": "CEO delegates delivery by default; metric monitoring, metric-system design and KM collaboration stay with the CEO; Company map requires querying agents/projects before delegating"
+        }
+      ],
+      "name": "Cockpit 写权限分工：CEO 写 profile，KMer 写 snapshot（2026-11-18，8 组织落地）",
+      "type": "Requirement",
+      "id": "cockpit-ceo-profile-kmer-snapshot-2026-11-18-8"
     }
   ],
   "relationships": [
@@ -6032,6 +6070,15 @@
         "qwe189-stuck-recovery-2026-11-16",
         "qwenpaw-stuck-recovery-2026-11-17",
         "qwenpaw-ceo-km-agents-md-2026-11-18"
+      ]
+    },
+    {
+      "view_id": "project-manager-cockpit-governance-001",
+      "view_name": "项目经理 · Cockpit 治理与 KMer 上线记忆",
+      "parent_element_id": "project-manager-001",
+      "description": "Business Cockpit 写权限分工（CEO 写 profile、KMer 写 snapshot）在 8 个组织的落地记录、插件治理配置、Agent 模板刷新与新建 KMer 的坑。",
+      "included_elements": [
+        "cockpit-ceo-profile-kmer-snapshot-2026-11-18-8"
       ]
     }
   ]
