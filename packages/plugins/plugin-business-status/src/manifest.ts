@@ -40,7 +40,7 @@ const manifest: PaperclipPluginManifestV1 = {
         type: "boolean",
         title: "Allow board backfill",
         default: false,
-        description: "Emergency override: allow a board user to write profile and snapshot values. Keep false for the KM-only writer rule.",
+        description: "Emergency override: allow a board user to write profile and snapshot values. Keep false so writes stay with the configured profile and snapshot writers.",
       },
     },
     required: ["profileWriterAgentId", "snapshotWriterAgentIds"],
