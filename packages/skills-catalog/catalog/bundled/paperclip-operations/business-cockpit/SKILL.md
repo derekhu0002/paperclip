@@ -16,13 +16,13 @@ defaultInstall: false
 
 # Business Cockpit
 
-Use this skill when you are the knowledge-management agent for a Paperclip company and need to maintain its Business Cockpit plugin.
+Use this skill when you are the CEO or the knowledge-management agent for a Paperclip company and need to maintain its Business Cockpit plugin.
 
-## What you own
+## Who writes what
 
-- The cockpit profile: key results, process drivers, causal links, targets and thresholds.
-- The snapshot values for metrics whose profile entry uses `source: "snapshot"`.
-- The explanation of what is on track, what is missing, and which lever to move.
+- **Profile** (key results, process drivers, causal links, targets and thresholds): the **CEO** is its single writer. The Knowledge Manager drafts and validates it against the company ontology and reports drift; it never posts the profile.
+- **Snapshot values** for metrics whose profile entry uses `source: "snapshot"`: the **Knowledge Manager** is its single writer.
+- The explanation of what is on track, what is missing, and which lever to move: whoever owns the decision; the Knowledge Manager supplies the evidence.
 
 You do not own the plugin code. Installing, upgrading or changing the plugin is the host operator's job. Do not edit project graphs, schemas or host code from this plugin.
 
@@ -57,11 +57,11 @@ All routes require `Authorization: Bearer <token>`. Send the `companyId` you are
 
 The board configures company-scoped **Plugin Settings** with `agent.id` values, never Agent names:
 
-- `profileWriterAgentId`: the Knowledge Manager Agent allowed to write the profile.
+- `profileWriterAgentId`: the CEO Agent allowed to write the profile.
 - `snapshotWriterAgentIds`: the Knowledge Manager Agent(s) allowed to ingest snapshot values.
 - `allowBoardBackfill`: emergency board override; keep `false`.
 
-The Knowledge Manager is the single writer of profile and snapshot values. Project Leads provide and validate evidence, but they do not write the company cockpit. A missing configuration returns `governance-not-configured` (HTTP 409); a non-writer returns `writer-not-authorized` (HTTP 403). Do not retry around either error.
+The CEO is the single writer of the profile; the Knowledge Manager is the single writer of snapshot values. Project Leads provide and validate evidence, but they do not write the company cockpit. A missing configuration returns `governance-not-configured` (HTTP 409); a non-writer returns `writer-not-authorized` (HTTP 403). Do not retry around either error.
 
 ## Profile schema
 
@@ -247,7 +247,7 @@ Rules:
    - Causal links with weights.
    - `inputs` on any metric that is composed from other metrics; use it to expose the hierarchy down to leaf measurements. `inputs` may reference results or drivers and must stay acyclic.
    - `paperclip` source where the host already computes it; `snapshot` for project-specific evidence.
-3. `POST profile` with the full profile. It replaces the company's previous profile.
+3. If you are the CEO, `POST profile` with the full profile; it replaces the company's previous profile. If you are the Knowledge Manager, hand the validated payload to the CEO instead.
 4. Collect evidence from the project Lead (graph, issues, runs or documents). The Knowledge Manager is the single writer; include `source`, `commit`, `digest`, `asOf` and a note with numerator/denominator.
 5. `POST metrics` with only the values you can prove, and only as the configured Knowledge Manager writer.
 6. `GET overview` again. Report before/after values, levers, and every metric that is still `awaiting-data` and why.
@@ -255,7 +255,7 @@ Rules:
 
 ## Guardrails
 
-- Only the configured Knowledge Manager may write profile or snapshot. If you get `writer-not-authorized` or `governance-not-configured`, stop and ask the board/KM; do not retry or bypass.
+- Only the configured CEO may write the profile, and only the configured Knowledge Manager may ingest snapshot values. If you get `writer-not-authorized` or `governance-not-configured`, stop and ask the board; do not retry or bypass.
 - Only ingest `source: "snapshot"` ids. If `POST /metrics` returns `metric-not-ingestible`, do not retry the same id; the value is host-computed, fixed or derived from inputs.
 - On profile validation errors, read the reported path and hint, fix the profile, and resubmit. Do not bypass a cycle, unknown input or invalid aggregation.
 - Do not fabricate values. If a result cannot be computed, leave it `awaiting-data` and name the missing source.

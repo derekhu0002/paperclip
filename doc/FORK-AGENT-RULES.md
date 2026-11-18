@@ -31,6 +31,26 @@ plus `blockedByIssueIds`, assigned to the owning Manager/Purple lane. The server
 releases it when dependencies complete. Do not use an empty manual
 `heartbeat/invoke` to start planned work.
 
+## Board API keys stay with the operator
+
+A `board` API key authenticates as a human board user, not as an agent: it
+inherits that person's full permissions, is not company-scoped, and outlives the
+run. Keep it with the one named operator the human assigned.
+
+- Use the run-scoped `PAPERCLIP_API_KEY` for normal issue, comment, document and
+  work-product operations. Use a board key only for a configuration action the
+  run credential cannot perform.
+- Never copy a board key into another Agent, a child process environment, an
+  issue, a comment, a document, a repository file, or a log. An Agent that needs
+  an elevated action asks the operator, who performs it.
+- Allowed with the board key: Agent, permission, skill, environment, and app
+  connection changes inside the operator's own company. Requires the human's
+  explicit approval: deleting or stopping an Agent, creating or revoking any API
+  key, company-strategy configuration, and anything cross-company.
+- `GET /api/agents/me` returns `401 Agent authentication required` for a board
+  key by design. Probe with `GET /api/cli-auth/me` (expect `200`) instead of
+  treating that 401 as a broken credential.
+
 ## Graph evidence for project approvals
 
 Do not hand-write the subgraph. The bundled helper reads the project's ArchGraph

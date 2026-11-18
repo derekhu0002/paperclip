@@ -550,7 +550,7 @@ export function parseGovernanceConfig(input: unknown): GovernanceValidation {
   const allowBoardBackfill = record.allowBoardBackfill === true;
   const errors: string[] = [];
   if (!profileWriterAgentId) {
-    errors.push("profileWriterAgentId is required: set it to the company Knowledge Manager Agent id in Plugin Settings.");
+    errors.push("profileWriterAgentId is required: set it to the company CEO Agent id in Plugin Settings.");
   }
   if (snapshotWriterAgentIds.length === 0) {
     errors.push("snapshotWriterAgentIds must contain at least one agent id: set it to the company Knowledge Manager Agent id in Plugin Settings.");
@@ -581,7 +581,7 @@ export function writerDecision(
     if (config.allowBoardBackfill) return { allowed: true };
     return {
       allowed: false,
-      message: `Board backfill is disabled. Ask the Knowledge Manager Agent (${config.profileWriterAgentId}) to write the ${action} instead.`,
+      message: `Board backfill is disabled. Ask the configured writer Agent (${config.profileWriterAgentId}) to write the ${action} instead.`,
     };
   }
   const agentId = actor.agentId ?? "";
@@ -590,7 +590,7 @@ export function writerDecision(
   const label = action === "profile" ? "profile" : "snapshot";
   return {
     allowed: false,
-    message: `${label} writes are restricted to the Knowledge Manager Agent${
+    message: `${label} writes are restricted to the configured writer Agent${
       allowedIds.length === 1 ? ` (${allowedIds[0]})` : `s (${allowedIds.join(", ")})`
     }. Actor ${agentId || "unknown"} is not authorized.`,
   };

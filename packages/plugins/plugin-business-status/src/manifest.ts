@@ -28,7 +28,7 @@ const manifest: PaperclipPluginManifestV1 = {
       profileWriterAgentId: {
         type: "string",
         title: "Profile writer agent ID",
-        description: "Agent id (UUID) allowed to write the cockpit profile. Set this to the company Knowledge Manager Agent.",
+        description: "Agent id (UUID) allowed to write the cockpit profile. Set this to the company CEO Agent.",
       },
       snapshotWriterAgentIds: {
         type: "array",

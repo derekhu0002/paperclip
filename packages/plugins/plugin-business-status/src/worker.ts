@@ -202,7 +202,7 @@ function governanceError(validation: GovernanceValidation) {
     status: 409,
     body: {
       error: "governance-not-configured",
-      message: "Configure the company Knowledge Manager Agent id in Plugin Settings before writing the cockpit.",
+      message: "Configure the company CEO Agent id (profile) and Knowledge Manager Agent id (snapshot) in Plugin Settings before writing the cockpit.",
       errors: validation.errors,
     },
   };
@@ -213,7 +213,7 @@ function writerError(decision: { allowed: boolean; message?: string }, action: "
     status: 403,
     body: {
       error: "writer-not-authorized",
-      message: decision.message ?? `${action} writes are restricted to the company Knowledge Manager Agent.`,
+      message: decision.message ?? `${action} writes are restricted to the configured writer Agent.`,
       action,
       actor: input.actor.actorType === "agent" ? `agent:${input.actor.agentId ?? input.actor.actorId}` : `user:${input.actor.userId ?? input.actor.actorId}`,
     },
