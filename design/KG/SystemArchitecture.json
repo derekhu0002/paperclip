@@ -5706,6 +5706,103 @@
       "name": "Cockpit 写权限分工：CEO 写 profile，KMer 写 snapshot（2026-11-18，8 组织落地）",
       "type": "Requirement",
       "id": "cockpit-ceo-profile-kmer-snapshot-2026-11-18-8"
+    },
+    {
+      "description": "【现象】QWE-237（DLP 两包签收）停在 in_review 且无 agent assignee，卡住整棵依赖树：QWE-186（CEO）、QWE-239、QWE-244 全部 blocked，blocker reason=active_dependency / active_child，terminal blocker 均指向 QWE-237。\n\n【根因】1) 蓝队 11:32:08 把 QWE-237 置 in_review 并把手交给人（assigneeUserId=7XgNm…），此时交互卡 54b68c77 尚未回答；2) 11:33:07 人回答（sign_first / landed / D5=A / d2 空），11:33:08.062 系统记 issue.question_response_delivery_failed（errorCode=question_response_target_unavailable）——答案没送达 agent，且 issue 无 agent assignee，无任何唤醒；3) 无 assignee 的 in_review 不会自愈。\n\n【处置】Board 把 QWE-237 改回 assigneeAgentId=7e52929a（蓝队负责人）、assigneeUserId=null、status=todo，并留 Board 裁定评论（含“landed 需 L2/L3 证据否则转待补清单”、D5 主机与告警接收人、D2 接收方两项待人类补齐）。assignment + comment 唤醒已入队，排在蓝队正在跑的 company-scope timer run 之后（maxConcurrentRuns=1）。\n\n【产品缺陷】answer 交付失败时不应静默：question_response_target_unavailable 应当回退到“分配给原创建 agent 并唤醒”或至少升 attention；另外 example: company timer run 会抢占 issue 唤醒。\n\n【教训】看到 blocked + blockerReason=active_dependency 但 blockedByIssueIds 为空时，看 blockerAttention.terminalBlocker 找真正的末端 issue；in_review 且 assignee 是 user 的 issue 不会自己动。",
+      "attributes": [
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-11-18"
+        },
+        {
+          "name": "recurrence",
+          "value": "2 occurrences: 11:33:08Z (card 54b68c77) and 12:01:22Z (card 3548e413); both after the agent set in_review + assignee=user, so question_response_target_unavailable dropped the answer and the whole dependent tree (QWE-186/239/244) stayed blocked."
+        },
+        {
+          "name": "workaround",
+          "value": "Board reassigns QWE-237 to blue-lead (7e52929a) + status todo after each answer; agent instructed to keep itself assigned while waiting."
+        },
+        {
+          "name": "rootCauseLayer2",
+          "value": "execution_reconciliation_required: QWE-237 的 executionRunId 仍指向 11:29:41 创建、11:30:29 取消的 run 3ca4809e（startedAt=null，从未启动）。此后所有 wake 都被 skipped（reason=execution_reconciliation_required），持续约 50 分钟，评论/改状态都不会启动 run。"
+        },
+        {
+          "name": "fixLayer2",
+          "value": "POST /api/issues/QWE-237/recovery-actions/resolve {actionId f00caf56, outcome restored, sourceIssueStatus todo, executionReconciliation{runId 3ca4809e, providerStopped true, actionOutcome not_performed, outcomeEvidence}} → executionRunId 清空，随后 issue-scoped run 2fa02e00 于 12:22:33 启动。"
+        },
+        {
+          "name": "detectionPlatformLocation",
+          "value": "无独立“态势感知平台”部署记录。最接近的是 QWE-229 实验室：QwenPaw 代表实例 qwenpaw-intranet-sim-qwe229 + OTel Collector Contrib (OTLP/HTTP 4318) 在 Docker 网络 qwe229net 内，宿主为红队 WSL 100.87.205.43（仓库 /home/repos/qwenpaw-lab/red），实收 94 spans；stock 2.2.2.post1 无 pack 加载器/原生 emitter。"
+        }
+      ],
+      "name": "QWE-237 卡死诊断：question_response_target_unavailable + 无 agent assignee（2026-11-18）",
+      "type": "Requirement",
+      "id": "qwe-237-question-response-target-unavailable-agent-assignee-2026-11-18"
+    },
+    {
+      "description": "【Board 口述，2026-11-18，同日更正一次】big-laptop（derek@100.124.215.84:2222，WSL Ubuntu）`~/.ssh/authorized_keys` 现有三把公钥及其私钥归属：\n\n| 注释 | 指纹 | 私钥所在 |\n|---|---|---|\n| `paperclip-argo-biglaptop` | SHA256:v7GRD/YQ8J2ixqSHyr3k9jBIQn12c+ge309INXMtCvg | **四期服务器（47）**——它就是 47 用来连接 big-laptop WSL 的那把；与 Paperclip 公司级 secret `24d43d60-7045-4e07-8621-10b104fb3a0a`（名称 `SSH · derek-big-laptop`）一致 |\n| `qwenpaw-blue-l2-deploy` | SHA256:4w8qCMBJ+MmsqFyld3aMgZAFhqfc5dPT9Afv8qcMkLA | **家里 PC 的 WSL**（实证：`100.87.205.43:/root/.ssh/id_ed25519.pub`，QWE-247 核对） |\n| `dereck.hu@gmail.com` | SHA256:cdTHHxYLuJdxKcJXZpU/M+pOTF9xeXPx+dsMoZC6pvo | **家里 PC 的 Windows**（实证：DESKTOP-PI7E7MA 的 `C:\\\\Users\\\\remoteadmin\\\\.ssh\\\\id_ed25519.pub`） |\n\n【更正记录】初版曾把 `paperclip-argo-biglaptop` 记为“私钥在 WSL”，Board 随后更正为**四期服务器（47）**；该更正与 Paperclip 侧使用方式一致（47 → 设备）。\n\n【规则】给任意目标机授权时只追加源机的**公钥**到其 `~/.ssh/authorized_keys`，私钥永不出源机；追加需幂等并检查行格式（曾因引号问题产生畸形行 `ssh-ed25519n…`，已修复）。\n\n【命名说明】`qwenpaw-blue-l2-deploy` 是复用的 `id_ed25519` 密钥材料，仅把 authorized_keys 注释改成该名字以便识别，未新建密钥对（QWE-247）。",
+      "attributes": [
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-11-18"
+        },
+        {
+          "name": "verifiedAt",
+          "value": "2026-11-18T12:57Z"
+        },
+        {
+          "name": "correctedAt",
+          "value": "2026-11-18"
+        }
+      ],
+      "name": "big-laptop authorized_keys 三把密钥的归属（2026-11-18）",
+      "type": "Requirement",
+      "id": "big-laptop-authorized-keys-2026-11-18"
+    },
+    {
+      "attributes": [
+        {
+          "description": "fix(adapter-utils): admit scoped plugin API routes through the run bridge (source + tests)",
+          "name": "commit",
+          "value": "7a3b2305f6"
+        },
+        {
+          "name": "hotfix",
+          "value": "47 容器内 /app/server/dist-runtime/chunk-6VLZCYVA.mjs 已就地补丁（备份 .bak-*）并重启；镜像重建后才能持久化该修复"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "createdAt",
+          "value": "2026-11-18"
+        }
+      ],
+      "description": "【现象】8 家公司的 CEO/KMer 均已正确配置 `profileWriterAgentId` / `snapshotWriterAgentIds`（插件 paperclip.business-status），但调用 `POST /api/plugins/paperclip.business-status/api/profile|metrics` 仍被拒。\n\n【根因】agent run 的 `PAPERCLIP_API_URL` = `http://127.0.0.1:<port>` + `PAPERCLIP_API_BRIDGE_MODE=queue_v1`，即 run bridge；bridge 的 `DEFAULT_SANDBOX_CALLBACK_BRIDGE_ROUTE_ALLOWLIST`（packages/adapter-utils/src/sandbox-callback-bridge.ts）没有任何 `/api/plugins/*` 条目，因此请求在**插件鉴权之前**就被 `403 Route not allowed` 拦住。证据：QWE-250/QWE-251 探测——`/api/agents/me` 200，但三个 plugin 路由均 403 “Route not allowed”；board 凭据直连公网 host 读 overview 200（插件本身健康）；同一 run 凭据直连公网 401（run JWT 只在 bridge 内有效）。\n\n【修复】commit `7a3b2305f6`：白名单新增 GET/POST `/api/plugins/(?!\\.{1,2}\\/)[A-Za-z0-9._-]+\\/api\\/(?!\\.{1,2}$)[A-Za-z0-9._-]+$`——只放行单个 routeKey 段，防止路径穿越；`/config`、`/install`、`/bridge/*` 与更深路径仍拒；插件内部仍由 `assertCompanyAccess` + writer 策略兜底。测试已加到 sandbox-callback-bridge.test.ts（allowed 3 条 + denied 11 条，含 `..` 穿越）。\n\n【热修复】workspace 缺 dev 依赖（vitest/tsc 不可用），用独立脚本验证正则矩阵（3 allowed / 11 denied PASS）；47 容器内直接对 `dist-runtime/chunk-6VLZCYVA.mjs` 的允许列表就地插入规则（备份 .bak-时间戳）并 `docker restart paperclip`，health 200。**下个镜像必须包含 7a3b2305f6，否则重建镜像会丢失该热修复。**\n\n【验证】QWE-250 复跑：overview 200；profile 探针 400（空 profile 校验失败 = CEO 有写权限）；metrics 探针 403 writer-not-authorized（指向 KMer，符合分工）。QWE-251（KMer）已重新交回复跑 snapshot 探针。",
+      "name": "run bridge 白名单缺失导致插件路由 403（2026-11-18）",
+      "type": "Requirement",
+      "id": "run-bridge-403-2026-11-18"
     }
   ],
   "relationships": [
@@ -6013,7 +6110,8 @@
       "parent_element_id": "project-manager-001",
       "description": "T2 长期记忆子视图：Tailscale 端 Windows 设备（derek-big-laptop）WSL 执行环境、SSH 接入与 paperclip-demo 项目/Lead Agent 上线记录。",
       "included_elements": [
-        "biglaptop-paperclip-demo-onboarding-2026-11-10"
+        "biglaptop-paperclip-demo-onboarding-2026-11-10",
+        "big-laptop-authorized-keys-2026-11-18"
       ]
     },
     {
@@ -6069,7 +6167,8 @@
       "included_elements": [
         "qwe189-stuck-recovery-2026-11-16",
         "qwenpaw-stuck-recovery-2026-11-17",
-        "qwenpaw-ceo-km-agents-md-2026-11-18"
+        "qwenpaw-ceo-km-agents-md-2026-11-18",
+        "qwe-237-question-response-target-unavailable-agent-assignee-2026-11-18"
       ]
     },
     {
@@ -6078,7 +6177,8 @@
       "parent_element_id": "project-manager-001",
       "description": "Business Cockpit 写权限分工（CEO 写 profile、KMer 写 snapshot）在 8 个组织的落地记录、插件治理配置、Agent 模板刷新与新建 KMer 的坑。",
       "included_elements": [
-        "cockpit-ceo-profile-kmer-snapshot-2026-11-18-8"
+        "cockpit-ceo-profile-kmer-snapshot-2026-11-18-8",
+        "run-bridge-403-2026-11-18"
       ]
     }
   ]
