@@ -1629,6 +1629,10 @@ describe("sandbox callback bridge", () => {
       { method: "POST", path: "/api/routines/r-1/triggers" },
       { method: "PATCH", path: "/api/routine-triggers/t-1" },
       { method: "DELETE", path: "/api/routine-triggers/t-1" },
+      // Scoped plugin API routes: exactly one manifest routeKey segment.
+      { method: "GET", path: "/api/plugins/paperclip.business-status/api/overview" },
+      { method: "POST", path: "/api/plugins/paperclip.business-status/api/profile" },
+      { method: "POST", path: "/api/plugins/paperclip.business-status/api/metrics" },
     ];
     for (const request of allowed) {
       expect(authorizeSandboxCallbackBridgeRequestWithRoutes(request)).toBeNull();
@@ -1674,6 +1678,19 @@ describe("sandbox callback bridge", () => {
       { method: "POST", path: "/api/companies/co-1/logo" },
       { method: "GET", path: "/api/companies/co-1/secrets" },
       { method: "PATCH", path: "/api/secrets/secret-1" },
+      // Scoped plugin routes must not widen into plugin management or deeper
+      // resources: only the single routeKey segment is reachable.
+      { method: "GET", path: "/api/plugins" },
+      { method: "GET", path: "/api/plugins/b9ea0c69-5324-447f-b55a-11a2af24d692/config" },
+      { method: "POST", path: "/api/plugins/b9ea0c69-5324-447f-b55a-11a2af24d692/config" },
+      { method: "POST", path: "/api/plugins/install" },
+      { method: "GET", path: "/api/plugins/paperclip.business-status/api/profile/extra" },
+      { method: "GET", path: "/api/plugins/paperclip.business-status/api" },
+      { method: "GET", path: "/api/plugins/../api/profile" },
+      { method: "POST", path: "/api/plugins/paperclip.business-status/api/.." },
+      { method: "PUT", path: "/api/plugins/paperclip.business-status/api/profile" },
+      { method: "DELETE", path: "/api/plugins/paperclip.business-status/api/profile" },
+      { method: "POST", path: "/api/plugins/paperclip.business-status/bridge/action" },
     ];
     for (const request of denied) {
       expect(authorizeSandboxCallbackBridgeRequestWithRoutes(request)).toBe(

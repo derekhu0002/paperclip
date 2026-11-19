@@ -243,6 +243,15 @@ export const DEFAULT_SANDBOX_CALLBACK_BRIDGE_ROUTE_ALLOWLIST: readonly SandboxCa
   { method: "POST", path: /^\/api\/routines\/[^/]+\/triggers$/ },
   { method: "PATCH", path: /^\/api\/routine-triggers\/[^/]+$/ },
   { method: "DELETE", path: /^\/api\/routine-triggers\/[^/]+$/ },
+
+  // Scoped plugin API routes (e.g. the Business Cockpit's overview/profile/
+  // metrics). The segment after /api/plugins/<pluginId>/api/ is the manifest
+  // routeKey, so this admits exactly one path segment: plugin management
+  // (`/api/plugins/<id>/config`, `/api/plugins/install`, ...) and any deeper
+  // resource stay denied. The plugin host still enforces company access, the
+  // route's own auth mode and the plugin's writer policy on top of this list.
+  { method: "GET", path: /^\/api\/plugins\/(?!\.{1,2}\/)[A-Za-z0-9._-]+\/api\/(?!\.{1,2}$)[A-Za-z0-9._-]+$/ },
+  { method: "POST", path: /^\/api\/plugins\/(?!\.{1,2}\/)[A-Za-z0-9._-]+\/api\/(?!\.{1,2}$)[A-Za-z0-9._-]+$/ },
 ] as const;
 
 // Keep the public alias for callers selecting the HTTP/2 transport.
