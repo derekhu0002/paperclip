@@ -132,6 +132,7 @@ import { drainHttpRequestWork } from "./middleware/idle-admission.js";
 import { initializeCloudRuntimeConfig } from "./services/cloud-runtime-config.js";
 import { loadCloudBootstrapConfig, loadConfig, type Config } from "./config.js";
 import { logger } from "./middleware/logger.js";
+import { installSocketDisconnectGuard } from "./services/socket-disconnect-guard.js";
 import { setStartupRecoveryPhase } from "./startup-recovery-state.js";
 import {
   StartupRefusalError,
@@ -291,7 +292,17 @@ function initializeRuntimeConfigConsumers(config: ReturnType<typeof loadConfig>)
   }
 }
 
+let socketDisconnectGuardInstalled = false;
+
 export async function startServer(): Promise<StartedServer> {
+  // A peer that hangs up mid-write must not take the process (and every
+  // in-flight run) down with it. See services/socket-disconnect-guard.ts.
+  if (!socketDisconnectGuardInstalled) {
+    installSocketDisconnectGuard((error) => {
+      logger.warn({ err: error }, "ignored a broken pipe from a closed connection; the server keeps running");
+    });
+    socketDisconnectGuardInstalled = true;
+  }
   const startupDatabase: StartupDatabaseTeardown = { close: null };
   try {
     return await startServerWithDatabaseTeardown(startupDatabase);
