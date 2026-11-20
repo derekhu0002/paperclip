@@ -249,7 +249,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-11-17T14:55:00Z"
+          "value": "2026-11-20T00:58:00Z"
         },
         {
           "name": "memoryTier",
@@ -630,7 +630,7 @@
           "value": "paperclip-upstream-merge-assessment-2026-10-21（本次事实属性）, threat-intel-center-migration-2026-11-01（上一会话）"
         }
       ],
-      "description": "【本次目标】排查并恢复 QwenPaw 攻防实验室（company 1ba5e77b，47 实例）卡住的任务。\n\n【结果】已恢复。两条 process_detached run（QWE-204 197417bb / QWE-214 4b984402，11-16T16:09Z 起）先 kill WSL 端 21 个孤儿 bridge server，再用临时 board key 取消；发现并绕开 SSH 共享 workspace 租约 provider_resource_shared 互锁（手动置 released）；QWE-214 用 recovery-actions/resolve 恢复 todo，QWE-204 已由 agent 自行 done。链路现正常：QWE-209 done → QWE-206 in_progress，QWE-215 复验进行中。\n\n【关键决策】先清孤儿进程再 cancel，避免重复写 workspace；限流保持 maxConcurrent=1；不擅自替 agent 做复验结论。\n\n【坑/缺陷】settleEnvironmentRunLease 对 ssh/shared_workspace 租约误判 provider_resource_shared，导致崩溃后 active 租约永不自愈并阻塞 recovery resolve（已记 T2，建议产品修复）。\n\n【遗留】14 条 11-16 active 租约与 3 条 pending_cleanup destroy_failed 待清理；QWE-186 等 Board 人工裁决。\n\n【T2】design/KG/SystemArchitecture.json#qwenpaw-stuck-recovery-2026-11-17（view project-manager-qwenpaw-lab-ops-001）。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#qwenpaw-stuck-recovery-2026-11-17",
+      "description": "【本次目标】处理 2026-11-19 再次出现的「任务卡住」。\n\n【根因】47 容器 2026-11-19T15:57:23Z 因未捕获 `write EPIPE`（Socket 'error' 无 listener）exitCode=1 崩溃并被 docker 重启；全实例 8 条 run 变 process_detached：AIC-160/161/162（困 6 天）、CTI-71、QWE-257 及 3 条 qwenpaw agent 级 run。\n\n【处置】kill 全部孤儿 bridge server（40+，跨 qwenpaw/aic/archgraph/ai-security/ThreatIntelligence）→ 临时 board key 取消 8 条 run → 释放 8 条 SSH 共享 workspace 租约 → 5 个受影响 issue 走 recovery-actions/resolve（restored/todo）全部 200。\n\n【结果】AIC-125/163、CTI-71、QWE-257/258 等已用新 pid 运行且 last_output 增长；AIC-160/161/162 回 todo 排队；租约全部 released。\n\n【关键决策】先杀进程再 cancel（避免重复写 workspace）；旧 queued 保留让产品自行排空；不替 agent 做业务结论。\n\n【坑】EPIPE 崩溃是 3 天内第 2 次（11-16 同型）；SSH 共享 workspace 租约 provider_resource_shared 互锁仍在；崩溃前伴随 agent 请求 9s abort 与 sandbox callback 10s 超时。\n\n【建议】在 server/src/http/server.ts 给连接 socket 加 'error' 容错；继续修 settleEnvironmentRunLease 的共享租约判定。\n\n【T2】design/KG/SystemArchitecture.json#instance-epipe-detach-recovery-2026-11-20；#qwenpaw-stuck-recovery-2026-11-17。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#instance-epipe-detach-recovery-2026-11-20",
       "id": "project-manager-session-summary",
       "name": "T1 会话总结（2026-11-17：QwenPaw 攻防实验室卡死恢复）",
       "type": "Requirement"
@@ -1799,6 +1799,10 @@
           "name": "mergeReconciledAt",
           "value": "2026-11-13",
           "description": "Merged origin/dev/local-install ARGO commits cf9bb454a8, 8120c12268, 86048288f2, 2613c57187 into the local business-status history; graph and qea reconciled before push."
+        },
+        {
+          "name": "upstreamStatus20261120",
+          "value": "2026-11-20 复评（只评估，未合并）：本地 HEAD fd71d5db9e（dev/local-install，与 origin 同步，领先 merge-base 313）；上次合入节点仍为 b93df4ca38（2026-11-10，merge c40a130000）；upstream/master 3b978692ee（2026-11-19）；merge-base 仍 b93df4ca38，落后 886。新稳定版仅 1 个：v2026.1117.0（tag=c0f132898d，Release 2026-11-17，tag 2026-11-18）。它是 cherry-pick stable：candidate/release-2026.1117.0 从 beta 源 09e24dd12c（beta/v2026.1110.0-beta.0，11-09）切出，加 3 个 test 修复 + releases/v2026.1117.0.md；09e24dd12c 已是 HEAD 祖先 → merge 该 tag 仅 5 文件 +111/−17（stage-runner-binary/materialize-kimi-distribution/provision-kimi-package 3 个 mjs 测试、runner-bridge-tools.test.ts、发布说明），git merge-tree HEAD v2026.1117.0 = 0 冲突、无迁移/依赖变化。结论：该稳定版代码内容已在本分支内；真正缺口是 b93df4ca38 之后的 master 886 提交（4092 文件 +404445/−65962；15 个冲突/17 路径：Dockerfile、adapter-utils/ssh.ts、opencode-local execute(.remote.test).ts、migrations meta 0460→0465/0490 rename+_journal(464 vs 498)、shared/index.ts、routes/issues.ts、run-completion.ts、ui NewProjectDialog/OnboardingWizard/ProjectProperties/onboarding-launch(.test)/ApprovalDetail；fork 0465_hot_peter_parker 与上游 0465_better_auth_account_identity 撞号，上游已到 0499 → 需改号 0500）。stable 发布命名=发布日期，代码=更早的 beta 源节点，故“merge release 节点”可能远旧于上次 merge。"
         }
       ]
     },
@@ -5803,6 +5807,34 @@
       "name": "run bridge 白名单缺失导致插件路由 403（2026-11-18）",
       "type": "Requirement",
       "id": "run-bridge-403-2026-11-18"
+    },
+    {
+      "attributes": [
+        {
+          "name": "date",
+          "value": "2026-11-20"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "incident",
+          "value": "EPIPE uncaught -> container restart -> instance-wide process_detached"
+        },
+        {
+          "name": "affected",
+          "value": "AIC-160/161/162, CTI-71, QWE-257 + 3 agent-level runs"
+        },
+        {
+          "name": "verification",
+          "value": "CTI-71/QWE-257 in_progress with live pids and growing last_output_at; AIC-160/161/162 todo with queued runs; all 8 leases released"
+        }
+      ],
+      "description": "【现象】2026-11-19 人类反馈「又有任务卡住了」。全实例 8 条 running/process_detached：AIC-160/161/162（11-14 00:38 起，卡了6天）、CTI-71（11-19 23:49）、QWE-257 + qwenpaw 的 telemetry/blue-lead/red-lead 三条 agent 级 run（11-19 23:55~23:57）。另有 4 条 queued 被 maxConcurrent=1 堵住。\n\n【根因（已确认）】47 容器于 2026-11-19T15:57:23Z 以 exitCode=1 崩退并被 docker restart（RestartCount=1）。日志末尾：先有两笔 agent GET /api/companies/1ba5…/issues 在 9s 后被 abort、以及 sandbox callback bridge 10s 超时，随后 `node:events:505 throw er` → `Error: write EPIPE`（Emitted 'error' event on Socket），无任何 listener 捕获，进程直接退出。即 HTTP 响应写向已被客户端关闭的 socket，未处理 socket 'error' 导致整个 server 崩溃（与 11-16 同型，3 天内第 2 次）。\n\n【诊断】8 条 run 的记录 pid 在 WSL 执行机（ocpc/100.87.205.43）已全部不存在（7637 已被 containerd shim 复用为无关进程）；`opencode` 运行进程为 0；残留 40+ 个跨 qwenpaw-lab / aic-consulting / archgraph-agent-intel / ai-security-research / ThreatIntelligence 的孤儿 paperclip-bridge-server；近 30 分钟无 workspace 写入。8 条 run 各持 1 条 active SSH 共享 workspace 租约。\n\n【处置】1) 先 kill 全部 paperclip-bridge-server（逐个确认无 run 进程后）；2) 临时 board key（sha256 入 board_api_keys，20 分钟，用完 revoke+delete）逐个 POST /api/heartbeat-runs/:id/cancel，8 条全部 200；3) 将 8 条租约 released_at 置位（含 1 条 pending_cleanup 无 released_at 的），避开 provider_resource_shared 互锁；4) 对 AIC-160/161/162、CTI-71、QWE-257 调 POST /api/issues/:id/recovery-actions/resolve（restored/todo + executionReconciliation providerStopped:true/not_performed/证据），5 条全部 200。\n\n【结果】队列自动排空：AIC-125、AIC-163、CTI-71、QWE-257、QWE-258 等均以新 pid 运行，last_output_at 持续增长；AIC-160/161/162 回到 todo 并排队；8 条租约全部 released。\n\n【待办】产品层修复建议：(a) 在 createPaperclipHttpServer（server/src/http/server.ts）增加 socket 'error' 容错（`server.on('connection', s => s.on('error', ...))` 或等价），避免 EPIPE/ECONNRESET 造成进程级崩溃；(b) 继续修 settleEnvironmentRunLease 的 provider_resource_shared 误判（ssh 共享 workspace）；(c) 排查为何崩溃前出现 agent 请求被 abort 9s + sandbox callback 10s 超时（可能同源负载/阻塞）。",
+      "id": "instance-epipe-detach-recovery-2026-11-20",
+      "name": "实例级 EPIPE 崩溃导致全实例 process_detached（2026-11-20）",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -6168,7 +6200,8 @@
         "qwe189-stuck-recovery-2026-11-16",
         "qwenpaw-stuck-recovery-2026-11-17",
         "qwenpaw-ceo-km-agents-md-2026-11-18",
-        "qwe-237-question-response-target-unavailable-agent-assignee-2026-11-18"
+        "qwe-237-question-response-target-unavailable-agent-assignee-2026-11-18",
+        "instance-epipe-detach-recovery-2026-11-20"
       ]
     },
     {
