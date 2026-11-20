@@ -116,8 +116,11 @@ async function keptByAnotherObligation(tx: Db, lease: LeaseRow): Promise<string 
   if (await nativeWorkspaceExportPendingForLease(tx, lease)) return "workspace_export_pending";
   if (!(await allowLegacyShutdownWorkspaceCleanup(tx, lease))) return "legacy_shutdown_fence";
   // One provider resource id names one physical sandbox; another live lease
-  // on it still owns that sandbox.
-  if (lease.provider && lease.providerLeaseId) {
+  // on it still owns that sandbox. An SSH environment's id is its remote
+  // workspace path, which runs on that workspace share one after another, so
+  // the same rule would let two orphaned leases keep each other alive forever.
+  const providerResourceIsPhysicalSandbox = lease.provider !== "ssh" && lease.metadata?.driver !== "ssh";
+  if (providerResourceIsPhysicalSandbox && lease.provider && lease.providerLeaseId) {
     const [other] = await tx.select({ id: environmentLeases.id }).from(environmentLeases).where(and(
       ne(environmentLeases.id, lease.id), eq(environmentLeases.provider, lease.provider),
       eq(environmentLeases.providerLeaseId, lease.providerLeaseId),
