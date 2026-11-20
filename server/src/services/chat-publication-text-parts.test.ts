@@ -96,7 +96,7 @@ describe("lossless native publication text parts", () => {
       source,
     ).entries()) {
       const rendered = `${part.prefix ?? ""}${part.text}${part.suffix ?? ""}`;
-      expect(parseMarkdown(rendered).children.map((node) => node.type)).toEqual(
+      expect(parseMarkdown(rendered).children.map((node: { type: string }) => node.type)).toEqual(
         ["code"],
       );
       if (index > 0) expect(part.prefix).toBe("```ts\n");
