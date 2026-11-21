@@ -2001,6 +2001,11 @@
         {
           "name": "verification2026-11-20",
           "value": "plugin tests 13/13；ui agentProjectBinding 4/4；server project-parent-binding 6/6；server/db/shared/runner(TS)+plugin typecheck pass；token gates CLEAN。"
+        },
+        {
+          "name": "commit",
+          "value": "ad94ff38631659a55ebd82403d8f399e7acc05f3",
+          "description": "chore(argo): record project tree diagram editor and dual-role membership rule (design/KG/SystemArchitecture.json, paperclip.qea)"
         }
       ],
       "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。\n\n【2026-10-24 解耦（Tier 3，插件化）】页面、导航与路由实现迁入独立插件包 `packages/plugins/plugin-project-tree`（`ui.slots: page(routePath=organization) + sidebar`），对上游文件的侵入从 5 处降为 1 行注册：\n- 删除：`ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts`、`ui/src/pages/Organization.test.tsx`、`ui/src/lib/projectTree.test.ts`、`ui/src/App.tsx` 的 lazy import 与 board route、`ui/src/components/Sidebar.tsx` 与 `Sidebar.production.tsx` 的 Project Tree 导航行。\n- 保留（footprint=registration）：`ui/src/App.tsx` 的 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />` 一行，仅用于无前缀书签 `/organization` 兼容跳转；`/workbench` 之外的真实页面由插件在 `/:companyPrefix/organization` 提供。\n- 未改：`projects.parent_project_id`（core schema）与其写入路径；项目创建/编辑契约不变。\n- 验收迁移：树构建语义（父子嵌套、孤儿为根、归档排除、环保护、子项目 lead 不计入父队）与插件装配（page+sidebar、只读能力）均有可执行用例，命令 `pnpm --filter @paperclipai/plugin-project-tree test`。\n- 启用前提：实例需安装该插件（`paperclipai plugin install packages/plugins/plugin-project-tree`，或在 bundled 目录写 catalog 并加入 `plugins.autoInstall`）；未安装时 `/organization` 不再渲染项目树，这是解耦后的预期行为。",
