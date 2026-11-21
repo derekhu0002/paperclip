@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Agent, Project } from "@paperclipai/shared";
-import { resolveAgentBoundProject, resolveProjectTeamAgents } from "./agentProjectBinding";
+import {
+  resolveAgentBoundProject,
+  resolveAgentProjectRoles,
+  resolveProjectTeamAgents,
+} from "./agentProjectBinding";
 
 const project = (overrides: Partial<Project>): Project => ({
   id: "project-1",
@@ -39,9 +43,18 @@ describe("resolveAgentBoundProject", () => {
     ])).toBeNull();
   });
 
-  it("does not put a sub-project lead in the parent project team", () => {
+  it("reports a sub-project lead as both lead of its project and a parent team member", () => {
     const ops = project({ id: "ops", name: "vso-operations", leadAgentId: "ops-pm" });
     const dfir = project({ id: "dfir", name: "vso-dfir", parentProjectId: "ops", leadAgentId: "dfir-pm" });
+    const subPm = agent({ id: "dfir-pm", reportsTo: "ops-pm" });
+    expect(resolveAgentProjectRoles(subPm, [ops, dfir])).toEqual({
+      leadProject: dfir,
+      memberProject: ops,
+    });
+    expect(resolveAgentBoundProject(subPm, [ops, dfir])).toMatchObject({
+      via: "lead",
+      project: { id: "dfir" },
+    });
     const team = resolveProjectTeamAgents(
       ops,
       [
@@ -51,6 +64,6 @@ describe("resolveAgentBoundProject", () => {
       ],
       [ops, dfir],
     );
-    expect(team.map((member) => member.id)).toEqual(["l1"]);
+    expect(team.map((member) => member.id)).toEqual(["dfir-pm", "l1"]);
   });
 });

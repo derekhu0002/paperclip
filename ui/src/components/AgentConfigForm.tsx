@@ -103,7 +103,7 @@ import { buildAgentUpdatePatch, omitUndefinedEntries, type AgentConfigOverlay } 
 import { useAdapterCapabilities } from "../adapters/use-adapter-capabilities";
 import { resolveForcedKubernetesEnvironment } from "../lib/forced-kubernetes-environment";
 import { codexReasoningEffortOptions } from "../lib/codex-reasoning-effort";
-import { resolveAgentBoundProject } from "../lib/agentProjectBinding";
+import { resolveAgentProjectRoles } from "../lib/agentProjectBinding";
 
 /* ---- Create mode values ---- */
 
@@ -1105,9 +1105,9 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
     queryFn: () => projectsApi.list(selectedCompanyId!),
     enabled: Boolean(!isCreate && selectedCompanyId),
   });
-  const boundProject = isCreate
+  const projectRoles = isCreate
     ? null
-    : resolveAgentBoundProject(props.agent, companyProjects);
+    : resolveAgentProjectRoles(props.agent, companyProjects);
 
   /** Props passed to adapter-specific config field components */
   const adapterFieldProps = {
@@ -1704,13 +1704,25 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
                 chooseLabel="Choose manager…"
               />
             </Field>
-            <Field label="Bound project" hint="The project this agent leads, or the project led by its manager. A project can include multiple agents.">
+            <Field label="Project roles" hint="An agent reports to one manager, so it belongs to one project team. It can also lead one project, including a project under that manager's project.">
               <span className="inline-flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                {boundProject?.project.name ?? "Not bound to a project"}
-                {boundProject && (
-                  <Badge variant="outline" className="px-1.5 py-0 text-(length:--text-micro)">
-                    {boundProject.via === "lead" ? "Lead" : "Team"}
-                  </Badge>
+                {!projectRoles?.leadProject && !projectRoles?.memberProject ? (
+                  "Not bound to a project"
+                ) : (
+                  <>
+                    {projectRoles?.leadProject ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {projectRoles.leadProject.name}
+                        <Badge variant="outline" className="px-1.5 py-0 text-(length:--text-micro)">Lead</Badge>
+                      </span>
+                    ) : null}
+                    {projectRoles?.memberProject && projectRoles.memberProject.id !== projectRoles.leadProject?.id ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {projectRoles.memberProject.name}
+                        <Badge variant="outline" className="px-1.5 py-0 text-(length:--text-micro)">Team</Badge>
+                      </span>
+                    ) : null}
+                  </>
                 )}
               </span>
             </Field>

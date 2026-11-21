@@ -253,9 +253,7 @@ export function ProjectProperties({ project, repositories, onUpdate, onFieldUpda
     queryFn: () => projectsApi.list(selectedCompanyId!),
     enabled: Boolean(selectedCompanyId),
   });
-  const teamAgents = project.leadAgentId
-    ? agents.filter((agent) => agent.reportsTo === project.leadAgentId && agent.id !== project.leadAgentId)
-    : [];
+  const teamAgents = resolveProjectTeamAgents(project, agents, companyProjects);
   const environmentsEnabled = experimentalSettings?.enableEnvironments === true;
   const { data: availableSecrets = [] } = useQuery({
     queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
@@ -546,17 +544,24 @@ export function ProjectProperties({ project, repositories, onUpdate, onFieldUpda
             })}
           </select>
           <p className="text-(length:--text-micro) text-muted-foreground">
-            A project has one lead agent and can include additional team agents.
-            Team members report to the lead; each agent belongs to at most one project.
+            A project has one lead agent. Team members are the lead's direct reports;
+            an agent reports to one manager, so it belongs to one project team and may
+            additionally lead one project.
           </p>
           {teamAgents.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-(length:--text-micro) text-muted-foreground">Team</span>
-              {teamAgents.map((agent) => (
-                <Badge key={agent.id} variant="outline" className="px-1.5 py-0 text-(length:--text-micro)">
-                  {agent.name}
-                </Badge>
-              ))}
+              {teamAgents.map((agent) => {
+                const leads = companyProjects.find(
+                  (candidate) => candidate.id !== project.id && candidate.leadAgentId === agent.id,
+                );
+                return (
+                  <Badge key={agent.id} variant="outline" className="px-1.5 py-0 text-(length:--text-micro)">
+                    {agent.name}
+                    {leads ? ` · leads ${leads.name}` : ""}
+                  </Badge>
+                );
+              })}
             </div>
           )}
         </PropertyRow>
