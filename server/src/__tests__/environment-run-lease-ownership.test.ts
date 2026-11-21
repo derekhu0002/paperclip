@@ -257,8 +257,12 @@ suite("environment_run_lease_active on the shared ownership path", () => {
       { settled: true, reason: "pid_dead" },
       { settled: true, reason: "pid_dead" },
     ]);
-    expect(await row(firstLease)).toMatchObject({ status: "pending_cleanup", failureReason: "orphaned_active_lease_recovered" });
-    expect(await row(secondLease)).toMatchObject({ status: "pending_cleanup", failureReason: "orphaned_active_lease_recovered" });
+    expect(await row(firstLease)).toMatchObject({ status: "released", failureReason: "orphaned_active_lease_recovered" });
+    expect(await row(secondLease)).toMatchObject({ status: "released", failureReason: "orphaned_active_lease_recovered" });
+    // A released SSH lease must not leave a cleanup that can never succeed.
+    expect((await row(firstLease)).releasedAt).toBeInstanceOf(Date);
+    expect((await row(secondLease)).releasedAt).toBeInstanceOf(Date);
+    expect((await row(firstLease)).cleanupStatus).toBeNull();
   });
 
   it("never settles on a read-only pass", async () => {

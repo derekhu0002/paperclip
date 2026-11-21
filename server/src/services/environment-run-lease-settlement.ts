@@ -74,6 +74,27 @@ export async function settleEnvironmentRunLease(db: Db, record: InProgressRecord
       const stopped = await prepareSandboxStopAndRetain(tx, lease, recovery);
       return stopped ? { settled: true, reason: context.proof.reason } : { settled: false, reason: "lease_no_longer_active" };
     }
+    // An SSH environment's provider resource is its remote workspace path, not
+    // a sandbox this process can tear down. Routing it through pending_cleanup
+    // leaves a destroy that always fails, and its failed cleanup makes every
+    // later wake wait on "the previous execution has not released its
+    // environment lease". Release it outright: the lease's own release marker
+    // is what the queued-run gate and recovery reconciliation require.
+    if (sharesRemoteWorkspaceInsteadOfSandbox(lease)) {
+      const released = await tx.update(environmentLeases)
+        .set({
+          status: "released",
+          releasedAt: context.now,
+          cleanupStatus: null,
+          failureReason: ORPHANED_RUN_LEASE_FAILURE_REASON,
+          updatedAt: context.now,
+        })
+        .where(and(eq(environmentLeases.id, lease.id), eq(environmentLeases.status, "active"),
+          eq(environmentLeases.heartbeatRunId, runId),
+          sql`${environmentLeases.metadata} is not distinct from ${lease.metadata === null ? null : JSON.stringify(lease.metadata)}::jsonb`))
+        .returning({ id: environmentLeases.id });
+      return released.length ? { settled: true, reason: context.proof.reason } : { settled: false, reason: "lease_no_longer_active" };
+    }
     // Keep the row's updatedAt, so the pending_cleanup sweep accepts it in the
     // same tick instead of waiting out its own retry backoff.
     const flipped = await writeEnvironmentCleanup(tx, write => write.update(environmentLeases)
@@ -88,6 +109,11 @@ export async function settleEnvironmentRunLease(db: Db, record: InProgressRecord
       .returning({ id: environmentLeases.id }), { companyId: lease.companyId, runId, leaseId: lease.id });
     return flipped.length ? { settled: true, reason: context.proof.reason } : { settled: false, reason: "lease_no_longer_active" };
   });
+}
+
+/** SSH leases name a remote workspace path, not a destroyable sandbox. */
+function sharesRemoteWorkspaceInsteadOfSandbox(lease: LeaseRow): boolean {
+  return lease.provider === "ssh" || lease.metadata?.driver === "ssh";
 }
 
 /** The proof judged a holder stamp (or its absence, for a legacy row); a lease
@@ -119,7 +145,7 @@ async function keptByAnotherObligation(tx: Db, lease: LeaseRow): Promise<string 
   // on it still owns that sandbox. An SSH environment's id is its remote
   // workspace path, which runs on that workspace share one after another, so
   // the same rule would let two orphaned leases keep each other alive forever.
-  const providerResourceIsPhysicalSandbox = lease.provider !== "ssh" && lease.metadata?.driver !== "ssh";
+  const providerResourceIsPhysicalSandbox = !sharesRemoteWorkspaceInsteadOfSandbox(lease);
   if (providerResourceIsPhysicalSandbox && lease.provider && lease.providerLeaseId) {
     const [other] = await tx.select({ id: environmentLeases.id }).from(environmentLeases).where(and(
       ne(environmentLeases.id, lease.id), eq(environmentLeases.provider, lease.provider),
