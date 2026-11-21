@@ -1970,6 +1970,37 @@
         {
           "name": "deployed47Fix",
           "value": "2026-10-24T06:31Z 重传 dist（Cache-Control: max-age=0, must-revalidate）并验证：侧边栏为真实 <a>，点击进入 /ARG/organization，页面显示 Projects: 3 / Agents: 3 与项目树。"
+        },
+        {
+          "name": "commit",
+          "value": "9d10a1f164",
+          "description": "fix(projects): show a sub-project lead on its manager's team too (ui/src/lib/agentProjectBinding.ts, AgentConfigForm, ProjectProperties)"
+        },
+        {
+          "name": "commit",
+          "value": "d20e0c40a7",
+          "description": "fix(projects): reject self, cross-company, archived and cyclic parents (server/src/services/projects.ts + project-parent-binding.test.ts)"
+        },
+        {
+          "name": "commit",
+          "value": "84b3c0b09a",
+          "description": "feat(plugin-project-tree): diagram tree with drag-to-reparent and narrow structure write (plugin + SDK capability + host method)"
+        },
+        {
+          "name": "membershipRule2026-11-20",
+          "value": "成员资格只来自唯一 reports_to（上级领导的项目），领导资格另算；子项目 PM 同时留在父团队（leads X 徽标）。项目严格单亲树，checkProjectReparent/assertProjectParentBinding 拒绝自环/跨公司/归档父/后代环。"
+        },
+        {
+          "name": "diagramEditor2026-11-20",
+          "value": "插件页改为 SVG 树图：平移/缩放/Fit/搜索/折叠；拖拽换父、拖到空白升为根；详情面板含 lead/team/Parent 下拉；layout.ts 纯布局；构建 dist/ui/index.js 28.5KB。"
+        },
+        {
+          "name": "capability2026-11-20",
+          "value": "新增窄能力 projects.structure.write（仅 reparent）；SDK ctx.projects.structure.update；host 复用 projectService.update 校验并写 activity。"
+        },
+        {
+          "name": "verification2026-11-20",
+          "value": "plugin tests 13/13；ui agentProjectBinding 4/4；server project-parent-binding 6/6；server/db/shared/runner(TS)+plugin typecheck pass；token gates CLEAN。"
         }
       ],
       "description": "Project 支持 parent_project_id 形成项目树，并在 /organization 页面按树展示；子项目必须挂到父项目下，树节点只能是 Project（不是 goal/agent）。\n\n【2026-10-24 解耦（Tier 3，插件化）】页面、导航与路由实现迁入独立插件包 `packages/plugins/plugin-project-tree`（`ui.slots: page(routePath=organization) + sidebar`），对上游文件的侵入从 5 处降为 1 行注册：\n- 删除：`ui/src/pages/Organization.tsx`、`ui/src/lib/projectTree.ts`、`ui/src/pages/Organization.test.tsx`、`ui/src/lib/projectTree.test.ts`、`ui/src/App.tsx` 的 lazy import 与 board route、`ui/src/components/Sidebar.tsx` 与 `Sidebar.production.tsx` 的 Project Tree 导航行。\n- 保留（footprint=registration）：`ui/src/App.tsx` 的 `<Route path=\"organization\" element={<UnprefixedBoardRedirect />} />` 一行，仅用于无前缀书签 `/organization` 兼容跳转；`/workbench` 之外的真实页面由插件在 `/:companyPrefix/organization` 提供。\n- 未改：`projects.parent_project_id`（core schema）与其写入路径；项目创建/编辑契约不变。\n- 验收迁移：树构建语义（父子嵌套、孤儿为根、归档排除、环保护、子项目 lead 不计入父队）与插件装配（page+sidebar、只读能力）均有可执行用例，命令 `pnpm --filter @paperclipai/plugin-project-tree test`。\n- 启用前提：实例需安装该插件（`paperclipai plugin install packages/plugins/plugin-project-tree`，或在 bundled 目录写 catalog 并加入 `plugins.autoInstall`）；未安装时 `/organization` 不再渲染项目树，这是解耦后的预期行为。",
@@ -1996,6 +2027,27 @@
           "Input": "pnpm --filter @paperclipai/plugin-project-tree test",
           "acceptanceCriteria": "packages/plugins/plugin-project-tree/tests/manifest.spec.ts",
           "description": "GIVEN the decoupled project-tree plugin package, WHEN its manifest is loaded, THEN it declares a page slot at routePath organization plus a sidebar slot, and requests only read capabilities."
+        },
+        {
+          "Input": "pnpm --filter @paperclipai/plugin-project-tree test -- tree",
+          "acceptanceCriteria": "packages/plugins/plugin-project-tree/tests/tree.spec.ts",
+          "description": "GIVEN projects p0→p1→p2 and a manager leading p1, WHEN the tree is built, THEN the sub-project lead pm2 appears both as p2's lead node and in p1's team with its leadsProject set.",
+          "name": "子项目 PM 同时是父团队成员",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "node_modules/.bin/vitest run server/src/__tests__/project-parent-binding.test.ts",
+          "acceptanceCriteria": "server/src/__tests__/project-parent-binding.test.ts",
+          "description": "GIVEN a project and a candidate parent, WHEN the parent is itself/missing/archived/one of its descendants, THEN checkProjectReparent (UI) and assertProjectParentBinding (server) reject it; a legal parent or null is accepted.",
+          "name": "项目只允许合法单亲",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm --filter @paperclipai/plugin-project-tree test",
+          "acceptanceCriteria": "packages/plugins/plugin-project-tree/tests/tree.spec.ts and tests/layout.spec.ts",
+          "description": "GIVEN the plugin page, WHEN a user drags a project onto another node and drops, THEN the worker's reparent-project action calls ctx.projects.structure.update and the layout reflows; dropping on empty space makes it a root; an illegal target is not offered.",
+          "name": "树形图拖拽换父",
+          "type": "Acceptance Test"
         }
       ],
       "type": "Application Service"
@@ -5835,6 +5887,38 @@
       "id": "instance-epipe-detach-recovery-2026-11-20",
       "name": "实例级 EPIPE 崩溃导致全实例 process_detached（2026-11-20）",
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "date",
+          "value": "2026-11-20"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "branch",
+          "value": "hotfix/2026-11-20-restart-recovery-secrets"
+        },
+        {
+          "name": "base",
+          "value": "5fc0122c85 (dev/local-install)"
+        },
+        {
+          "name": "head",
+          "value": "5e39f1867b"
+        },
+        {
+          "name": "verification",
+          "value": "server/db/shared/paperclip-runner(TS) typecheck pass; socket-guard 5/5; lease red->green; issue-references+secret-redaction+routine-guidance 19/19; issues-service 155/155"
+        }
+      ],
+      "description": "【目标】按人类要求先不全量 merge，只做“卡死 + 密钥外泄”热修分支。\n\n【分支】hotfix/2026-11-20-restart-recovery-secrets，从 dev/local-install@5fc0122c85 出，HEAD=5e39f1867b（未推送、未部署）。\n\n【上游 cherry-pick（均 -x 记录来源）】\n1) 73203740d9 #22389 issue 互提引用死锁（修复 issue reference sync 死锁）。\n2) 19e39c5907 #21948 blocker 已 done 但 run 已终止时不释放依赖（QWE-204 曾踩坑）。\n3) 70d4a18d1f #21341 secret-bound 环境变量在 run 输出中被遮蔽。\n4) a95681b4a3 #21330 OpenCode 不回显/不存储/不进模型请求的配置密钥（解决冲突时去掉了依赖未合入 #21298 的 onUpstreamServed 参数，仅保留 redaction）。\n5) cbde6f378c #21253 webhook secret 不进 chat。\n6) 2f5e73cdf4 #21651 GitHub webhook 每步只读所需密钥。\n\n【自研修复（TDD）】\nA) c585082cb2 fix(server): 新增 services/socket-disconnect-guard.ts，在 startServer 安装 uncaughtException 守卫，只吞 EPIPE+write（其他异常仍 fatal 并记录）；对应两次容器崩溃（11-16/11-19 exitCode=1）。新增 5 个单测。\nB) a2877b9f48 fix(recovery): settleEnvironmentRunLease 的 provider_resource_shared 判定跳过 ssh/driver=ssh 租约（SSH 的 providerLeaseId 是共享 workspace 路径，不是物理沙箱），否则崩溃后 active 租约互锁、recovery resolve 409。新增红灯→绿灯测试（旧代码 settled:false，新代码两条均 settled:true）。\nC) 5e39f1867b chore(test): 修了 chat-publication-text-parts.test.ts 的隐式 any（前置 typecheck 报错）。\n\n【未纳入】#21238（崩溃 run ~2 分钟自动结束）依赖 #21135（2054 行、native runner），而本实例是 legacy SSH 运行时，且 cherry-pick 断链；#21718（prepared statement 恢复）依赖多段未合入导出链，留待全量 merge。\n\n【验证】pnpm 安装因 Windows 符号链接 EPERM 不完全，手工补了 11 个 plugin-sdk junction；server/db/shared/paperclip-runner typecheck(TS) 全绿（rust 因本机无 cargo 未跑）；socket-guard 5/5；lease 新测红→绿；issue-references/secret-redaction/routine-guidance 19/19；issues-service 155/155。已知环境限制：environment-run-lease-ownership 旧用例与 output-custody 用例在本机（Windows/无 awk/mkfifo）预先失败，与本次改动无关。\n\n【下一步】等人类确认后 push 并开 PR；部署按 doc/DEPLOYMENT-47.md（工作站构建 ui/dist + 插件 dist，禁止在 47 构建）；后续再做全量 merge/upstream-20261120（实测 18 处冲突）。",
+      "id": "hotfix-branch-2026-11-20-restart-recovery-secrets",
+      "name": "热修分支 2026-11-20：卡死恢复 + 密钥外泄（未推送）",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -6201,7 +6285,8 @@
         "qwenpaw-stuck-recovery-2026-11-17",
         "qwenpaw-ceo-km-agents-md-2026-11-18",
         "qwe-237-question-response-target-unavailable-agent-assignee-2026-11-18",
-        "instance-epipe-detach-recovery-2026-11-20"
+        "instance-epipe-detach-recovery-2026-11-20",
+        "hotfix-branch-2026-11-20-restart-recovery-secrets"
       ]
     },
     {
