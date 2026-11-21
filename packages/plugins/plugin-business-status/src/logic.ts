@@ -1,4 +1,4 @@
-﻿import {
+import {
   PLUGIN_ID,
   PLUGIN_VERSION,
   STATUS_ROUTE_PATH,
@@ -484,6 +484,7 @@ export function buildCockpitPayload(
       drivers: [],
       links: [],
       levers: [],
+      projects: [],
       generatedAt: new Date(now).toISOString(),
       asOf: null,
       snapshot: snapshotInfo,
@@ -506,6 +507,7 @@ export function buildCockpitPayload(
     drivers,
     links: profile.links,
     levers: leverRanking(drivers),
+    projects: [],
     generatedAt: new Date(now).toISOString(),
     asOf,
     snapshot: snapshotInfo,

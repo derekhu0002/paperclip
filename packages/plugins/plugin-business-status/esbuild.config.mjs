@@ -1,4 +1,4 @@
-﻿import esbuild from "esbuild";
+import esbuild from "esbuild";
 
 const watch = process.argv.includes("--watch");
 const externalUi = [
@@ -51,6 +51,16 @@ const logic = {
   sourcemap: false,
 };
 
+const shared = {
+  entryPoints: ["src/shared.ts"],
+  outdir: "dist",
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  target: "node24",
+  sourcemap: false,
+};
+
 const ui = {
   entryPoints: ["src/ui/index.tsx"],
   outdir: "dist/ui",
@@ -67,13 +77,14 @@ const manifestCtx = await esbuild.context(manifest);
 const uiCtx = await esbuild.context(ui);
 const logicCtx = await esbuild.context(logic);
 const profileCtx = await esbuild.context(profile);
+const sharedCtx = await esbuild.context(shared);
 
 if (watch) {
-  await Promise.all([workerCtx.watch(), manifestCtx.watch(), uiCtx.watch(), logicCtx.watch(), profileCtx.watch()]);
+  await Promise.all([workerCtx.watch(), manifestCtx.watch(), uiCtx.watch(), logicCtx.watch(), profileCtx.watch(), sharedCtx.watch()]);
   console.log("esbuild watch mode enabled for worker, manifest, and ui");
 } else {
-  await Promise.all([workerCtx.rebuild(), manifestCtx.rebuild(), uiCtx.rebuild(), logicCtx.rebuild(), profileCtx.rebuild()]);
-  await Promise.all([workerCtx.dispose(), manifestCtx.dispose(), uiCtx.dispose(), logicCtx.dispose(), profileCtx.dispose()]);
+  await Promise.all([workerCtx.rebuild(), manifestCtx.rebuild(), uiCtx.rebuild(), logicCtx.rebuild(), profileCtx.rebuild(), sharedCtx.rebuild()]);
+  await Promise.all([workerCtx.dispose(), manifestCtx.dispose(), uiCtx.dispose(), logicCtx.dispose(), profileCtx.dispose(), sharedCtx.dispose()]);
   console.log("built dist/manifest.js, dist/worker.js, dist/ui/index.js");
 }
 

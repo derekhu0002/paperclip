@@ -1,9 +1,11 @@
-﻿import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import {
   copyTextToClipboard,
+  useHostLocation,
   useHostNavigation,
   usePluginAction,
   usePluginData,
+  type PluginDetailTabProps,
   type PluginPageProps,
   type PluginSidebarProps,
 } from "@paperclipai/plugin-sdk/ui";
@@ -17,6 +19,8 @@ import {
   defaultDashboardLayoutFromPayload,
   directionLabel,
   formatMetricValue,
+  metricsForProject,
+  projectNameFor,
   resolveDashboardMetrics,
   type BusinessProfile,
   type CockpitPayload,
@@ -372,6 +376,7 @@ function MetricDetail({
   onBack,
   onHome,
   onJump,
+  ownerProjectName,
 }: {
   entry: MetricEntry;
   inputs: MetricInputView[];
@@ -380,7 +385,9 @@ function MetricDetail({
   onBack: () => void;
   onHome: () => void;
   onJump: (index: number) => void;
+  ownerProjectName?: string | null;
 }) {
+  const navigation = useHostNavigation();
   const metric = entry.value;
   const definition = metric.definition;
   const awaiting = metric.state === "awaiting-data";
@@ -443,7 +450,12 @@ function MetricDetail({
             <DetailRow label="Warn" value={formatMetricValue(definition.warn, definition.unit) ?? "—"} />
             <DetailRow label="Critical" value={formatMetricValue(definition.critical, definition.unit) ?? "—"} />
             <DetailRow label="Source" value={definition.source} />
-            <DetailRow label="Source ref" value={definition.sourceRef ?? "—"} />
+            <DetailRow label="Source ref" value={definition.sourceRef ?? "-"} />
+            <DetailRow label="Owner project" value={definition.ownerProjectId ? (
+              <a {...navigation.linkProps(`/projects/${definition.ownerProjectId}`)} style={{ color: C.info }}>
+                {ownerProjectName ?? definition.ownerProjectId}
+              </a>
+            ) : "-"} />
           </div>
         </div>
 
@@ -778,6 +790,7 @@ function Cockpit({
           onBack={() => setPath((current) => current.slice(0, -1))}
           onHome={() => setPath([])}
           onJump={(position) => setPath((current) => current.slice(0, position + 1))}
+          ownerProjectName={projectNameFor(payload, focused.value.definition.ownerProjectId)}
         />
       ) : (
         <BusinessBoardBody
@@ -804,9 +817,29 @@ export function BusinessStatusPage({ context }: PluginPageProps) {
   const companyId = context.companyId ?? "";
   const { data, loading, error, refresh } = usePluginData<CockpitPayload>("business-status", { companyId });
   const [configureOpen, setConfigureOpen] = useState(false);
+  const location = useHostLocation();
+  const navigation = useHostNavigation();
+  const scopeProjectId = useMemo(() => {
+    const search = new URLSearchParams(location.search ?? "");
+    return search.get("projectId");
+  }, [location.search]);
+  // A project-scoped view narrows the board to the metrics that project owns.
+  // The underlying profile is untouched; clearing the scope restores the full board.
+  const scoped = useMemo(() => {
+    if (!data || !scopeProjectId) return data;
+    const owned = metricsForProject(data, scopeProjectId);
+    const driverIds = new Set(owned.drivers.map((driver) => driver.definition.id));
+    return {
+      ...data,
+      results: owned.results,
+      drivers: owned.drivers,
+      links: data.links.filter((link) => driverIds.has(link.from)),
+      levers: data.levers.filter((lever) => driverIds.has(lever.driverId)),
+    };
+  }, [data, scopeProjectId]);
 
   if (!companyId) return <div style={{ ...card, color: C.muted }}>Select a company to open the cockpit.</div>;
-  if (loading) return <div style={{ ...card, color: C.muted }}>Loading cockpit…</div>;
+  if (loading) return <div style={{ ...card, color: C.muted }}>Loading cockpit...</div>;
   if (error) {
     return (
       <div style={{ ...card, borderColor: C.critical }}>
@@ -816,12 +849,24 @@ export function BusinessStatusPage({ context }: PluginPageProps) {
       </div>
     );
   }
-  if (!data) return <div style={{ ...card, color: C.muted }}>No data to display.</div>;
+  if (!data || !scoped) return <div style={{ ...card, color: C.muted }}>No data to display.</div>;
 
   return (
     <>
-      {data.configured ? (
-        <Cockpit payload={data} companyId={companyId} refresh={refresh} onConfigure={() => setConfigureOpen(true)} />
+      {scopeProjectId ? (
+        <div style={{ ...card, padding: "8px 12px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12 }}>
+          <span style={{ color: C.muted }}>Project scope</span>
+          <strong>{projectNameFor(data, scopeProjectId) ?? scopeProjectId}</strong>
+          <span style={{ color: C.muted }}>
+            {scoped.results.length} results and {scoped.drivers.length} drivers owned by this project.
+          </span>
+          <a {...navigation.linkProps(`/${STATUS_ROUTE_PATH}`)} style={{ color: C.info, marginLeft: "auto" }}>
+            Clear scope
+          </a>
+        </div>
+      ) : null}
+      {scoped.configured ? (
+        <Cockpit payload={scoped} companyId={companyId} refresh={refresh} onConfigure={() => setConfigureOpen(true)} />
       ) : (
         <EmptyState companyId={companyId} onConfigure={() => setConfigureOpen(true)} />
       )}
@@ -1684,4 +1729,93 @@ function BoardCustomizeDrawer({
     </div>
   );
 }
+
+/** Project detail tab: the metrics this project is accountable for. */
+export function ProjectMetricsTab({ context }: PluginDetailTabProps) {
+  const companyId = context.companyId ?? "";
+  const projectId = context.projectId ?? context.entityId ?? "";
+  const navigation = useHostNavigation();
+  const { data, loading, error, refresh } = usePluginData<CockpitPayload>("business-status", { companyId });
+
+  if (!companyId || !projectId) {
+    return <div style={{ ...card, color: C.muted }}>No project context for this tab.</div>;
+  }
+  if (loading) return <div style={{ ...card, color: C.muted }}>Loading project metrics...</div>;
+  if (error) {
+    return (
+      <div style={{ ...card, borderColor: C.critical }}>
+        <div style={{ color: C.critical, fontWeight: 600 }}>Failed to load project metrics</div>
+        <p style={{ color: C.muted, fontSize: 12 }}>{error.message}</p>
+        <button type="button" style={button()} onClick={refresh}>Retry</button>
+      </div>
+    );
+  }
+  if (!data) return <div style={{ ...card, color: C.muted }}>No cockpit data to display.</div>;
+
+  const projectName = projectNameFor(data, projectId) ?? "This project";
+  const owned = metricsForProject(data, projectId);
+  const rows = [
+    ...owned.results.map((entry) => ({ role: "Result" as const, entry })),
+    ...owned.drivers.map((entry) => ({ role: "Driver" as const, entry })),
+  ];
+  const cockpitHref = `/${STATUS_ROUTE_PATH}?projectId=${encodeURIComponent(projectId)}`;
+
+  return (
+    <div style={{ display: "grid", gap: 12, padding: 4 }}>
+      <header style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div>
+          <h2 style={{ fontSize: 18, margin: 0 }}>{projectName} metrics</h2>
+          <p style={{ color: C.muted, fontSize: 12, margin: "6px 0 0", lineHeight: 1.6, maxWidth: 720 }}>
+            The business metrics this project is accountable for. A parent project can own the aggregated metric of its
+            sub-projects. Ownership is set on each metric in the cockpit profile.
+          </p>
+        </div>
+        <a {...navigation.linkProps(cockpitHref)} style={{ color: C.info, fontSize: 12 }}>
+          Open in Business Cockpit
+        </a>
+      </header>
+
+      {!data.configured ? (
+        <div style={{ ...card, color: C.muted }}>
+          No cockpit profile is configured for this company yet. Configure one in Business Cockpit, then set each
+          metric's owner project.
+        </div>
+      ) : rows.length === 0 ? (
+        <div style={{ ...card, color: C.muted }}>
+          No metric is owned by this project yet. Set <code style={mono}>ownerProjectId</code> on a metric in the
+          cockpit profile to link it here.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {rows.map(({ role, entry }) => {
+            const definition = entry.definition;
+            const awaiting = entry.state === "awaiting-data";
+            return (
+              <div key={`${role}-${definition.id}`} style={{ ...card, padding: 12, display: "grid", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <strong style={{ fontSize: 14 }}>{definition.label}</strong>
+                  {badge(role, "info")}
+                  {badge(awaiting ? "Awaiting data" : statusText(entry.status), awaiting ? "unknown" : entry.status)}
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 20, fontWeight: 650, fontVariantNumeric: "tabular-nums", color: awaiting ? C.muted : C.fg }}>
+                    {entry.displayValue ?? "-"}
+                  </span>
+                  <span style={{ color: C.muted, fontSize: 11 }}>
+                    Target {targetText(entry)} - {directionLabel(definition.direction)}
+                  </span>
+                  <span style={{ color: C.muted, fontSize: 11 }}>as-of {shortTime(entry.asOf)}</span>
+                </div>
+                {definition.description ? (
+                  <div style={{ color: C.muted, fontSize: 12, lineHeight: 1.5 }}>{definition.description}</div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 

@@ -152,18 +152,37 @@ async function listAll<T>(
   return all;
 }
 
+async function projectHints(ctx: PluginContext, companyId: string): Promise<CockpitPayload["projects"]> {
+  const rows = await listAll(
+    (input) => ctx.projects.list(input),
+    companyId,
+    200,
+    2000,
+  );
+  return rows
+    .filter((project) => !project.archivedAt)
+    .map((project) => ({
+      id: project.id,
+      name: project.name,
+      parentProjectId: project.parentProjectId ?? null,
+    }));
+}
+
 async function buildForCompany(ctx: PluginContext, companyId: string): Promise<CockpitPayload> {
   const now = Date.now();
-  const profile = await readProfile(ctx, companyId);
-  const snapshot = await readSnapshot(ctx, companyId);
-  if (!profile) return buildCockpitPayload(null, {}, snapshot, now, companyId);
+  const [profile, snapshot, projects] = await Promise.all([
+    readProfile(ctx, companyId),
+    readSnapshot(ctx, companyId),
+    projectHints(ctx, companyId),
+  ]);
+  if (!profile) return { ...buildCockpitPayload(null, {}, snapshot, now, companyId), projects };
   const [issues, goals, agents] = await Promise.all([
     listAll((input) => ctx.issues.list(input), companyId),
     listAll((input) => ctx.goals.list(input), companyId, 200, 2000),
     listAll((input) => ctx.agents.list(input), companyId, 200, 2000),
   ]);
   const computed = computePaperclipMetrics({ issues, goals, agents, now });
-  return buildCockpitPayload(profile, computed, snapshot, now, companyId);
+  return { ...buildCockpitPayload(profile, computed, snapshot, now, companyId), projects };
 }
 
 async function logActivity(

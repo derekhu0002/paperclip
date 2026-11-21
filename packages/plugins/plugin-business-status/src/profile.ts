@@ -15,6 +15,7 @@ const DIRECTIONS: MetricDirection[] = ["higher-is-better", "lower-is-better"];
 const SOURCES: MetricSource[] = ["paperclip", "snapshot", "static", "computed"];
 const AGGREGATIONS: MetricAggregation[] = ["sum", "weighted-sum", "average", "ratio", "min", "max"];
 const ID_PATTERN = /^[a-z][a-z0-9-]*$/;
+const PROJECT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const STARTER_PROFILE: BusinessProfile = {
   name: "New Cockpit",
@@ -81,6 +82,11 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
   const label = readString(input.label);
   if (!label) errors.push(`${prefix}.label is required`);
   const description = readString(input.description) ?? undefined;
+  const ownerProjectId = readString(input.ownerProjectId);
+  if (input.ownerProjectId !== undefined && input.ownerProjectId !== null
+    && (!ownerProjectId || !PROJECT_ID_PATTERN.test(ownerProjectId))) {
+    errors.push(`${prefix}.ownerProjectId must be a project UUID when set`);
+  }
   const unit = readString(input.unit);
   if (!unit || !UNITS.includes(unit as MetricUnit)) errors.push(`${prefix}.unit must be one of ${UNITS.join(", ")}`);
   const direction = readString(input.direction);
@@ -247,6 +253,7 @@ function validateMetric(input: unknown, kind: "result" | "driver", prefix: strin
     ...(value !== undefined ? { value } : {}),
     ...(aggregation ? { aggregation } : {}),
     ...(inputs && inputs.length > 0 ? { inputs } : {}),
+    ...(ownerProjectId ? { ownerProjectId } : {}),
   };
   return kind === "driver" ? { ok: true, metric: { ...metric, affects } as DriverDefinition, errors } : { ok: true, metric, errors };
 }

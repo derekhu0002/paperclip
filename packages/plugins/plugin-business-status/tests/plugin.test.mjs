@@ -79,10 +79,10 @@ const securityProfile = {
 test("manifest exposes the generic cockpit contract in English", () => {
   assert.equal(manifest.id, "paperclip.business-status");
   assert.equal(manifest.apiVersion, 1);
-  assert.equal(manifest.version, "1.8.0");
+  assert.equal(manifest.version, "1.9.0");
   assert.equal(manifest.displayName, "Business Cockpit");
   const slotTypes = manifest.ui.slots.map((slot) => slot.type).sort();
-  assert.deepEqual(slotTypes, ["page", "sidebar"]);
+  assert.deepEqual(slotTypes, ["detailTab", "page", "sidebar"]);
   const pages = manifest.ui.slots.filter((slot) => slot.type === "page");
   assert.deepEqual(pages.map((slot) => slot.routePath), ["business-status"]);
   assert.equal(manifest.ui.slots.some((slot) => slot.type === "dashboardWidget"), false);
@@ -808,3 +808,47 @@ test("plugin source, README and bundled skill contain no Chinese characters", ()
 });
 
 
+
+const sharedModule = await importDist("dist/shared.js");
+
+test("manifest registers a project detail tab and reads projects", () => {
+  assert.ok(manifest.capabilities.includes("projects.read"));
+  assert.ok(manifest.capabilities.includes("ui.detailTab.register"));
+  const detail = (manifest.ui?.slots ?? []).find((slot) => slot.type === "detailTab");
+  assert.equal(detail?.exportName, "ProjectMetricsTab");
+});
+
+test("profile validates and preserves a metric owner project", () => {
+  const owner = "11111111-2222-4333-8444-555555555555";
+  const valid = structuredClone(securityProfile);
+  valid.results[0].ownerProjectId = owner;
+  const accepted = profileModule.validateProfile(valid);
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.profile.results[0].ownerProjectId, owner);
+
+  const invalid = structuredClone(securityProfile);
+  invalid.results[0].ownerProjectId = "not-a-project-uuid";
+  const rejected = profileModule.validateProfile(invalid);
+  assert.equal(rejected.ok, false);
+  assert.ok(rejected.errors.some((error) => error.includes("ownerProjectId")));
+});
+
+test("metricsForProject returns only the metrics that project owns", () => {
+  const detection = "11111111-2222-4333-8444-555555555555";
+  const telemetry = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+  const profile = structuredClone(securityProfile);
+  profile.results[0].ownerProjectId = detection;
+  profile.drivers[0].ownerProjectId = detection;
+  profile.drivers[1].ownerProjectId = telemetry;
+  const payload = logic.buildCockpitPayload(profile, {}, null, now, "company-1");
+  assert.deepEqual(payload.projects, []);
+  payload.projects = [
+    { id: detection, name: "Detection Engineering", parentProjectId: null },
+    { id: telemetry, name: "Telemetry Platform", parentProjectId: null },
+  ];
+  const owned = sharedModule.metricsForProject(payload, detection);
+  assert.deepEqual(owned.results.map((entry) => entry.definition.id), ["detection-coverage-rate"]);
+  assert.deepEqual(owned.drivers.map((entry) => entry.definition.id), ["telemetry-source-coverage"]);
+  assert.equal(sharedModule.projectNameFor(payload, detection), "Detection Engineering");
+  assert.equal(sharedModule.metricsForProject(payload, "").results.length, 0);
+});

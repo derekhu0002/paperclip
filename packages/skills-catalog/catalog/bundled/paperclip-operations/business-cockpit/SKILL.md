@@ -145,6 +145,9 @@ The object below is the value of `profile` in `POST /api/plugins/paperclip.busin
 | `value` | for `static` | Fixed numeric value. |
 | `aggregation` | for `computed` | `sum`, `weighted-sum`, `average`, `ratio`, `min` or `max`. |
 | `inputs` | no | Metric ids that explain how this metric is composed. Each entry is `{ "id", "weight"?, "role"?, "note"? }`; a bare id string is also accepted. |
+| `ownerProjectId` | no | UUID of the single project accountable for this metric. The project tree gives each project one parent, so ownership is never split: assign an aggregated metric to the parent project and keep its inputs on the child metrics. |
+
+`ownerProjectId` links the cockpit to the project tree. A project that owns a metric shows it in the project's **Business metrics** tab, and `GET /:companyPrefix/business-status?projectId=<uuid>` opens the cockpit scoped to the metrics that project owns. Metric owners must exist in the same company; an unknown id is still stored (the UI then shows the id) so a profile can be prepared before the project is created, but link it to a real project as soon as it exists.
 
 `inputs` turns results and drivers into one metric DAG. A driver can be an input to another driver, and a result can be an input to another metric. A metric with no `inputs` is a leaf; a leaf must be `paperclip`, `snapshot` or `static`, never `computed`.
 

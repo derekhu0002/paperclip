@@ -1,5 +1,5 @@
 export const PLUGIN_ID = "paperclip.business-status";
-export const PLUGIN_VERSION = "1.8.0";
+export const PLUGIN_VERSION = "1.9.0";
 export const STATUS_ROUTE_PATH = "business-status";
 
 export const PROFILE_NAMESPACE = "profile";
@@ -38,6 +38,12 @@ export interface MetricDefinition {
   value?: number | null;
   aggregation?: MetricAggregation;
   inputs?: MetricInput[];
+  /**
+   * The single project accountable for this metric. A metric has one owner (a
+   * project tree gives each project one parent), so accountability is never
+   * split; a parent project's metrics can aggregate its children's metrics.
+   */
+  ownerProjectId?: string | null;
 }
 
 export interface DriverDefinition extends MetricDefinition {
@@ -297,6 +303,12 @@ export function buildInfluenceRows(payload: CockpitPayload | null, resultIds: st
   return rows;
 }
 
+export interface ProjectHint {
+  id: string;
+  name: string;
+  parentProjectId: string | null;
+}
+
 export interface CockpitPayload {
   schema: "paperclip.business-status/v1";
   pluginId: string;
@@ -321,6 +333,8 @@ export interface CockpitPayload {
     impact: number;
     results: string[];
   }>;
+  /** Active projects of the company, for owner labels and project scoping. */
+  projects: ProjectHint[];
   generatedAt: string;
   asOf: string | null;
   snapshot: {
@@ -329,6 +343,23 @@ export interface CockpitPayload {
     ingestRoute: string;
     profileRoute: string;
   };
+}
+
+/** Results and drivers whose owner is exactly this project. */
+export function metricsForProject(payload: CockpitPayload | null, projectId: string): {
+  results: MetricValue[];
+  drivers: DriverValue[];
+} {
+  if (!payload || !projectId) return { results: [], drivers: [] };
+  return {
+    results: payload.results.filter((entry) => entry.definition.ownerProjectId === projectId),
+    drivers: payload.drivers.filter((entry) => entry.definition.ownerProjectId === projectId),
+  };
+}
+
+export function projectNameFor(payload: CockpitPayload | null, projectId: string | null | undefined): string | null {
+  if (!payload || !projectId) return null;
+  return payload.projects.find((project) => project.id === projectId)?.name ?? null;
 }
 
 export interface SnapshotValue {
