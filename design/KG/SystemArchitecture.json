@@ -249,7 +249,7 @@
       "attributes": [
         {
           "name": "lastSummaryAt",
-          "value": "2026-11-20T00:58:00Z"
+          "value": "2026-11-20T16:20:00Z"
         },
         {
           "name": "memoryTier",
@@ -630,7 +630,7 @@
           "value": "paperclip-upstream-merge-assessment-2026-10-21（本次事实属性）, threat-intel-center-migration-2026-11-01（上一会话）"
         }
       ],
-      "description": "【本次目标】处理 2026-11-19 再次出现的「任务卡住」。\n\n【根因】47 容器 2026-11-19T15:57:23Z 因未捕获 `write EPIPE`（Socket 'error' 无 listener）exitCode=1 崩溃并被 docker 重启；全实例 8 条 run 变 process_detached：AIC-160/161/162（困 6 天）、CTI-71、QWE-257 及 3 条 qwenpaw agent 级 run。\n\n【处置】kill 全部孤儿 bridge server（40+，跨 qwenpaw/aic/archgraph/ai-security/ThreatIntelligence）→ 临时 board key 取消 8 条 run → 释放 8 条 SSH 共享 workspace 租约 → 5 个受影响 issue 走 recovery-actions/resolve（restored/todo）全部 200。\n\n【结果】AIC-125/163、CTI-71、QWE-257/258 等已用新 pid 运行且 last_output 增长；AIC-160/161/162 回 todo 排队；租约全部 released。\n\n【关键决策】先杀进程再 cancel（避免重复写 workspace）；旧 queued 保留让产品自行排空；不替 agent 做业务结论。\n\n【坑】EPIPE 崩溃是 3 天内第 2 次（11-16 同型）；SSH 共享 workspace 租约 provider_resource_shared 互锁仍在；崩溃前伴随 agent 请求 9s abort 与 sandbox callback 10s 超时。\n\n【建议】在 server/src/http/server.ts 给连接 socket 加 'error' 容错；继续修 settleEnvironmentRunLease 的共享租约判定。\n\n【T2】design/KG/SystemArchitecture.json#instance-epipe-detach-recovery-2026-11-20；#qwenpaw-stuck-recovery-2026-11-17。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#instance-epipe-detach-recovery-2026-11-20",
+      "description": "【本次目标】1) 先不做全量 merge，只做卡死+密钥外泄热修；2) 优化 project tree 插件为图形化树、修正成员规则；3) 不推送不部署，等验收。\n\n【热修分支】hotfix/2026-11-20-restart-recovery-secrets（从 dev/local-install@5fc0122c85 出，未推送/未部署）。上游 cherry-pick：#22389 互提引用死锁、#21948 done blocker 释放、#21341 密钥输出遮蔽、#21330 OpenCode 密钥不上屏/不落盘/不进模型请求、#21253 webhook secret、#21651 GitHub webhook 密钥最小化。自研：socket-disconnect-guard（只吞 EPIPE+write 的 uncaughtException）+ SSH 共享 workspace 租约不再互锁。验证：socket-guard 5/5、lease 红→绿、issue-references/secret-redaction/routine-guidance 19/19、issues-service 155/155、server/db/shared/runner(TS) typecheck 绿。\n\n【项目树功能】commit 9d10a1f164（成员规则：子 PM 同时留在父团队，UI 双身份）、d20e0c40a7（parent 校验：同公司/非自身/父未归档/无环，create+update）、84b3c0b09a（SVG 树图+拖拽换父+折叠/缩放/搜索+Parent 下拉；新增窄能力 projects.structure.write 与 host 方法；layout.ts 纯布局）。验证：插件 tests 13/13、ui agentProjectBinding 4/4、server project-parent-binding 6/6、插件 build dist/ui 28.5KB、token gates CLEAN。\n\n【工具链】新增 38e48d9506 fix(local-verify)：跳过 node_modules 中 EACCES/EPERM 的坏链接（本地 pnpm store 被裁剪遗留）；在此之前已手工修了 11 个 plugin-sdk junction。`pnpm verify --explain` 返回 exit 2（因分支含大量上游提交，需 CI 宽验证），按 AGENTS 不自动跑全量。\n\n【坑】PowerShell Set-Content 会把 UTF-8 中文/省略号写成乱码并可能吞掉引号，导致插件 UI esbuild 解析失败；改用 Node fs.writeFileSync('utf8') 重写 ASCII。ui 包 typecheck 仍有既有无关报错（useStreamlinedUiEnabled/StatusCardTile）。\n\n【待办】1) 人类验收后再 push + 开 PR（含 Model Used）；2) 验收后按 doc/DEPLOYMENT-47.md 部署（工作站构建，禁止在 47 构建）；3) P3 指标归属（metric.ownerProjectId + 项目详情指标 + cockpit 按项目视图）未做；4) 全量 merge/upstream-20261120 未做（实测 18 处冲突）。\n\n【T2】design/KG/SystemArchitecture.json#instance-epipe-detach-recovery-2026-11-20；#hotfix-branch-2026-11-20-restart-recovery-secrets；#fork-cap-project-tree（已登记本次三个功能 commit + 验收用例）。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#fork-cap-project-tree",
       "id": "project-manager-session-summary",
       "name": "T1 会话总结（2026-11-17：QwenPaw 攻防实验室卡死恢复）",
       "type": "Requirement"
