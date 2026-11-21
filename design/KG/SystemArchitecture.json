@@ -5458,6 +5458,35 @@
           "name": "deploy47_20261117",
           "value": "【47 部署（2026-11-17T13:42Z，1.8.0）】容器 paperclip，image 89bb；已安装插件路径 /home/paperclip/.paperclip/plugins/business-status。artifact hot-update（dist/package.json/README），备份 /root/business-status-installed-backup-20261117T134245Z.tgz，docker restart paperclip。\n\n【1.8.0 变更】删除独立 Business Board 页面与侧栏；看板合并到 Business Cockpit 首页（下钻 MetricDetail 不变，tile/table 行可点入）；新增 Cards/Table、Number/Bar/Bullet/Gauge；influence 改为 SVG 有向图（driver→result，颜色正/负、线宽按 |weight|、hover 显示 weight/方向/impact），结果节点可点入；manifest 仅一个 page+sidebar，无 dashboardWidget。\n\n【验证】health ok（commit 89bb）；plugins 表 business-status=1.8.0/ready；slots 仅 business-status page+sidebar；UI bundle /_plugins/b9ea0c69-5324-447f-b55a-11a2af24d692/ui/index.js=200/79044 bytes 且含 Driver influence，不再含 BusinessBoardPage；/QWE/business-status=200；日志 1.8.0 activated。\n\n【注意】仍是 artifact 预览部署；镜像 commit 未变；源码未提交，下次镜像重建会回退到已提交 1.5.0。回滚：使用备份 tar 解回插件目录并重启。",
           "description": "Final artifact hot-update on 47: 1.8.0, board merged into cockpit home, influence graph."
+        },
+        {
+          "name": "commit",
+          "value": "570d06815c8c152ba50c857cddff55e4068ad2c5",
+          "description": "feat(business-status): link metrics to an owning project and add a project metrics tab (plugin 1.9.0)"
+        },
+        {
+          "name": "projectLinkage2026-11-20",
+          "value": "MetricDefinition.ownerProjectId（单一负责项目，UUID 校验）；CockpitPayload.projects（ctx.projects.list）；metricsForProject/projectNameFor 纯函数；cockpit 页支持 ?projectId= 作用域 + 横幅；指标详情显示 Owner project 链接；新增 project detailTab（Business metrics，entityTypes=[project]），复用同一数据 key 展示项目负责的指标；manifest 新增 projects.read + ui.detailTab.register；esbuild 额外构建 dist/shared.js 供测试。"
+        },
+        {
+          "name": "verificationP3",
+          "value": "plugin tests 19/19（新增 manifest detailTab、ownerProjectId 校验、metricsForProject 过滤）；plugin typecheck 通过；skills-catalog build:manifest + validate 通过（18 skills）。"
+        }
+      ],
+      "testcases": [
+        {
+          "Input": "pnpm --filter @paperclipai/plugin-business-status test",
+          "acceptanceCriteria": "packages/plugins/plugin-business-status/tests/plugin.test.mjs",
+          "description": "GIVEN a profile with metrics owned by project A and B, WHEN metricsForProject(payload, A) runs, THEN only A's results/drivers return; a non-UUID ownerProjectId is rejected and a valid UUID is preserved.",
+          "name": "指标归属校验与过滤",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "pnpm --filter @paperclipai/plugin-business-status test",
+          "acceptanceCriteria": "packages/plugins/plugin-business-status/tests/plugin.test.mjs",
+          "description": "GIVEN the business-status manifest, WHEN it is loaded, THEN it declares a project detailTab (Business metrics) with entityTypes [project] and the projects.read capability.",
+          "name": "项目详情标签与项目读取能力",
+          "type": "Acceptance Test"
         }
       ]
     },
