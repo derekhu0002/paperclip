@@ -5953,6 +5953,39 @@
       "id": "hotfix-branch-2026-11-20-restart-recovery-secrets",
       "name": "热修分支 2026-11-20：卡死恢复 + 密钥外泄（未推送）",
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "description": "dev/local-install pushed to origin; image paperclip-fork:f37a83ec88",
+          "name": "commit",
+          "value": "f37a83ec88d79cb445458a516e4263a99be99ab6"
+        },
+        {
+          "name": "date",
+          "value": "2026-11-21"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:f37a83ec88 (6.49GB, production target, PAPERCLIP_SKIP_PROVIDER_PACK=1, built from clean git worktree at the pushed SHA)"
+        },
+        {
+          "name": "rollback",
+          "value": "image paperclip-fork:89bb8675d3 (previous container image) + plugin row backup /home/paperclip/.paperclip/instances/default/plugin-business-status-row-backup-20261121.json"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "verification",
+          "value": "health status=ok commit=f37a83ec88…; plugin-loader loadAll 2/2; project-tree 0.2.0 ready; business-status 1.9.0 ready; ui-contributions detailTab(business-status-project-metrics, project); pages /QWE/organization|business-status|projects 200; bridge data business-status configured=true 4 results/25 drivers/8 projects; project-tree 8 projects/15 agents; runtime bundle contains the socket guard, parent validation, projects.structure.write"
+        }
+      ],
+      "description": "【目标】把 hotfix/项目树/P3 改动合入本地 dev/local-install、推送 origin，然后构建镜像并部署到 47 四期实例，等人类验收后再开 PR。\n\n【合并与推送】hotfix 分支 fast-forward 合入 dev/local-install；按非侵入式审计意见先退回两项工具/测试噪声（local-verify EACCES 绕行、测试隐式 any），保留核心 UI 三处；plugin-project-tree 版本 bump 0.1.0→0.2.0 使 bundled manifest 可 reconcile。HEAD=f37a83ec88d79cb445458a516e4263a99be99ab6 已 push 到 origin/dev/local-install（local==origin）。\n\n【镜像】工作站 Docker 构建：--target production、PAPERCLIP_BUILD_COMMIT=f37a…、PAPERCLIP_SKIP_PROVIDER_PACK=1，tag paperclip-fork:f37a83ec88。因本机 node_modules 存在损坏的 pnpm 链接导致构建上下文报错，改用 git worktree 在干净 checkout 下构建。docker save 1.5G → scp → 47 docker load。\n\n【部署】备份信息：旧容器 image 89bb8675d3；用相同 env-file、-e、端口 172.18.2.191:3100、volume /home/paperclip/.paperclip、restart unless-stopped、stop-timeout 90、日志轮转重建容器。health 首次 starting 后转 ok，commit 与推送 SHA 一致。\n\n【插件】project-tree 自动 reconcile 到 0.2.0 ready（新能力 projects.structure.write 已生效）；business-status 原为 host 本地路径 1.8.0，install API 拒绝重装，采用运维升级：备份行 → 将 registry 行指向镜像路径 /app/packages/plugins/plugin-business-status、version 1.9.0、manifest 取自镜像，重启后加载成功；plugin_state 保留（QwenPaw profile 4 results/25 drivers 仍可读）。\n\n【验证】页面 200；ui-contributions 包含 detailTab project；UI bundle 含 ProjectMetricsTab/ownerProjectId 与 checkProjectReparent/项目树编辑器代码；bridge data 正常；服务端 bundle 含 EPIPE 守卫、父级校验、新能力字符串。内存占用/磁盘：49G free；已删旧镜像 5c5d195ab5 与上传 tar。\n\n【未完成】PR 未开（等人类验收）；全量 upstream merge 未做；本机 node_modules 仍不完整（postinstall symlink EPERM，需用 Docker/CI 验证）。",
+      "id": "deploy-47-2026-11-21-f37a83ec",
+      "name": "47 四期部署：f37a83ec（热修 + 项目树图形化 + 业务指标归属）2026-11-21",
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -6320,7 +6353,8 @@
         "qwenpaw-ceo-km-agents-md-2026-11-18",
         "qwe-237-question-response-target-unavailable-agent-assignee-2026-11-18",
         "instance-epipe-detach-recovery-2026-11-20",
-        "hotfix-branch-2026-11-20-restart-recovery-secrets"
+        "hotfix-branch-2026-11-20-restart-recovery-secrets",
+        "deploy-47-2026-11-21-f37a83ec"
       ]
     },
     {
