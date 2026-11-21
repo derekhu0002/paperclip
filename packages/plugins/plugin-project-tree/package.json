@@ -1,6 +1,6 @@
 {
   "name": "@paperclipai/plugin-project-tree",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Project tree (parent/child projects with PM and team) rendered as an installable Paperclip plugin page.",
   "type": "module",
   "private": true,

@@ -1,5 +1,5 @@
 export const PLUGIN_ID = "paperclip-project-tree";
-export const PLUGIN_VERSION = "0.1.0";
+export const PLUGIN_VERSION = "0.2.0";
 export const PAGE_ROUTE = "organization";
 export const DATA_KEYS = {
   tree: "project-tree",
