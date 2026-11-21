@@ -24,7 +24,9 @@ export function installedInputs(root, directories, append) {
     let stat;
     try { stat = lstatSync(absolute, { bigint: true }); }
     catch (error) {
-      if (error.code !== "ENOENT") throw error;
+      // A broken or unreadable link inside node_modules (a pruned pnpm store
+      // leaves corrupt reparse points) is not an installed input we can hash.
+      if (error.code !== "ENOENT" && error.code !== "EACCES" && error.code !== "EPERM") throw error;
       append(["installed-missing", absolute]);
       return;
     }
