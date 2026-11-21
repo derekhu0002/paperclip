@@ -13,10 +13,12 @@ describe("project tree plugin wiring", () => {
     expect(sidebar?.exportName).toBeTruthy();
   });
 
-  it("asks only for read capabilities", () => {
+  it("asks for read capabilities plus the narrow structure-write capability", () => {
     expect(manifest.capabilities).toEqual(
-      expect.arrayContaining(["projects.read", "agents.read"]),
+      expect.arrayContaining(["projects.read", "projects.structure.write", "agents.read"]),
     );
-    expect(manifest.capabilities?.every((capability) => !capability.includes("write"))).toBe(true);
+    expect(manifest.capabilities?.filter((capability) => capability.includes("write"))).toEqual([
+      "projects.structure.write",
+    ]);
   });
 });

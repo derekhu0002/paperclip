@@ -207,6 +207,7 @@ export interface HostServices {
     listWorkspaces(params: WorkerToHostMethods["projects.listWorkspaces"][0]): Promise<WorkerToHostMethods["projects.listWorkspaces"][1]>;
     getPrimaryWorkspace(params: WorkerToHostMethods["projects.getPrimaryWorkspace"][0]): Promise<WorkerToHostMethods["projects.getPrimaryWorkspace"][1]>;
     getWorkspaceForIssue(params: WorkerToHostMethods["projects.getWorkspaceForIssue"][0]): Promise<WorkerToHostMethods["projects.getWorkspaceForIssue"][1]>;
+    updateStructure(params: WorkerToHostMethods["projects.structure.update"][0]): Promise<WorkerToHostMethods["projects.structure.update"][1]>;
     getManaged(params: WorkerToHostMethods["projects.managed.get"][0]): Promise<WorkerToHostMethods["projects.managed.get"][1]>;
     reconcileManaged(params: WorkerToHostMethods["projects.managed.reconcile"][0]): Promise<WorkerToHostMethods["projects.managed.reconcile"][1]>;
     resetManaged(params: WorkerToHostMethods["projects.managed.reset"][0]): Promise<WorkerToHostMethods["projects.managed.reset"][1]>;
@@ -448,6 +449,7 @@ const METHOD_CAPABILITY_MAP: Record<WorkerToHostMethodName, PluginCapability | n
   "projects.listWorkspaces": "project.workspaces.read",
   "projects.getPrimaryWorkspace": "project.workspaces.read",
   "projects.getWorkspaceForIssue": "project.workspaces.read",
+  "projects.structure.update": "projects.structure.write",
   "executionWorkspaces.get": "execution.workspaces.read",
   "projects.managed.get": "projects.managed",
   "projects.managed.reconcile": "projects.managed",
@@ -860,6 +862,10 @@ export function createHostClientHandlers(
     }),
     "projects.getWorkspaceForIssue": gated("projects.getWorkspaceForIssue", async (params) => {
       return services.projects.getWorkspaceForIssue(params);
+    }),
+    "projects.structure.update": gated("projects.structure.update", async (params, context) => {
+      const companyId = resolveRequiredCompanyId("projects.structure.update", params, context);
+      return services.projects.updateStructure({ ...params, companyId });
     }),
     "executionWorkspaces.get": gated("executionWorkspaces.get", async (params) => {
       return services.executionWorkspaces.get(params);

@@ -1871,6 +1871,10 @@ export interface WorkerToHostMethods {
     params: { issueId: string; companyId: string },
     result: PluginWorkspace | null,
   ];
+  "projects.structure.update": [
+    params: { projectId: string; companyId: string; parentProjectId: string | null },
+    result: { projectId: string; parentProjectId: string | null },
+  ];
   "executionWorkspaces.get": [
     params: {
       workspaceId: string;

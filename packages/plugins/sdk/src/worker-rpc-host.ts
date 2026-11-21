@@ -774,6 +774,16 @@ export function startWorkerRpcHost(options: WorkerRpcHostOptions): WorkerRpcHost
           return callHost("projects.getWorkspaceForIssue", { issueId, companyId });
         },
 
+        structure: {
+          async update(input: { projectId: string; companyId: string; parentProjectId: string | null }) {
+            return callHost("projects.structure.update", {
+              projectId: input.projectId,
+              companyId: input.companyId,
+              parentProjectId: input.parentProjectId,
+            });
+          },
+        },
+
         managed: {
           async get(projectKey: string, companyId: string) {
             return callHost("projects.managed.get", { projectKey, companyId });

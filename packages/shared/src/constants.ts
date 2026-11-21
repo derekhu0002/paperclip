@@ -1406,6 +1406,9 @@ export const PLUGIN_CAPABILITIES = [
   // web app's approval decision routes are board-only.
   "approvals.respond",
   "issue.documents.write",
+  // Reparent a project in the company's project tree (one parent, no cycles).
+  // Narrow on purpose: no other project fields can be written.
+  "projects.structure.write",
   "projects.managed",
   "routines.managed",
   "skills.managed",

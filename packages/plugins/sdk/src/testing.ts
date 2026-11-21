@@ -1079,6 +1079,21 @@ export function createTestHarness(options: TestHarnessOptions): TestHarness {
         const workspaces = projectWorkspaces.get(projectId) ?? [];
         return workspaces.find((workspace) => workspace.isPrimary) ?? null;
       },
+      structure: {
+        async update(input: { projectId: string; companyId: string; parentProjectId: string | null }) {
+          requireCapability(manifest, capabilitySet, "projects.structure.write");
+          const project = projects.get(input.projectId);
+          if (!isInCompany(project, input.companyId)) throw new Error("Project not found");
+          if (input.parentProjectId === project.id) throw new Error("A project cannot be its own parent.");
+          const parent = input.parentProjectId ? projects.get(input.parentProjectId) : null;
+          if (input.parentProjectId && !isInCompany(parent, input.companyId)) {
+            throw new Error("Parent project must belong to the same company.");
+          }
+          const updated = { ...project, parentProjectId: input.parentProjectId ?? null };
+          projects.set(project.id, updated);
+          return { projectId: updated.id, parentProjectId: updated.parentProjectId ?? null };
+        },
+      },
       managed: {
         async get(projectKey, companyId) {
           requireCapability(manifest, capabilitySet, "projects.managed");

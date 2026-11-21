@@ -52,6 +52,7 @@ const OPERATION_CAPABILITIES: Record<string, readonly PluginCapability[]> = {
   "projects.managed.get": ["projects.managed"],
   "projects.managed.reconcile": ["projects.managed"],
   "projects.managed.reset": ["projects.managed"],
+  "projects.structure.update": ["projects.structure.write"],
   "routines.managed.get": ["routines.managed"],
   "routines.managed.reconcile": ["routines.managed"],
   "routines.managed.reset": ["routines.managed"],

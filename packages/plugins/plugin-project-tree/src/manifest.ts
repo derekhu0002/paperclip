@@ -18,6 +18,7 @@ const manifest: PaperclipPluginManifestV1 = {
   categories: ["ui"],
   capabilities: [
     "projects.read",
+    "projects.structure.write",
     "agents.read",
     "ui.page.register",
     "ui.sidebar.register",

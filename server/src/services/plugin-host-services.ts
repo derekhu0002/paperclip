@@ -2046,6 +2046,23 @@ export function buildHostServices(
           reset: true,
         });
       },
+      async updateStructure(params) {
+        const companyId = ensureCompanyId(params.companyId);
+        await ensurePluginAvailableForCompany(companyId);
+        const project = requireInCompany("Project", await projects.getById(params.projectId), companyId);
+        // The project service owns the single-parent/tree integrity rules; the
+        // capability only lets a plugin choose the parent, never other fields.
+        const updated = await projects.update(project.id, { parentProjectId: params.parentProjectId ?? null });
+        if (!updated) throw new Error("Project not found");
+        await logPluginActivity({
+          companyId,
+          action: "project.structure_updated_by_plugin",
+          entityType: "project",
+          entityId: project.id,
+          details: { parentProjectId: updated.parentProjectId ?? null },
+        });
+        return { projectId: updated.id, parentProjectId: updated.parentProjectId ?? null };
+      },
     },
 
     executionWorkspaces: {

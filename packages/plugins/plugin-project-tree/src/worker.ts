@@ -61,6 +61,8 @@ function toTreeAgent(agent: Awaited<ReturnType<PluginContext["agents"]["list"]>>
 export const EMPTY_TREE: ProjectTreeData = {
   stats: { projects: 0, agents: 0 },
   roots: [],
+  projects: [],
+  agents: [],
 };
 
 const plugin = definePlugin({
@@ -75,6 +77,17 @@ const plugin = definePlugin({
         listAllAgents(ctx, companyId),
       ]);
       return toProjectTreeData(projects.map(toTreeProject), agents.map(toTreeAgent));
+    });
+
+    // The tree editor's only write: choose a project's parent. The host owns
+    // the single-parent/cycle rules; this action never touches other fields.
+    ctx.actions.register("reparent-project", async (params) => {
+      const companyId = typeof params.companyId === "string" ? params.companyId : "";
+      const projectId = typeof params.projectId === "string" ? params.projectId : "";
+      const rawParent = params.parentProjectId;
+      const parentProjectId = rawParent === null || rawParent === undefined ? null : String(rawParent);
+      if (!companyId || !projectId) throw new Error("A company and a project are required.");
+      return ctx.projects.structure.update({ companyId, projectId, parentProjectId });
     });
   },
 });

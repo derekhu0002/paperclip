@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProjectTree,
+  checkProjectReparent,
+  projectDescendantIds,
   toProjectTreeData,
   type TreeAgentInput,
   type TreeProjectInput,
@@ -49,8 +51,12 @@ describe("buildProjectTree", () => {
     expect(tree[0]!.project.id).toBe("p0");
     expect(brain.project.id).toBe("p1");
     expect(brain.pm?.id).toBe("pm1");
-    // pm2 leads its own project, so it is a sub-project lead, not a team member.
-    expect(brain.team.map((member) => member.id)).toEqual(["re1", "de1"]);
+    // pm2 leads its own project and is still a member of its manager's team.
+    expect(brain.team.map((member) => member.id)).toEqual(["re1", "de1", "pm2"]);
+    expect(brain.team.find((member) => member.id === "pm2")?.leadsProject).toEqual({
+      id: "p2",
+      name: "Robot Perception",
+    });
     expect(brain.children[0]!.project.id).toBe("p2");
   });
 
@@ -87,5 +93,36 @@ describe("buildProjectTree", () => {
     const data = toProjectTreeData(projects, agents);
     expect(data.stats).toEqual({ projects: 1, agents: 2 });
     expect(data.roots).toHaveLength(1);
+    expect(data.projects.map((entry) => entry.id)).toEqual(["p1"]);
+  });
+});
+
+describe("checkProjectReparent", () => {
+  const projects = [
+    project("p0", "Root", null, null),
+    project("p1", "Child", "p0", null),
+    project("p2", "Grandchild", "p1", null),
+    project("p3", "Archived", null, null, new Date()),
+    project("p4", "Sibling", null, null),
+  ];
+
+  it("allows a root and any project that is not a descendant", () => {
+    expect(checkProjectReparent(projects, "p2", null)).toEqual({ ok: true });
+    expect(checkProjectReparent(projects, "p0", "p4")).toEqual({ ok: true });
+    // Archived projects are not in the tree, so they cannot be moved.
+    expect(checkProjectReparent(projects, "p3", "p0")).toEqual({ ok: false, reason: "missing-project" });
+  });
+
+  it("rejects self-parenting, unknown or archived parents, and descendants", () => {
+    expect(checkProjectReparent(projects, "p0", "p0")).toEqual({ ok: false, reason: "self" });
+    expect(checkProjectReparent(projects, "p0", "missing")).toEqual({ ok: false, reason: "missing-parent" });
+    expect(checkProjectReparent(projects, "p0", "p3")).toEqual({ ok: false, reason: "archived-parent" });
+    expect(checkProjectReparent(projects, "p0", "p2")).toEqual({ ok: false, reason: "cycle" });
+    expect(checkProjectReparent(projects, "p1", "p2")).toEqual({ ok: false, reason: "cycle" });
+  });
+
+  it("lists the descendants a move must avoid", () => {
+    expect([...projectDescendantIds(projects, "p1")].sort()).toEqual(["p2"]);
+    expect([...projectDescendantIds(projects, "p3")]).toEqual([]);
   });
 });

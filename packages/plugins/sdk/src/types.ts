@@ -899,6 +899,23 @@ export interface PluginProjectsClient {
   get(projectId: string, companyId: string): Promise<Project | null>;
 
   /**
+   * Change where a project hangs in the company's project tree.
+   *
+   * A project has at most one parent (`parentProjectId: null` makes it a root);
+   * the host rejects self-parenting, cross-company parents, archived parents,
+   * and any link that would create a cycle.
+   *
+   * Requires the `projects.structure.write` capability. No other project field
+   * can be written through this method.
+   */
+  structure: {
+    update(input: { projectId: string; companyId: string; parentProjectId: string | null }): Promise<{
+      projectId: string;
+      parentProjectId: string | null;
+    }>;
+  };
+
+  /**
    * List all workspaces attached to a project.
    *
    * @param projectId - UUID of the project
