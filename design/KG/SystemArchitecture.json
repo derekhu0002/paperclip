@@ -6078,6 +6078,10 @@
         {
           "name": "upstreamPrs",
           "value": "#22547 fix(server) broken socket write; #22548 fix(recovery) SSH shared workspace settlement; #22549 fix(projects) parent link validation"
+        },
+        {
+          "name": "prFollowUp2026-11-22",
+          "value": "22548: all CI + Greptile pass, mergeState CLEAN。22547: Greptile P1（Sentry 未上报真实异常）— 已修：guard 改到 sentryReady 之后安装；非 EPIPE 时移除自身并 nextTick 重抛，让后续 listener（Sentry）先处理；新增子进程测试（Sentry 收到 TypeError 并退出 / EPIPE 不退出）；新 CI Typecheck+Build 已过，Greptile 已 pass。22549: 关闭——master 根本没 parentProjectId 列，属缺失的 schema/API 特性，非 bugfix；已在 PR 评论说明，不把 bugfix 扩成特性。"
         }
       ],
       "description": "【任务】1) 将本地发现且上游同样存在的问题提 upstream PR；2) 在 47 对外提供最新镜像下载。\n\n【上游 PR（基于 upstream/master 7671e0cf0d，分支在 fork）】\n- https://github.com/paperclipai/paperclip/pull/22547 fix(server): broken socket EPIPE guard（新文件 socket-disconnect-guard + startServer 安装 + 单测）。\n- https://github.com/paperclipai/paperclip/pull/22548 fix(recovery): settle SSH leases that share one workspace path（只修 provider_resource_shared 误判；关联 #15120 / #17291，不重复它们的 sweep teardown 工作）。\n- https://github.com/paperclipai/paperclip/pull/22549 fix(projects): reject invalid project parent links（同公司/非自身/无归档父/无环，create+update）。\n均遵守上游“不包含代码注释”规则；PR 模板完整，无内部/实例引用。CI 已启动（部分 pass，其余 pending）。\n\n【镜像下载】采用既有 nginx /downloads/ alias + 随机 token 目录：/var/www/downloads/dl-8f4e4be79d26/。docker save | gzip -1 生成 1.5GB tar.gz，sha256=f5bf2a50…，README.txt 含 load/run/到期说明；新建 72h systemd timer paperclip-dl-8f4e4be79d26.timer 到期自动删除。已验证本机与公网 HTTP 200（README / tar HEAD）。\n\n【镜像/实例】47 当前运行 paperclip-fork:950c897b98，health ok；回滚镜像 fc8b2022cc 保留。本地 dev/local-install 含若干 memory-only 提交未推（origin 仍为 950c897b98）。",
