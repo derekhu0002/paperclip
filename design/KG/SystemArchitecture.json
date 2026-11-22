@@ -6048,6 +6048,58 @@
       "id": "abnormal-audit-47-2026-11-21",
       "name": "47 异常任务巡检与恢复（2026-11-21，f37a83ec）",
       "type": "Requirement"
+    },
+    {
+      "attributes": [
+        {
+          "name": "date",
+          "value": "2026-11-22"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:950c897b98 (commit 950c897b98fd767d0839908370d0c9044b914688)"
+        },
+        {
+          "name": "downloadUrl",
+          "value": "http://47.107.161.168/downloads/dl-8f4e4be79d26/paperclip-fork-950c897b98.tar.gz"
+        },
+        {
+          "name": "downloadSha256",
+          "value": "f5bf2a5020d1bb3c3277febef1333bd3f2acde6e24ee50202478572bf3324a75"
+        },
+        {
+          "name": "downloadExpiry",
+          "value": "2026-11-25T13:04:20Z (systemd timer paperclip-dl-8f4e4be79d26.timer, 72h)"
+        },
+        {
+          "name": "status",
+          "value": "ACTIVE"
+        },
+        {
+          "name": "upstreamPrs",
+          "value": "#22547 fix(server) broken socket write; #22548 fix(recovery) SSH shared workspace settlement; #22549 fix(projects) parent link validation"
+        }
+      ],
+      "description": "【任务】1) 将本地发现且上游同样存在的问题提 upstream PR；2) 在 47 对外提供最新镜像下载。\n\n【上游 PR（基于 upstream/master 7671e0cf0d，分支在 fork）】\n- https://github.com/paperclipai/paperclip/pull/22547 fix(server): broken socket EPIPE guard（新文件 socket-disconnect-guard + startServer 安装 + 单测）。\n- https://github.com/paperclipai/paperclip/pull/22548 fix(recovery): settle SSH leases that share one workspace path（只修 provider_resource_shared 误判；关联 #15120 / #17291，不重复它们的 sweep teardown 工作）。\n- https://github.com/paperclipai/paperclip/pull/22549 fix(projects): reject invalid project parent links（同公司/非自身/无归档父/无环，create+update）。\n均遵守上游“不包含代码注释”规则；PR 模板完整，无内部/实例引用。CI 已启动（部分 pass，其余 pending）。\n\n【镜像下载】采用既有 nginx /downloads/ alias + 随机 token 目录：/var/www/downloads/dl-8f4e4be79d26/。docker save | gzip -1 生成 1.5GB tar.gz，sha256=f5bf2a50…，README.txt 含 load/run/到期说明；新建 72h systemd timer paperclip-dl-8f4e4be79d26.timer 到期自动删除。已验证本机与公网 HTTP 200（README / tar HEAD）。\n\n【镜像/实例】47 当前运行 paperclip-fork:950c897b98，health ok；回滚镜像 fc8b2022cc 保留。本地 dev/local-install 含若干 memory-only 提交未推（origin 仍为 950c897b98）。",
+      "id": "upstream-prs-and-image-download-2026-11-22",
+      "name": "上游 PR 与 950c897b98 镜像下载发布（2026-11-22）",
+      "testcases": [
+        {
+          "Input": "gh pr checks 22547/22548/22549 --repo paperclipai/paperclip",
+          "acceptanceCriteria": "Three PRs exist against master; CI runs; PR body has template sections; no code comments; no internal references",
+          "description": "GIVEN the fork fixes, WHEN the upstream PRs are opened, THEN each PR is based on upstream/master with only the fix and tests, and the template sections are complete.",
+          "name": "上游 PR 提交",
+          "type": "Acceptance Test"
+        },
+        {
+          "Input": "curl -I http://47.107.161.168/downloads/dl-8f4e4be79d26/paperclip-fork-950c897b98.tar.gz",
+          "acceptanceCriteria": "HTTP 200 with Content-Length 1540427592; sha256 file matches; timer expires in 72h",
+          "description": "GIVEN the new image on 47, WHEN the download URL is requested, THEN the gzip archive and README are served and the timer removes them at expiry.",
+          "name": "镜像下载可用",
+          "type": "Acceptance Test"
+        }
+      ],
+      "type": "Requirement"
     }
   ],
   "relationships": [
@@ -6417,7 +6469,8 @@
         "instance-epipe-detach-recovery-2026-11-20",
         "hotfix-branch-2026-11-20-restart-recovery-secrets",
         "deploy-47-2026-11-21-f37a83ec",
-        "abnormal-audit-47-2026-11-21"
+        "abnormal-audit-47-2026-11-21",
+        "upstream-prs-and-image-download-2026-11-22"
       ]
     },
     {
