@@ -1,6 +1,9 @@
 import { settleOwnableKind } from "../recovery/ownership-invariant-report.js";
 import { markRunHandedOffForShutdown } from "./shutdown-handoff.js";
-import { ORPHANED_RUN_LEASE_FAILURE_REASON } from "../environment-run-lease-settlement.js";
+import {
+  ORPHANED_RUN_LEASE_FAILURE_REASON,
+  sharesRemoteWorkspaceInsteadOfSandbox,
+} from "../environment-run-lease-settlement.js";
 import { ENVIRONMENT_LEASE_CONTROLLER_KEY } from "../environment-lease-controller.js";
 import { readNativeStartupCleanup, readNativeStartupContext } from "../native-runtime/native-startup-cleanup.js";
 import { legacyWorkspaceRecoveryNotMigrated } from "../legacy-workspace-recovery-migration.js";
@@ -1767,6 +1770,18 @@ export function createHeartbeatRecovery(db: Db, dependencies: HeartbeatRecoveryD
         : null;
       const lease = await environmentsSvc.getLeaseById(row.id);
       if (!lease) continue;
+
+      // An SSH lease points at a remote workspace, not a sandbox this process
+      // can tear down. Its cleanup can never succeed, and an unreleased lease
+      // keeps blocking later wakes with "waiting for the previous environment
+      // to stop". Release it here instead of starting a doomed teardown.
+      if (sharesRemoteWorkspaceInsteadOfSandbox(lease)) {
+        await environmentsSvc.releaseLease(row.id, "released", {
+          cleanupStatus: "success",
+          failureReason: "pending_cleanup_retry",
+        });
+        continue;
+      }
 
       // An orphan ephemeral lease keeps its provider, its provider lease id, and
       // its sandbox config in the lease row. A failed acquire records it, and its

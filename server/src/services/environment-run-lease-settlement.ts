@@ -112,7 +112,9 @@ export async function settleEnvironmentRunLease(db: Db, record: InProgressRecord
 }
 
 /** SSH leases name a remote workspace path, not a destroyable sandbox. */
-function sharesRemoteWorkspaceInsteadOfSandbox(lease: LeaseRow): boolean {
+export function sharesRemoteWorkspaceInsteadOfSandbox(
+  lease: Pick<LeaseRow, "provider" | "metadata">,
+): boolean {
   return lease.provider === "ssh" || lease.metadata?.driver === "ssh";
 }
 

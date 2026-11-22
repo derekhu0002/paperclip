@@ -275,6 +275,45 @@ describeEmbeddedPostgres("heartbeat sweepPendingCleanupLeases", () => {
     expect(status).toBe("expired");
   });
 
+  it("releases an SSH workspace lease instead of a teardown that can never succeed", async () => {
+    const { companyId, environmentId } = await seedCompanyAndEnvironment();
+    const leaseId = randomUUID();
+    const when = new Date(Date.now() - 60 * 60 * 1000);
+    await db.insert(environmentLeases).values({
+      id: leaseId,
+      companyId,
+      environmentId,
+      status: "pending_cleanup",
+      leasePolicy: "ephemeral",
+      provider: "ssh",
+      providerLeaseId: "ssh://root@executor.test:22/home/repos/lab",
+      cleanupStatus: "failed",
+      metadata: { driver: "ssh" },
+      acquiredAt: when,
+      lastUsedAt: when,
+      releasedAt: when,
+      createdAt: when,
+      updatedAt: when,
+    });
+    const destroyRunLease = vi.fn();
+    const heartbeat = heartbeatService(db, {
+      environmentRuntime: fakeRuntime(destroyRunLease as unknown as HeartbeatEnvironmentRuntime["destroyRunLease"]),
+    });
+
+    const result = await heartbeat.sweepPendingCleanupLeases({ backoffMs: 0 });
+
+    expect(result).toEqual({ swept: 1, destroyed: 0, capped: 0 });
+    expect(destroyRunLease).not.toHaveBeenCalled();
+    const row = await db
+      .select({ status: environmentLeases.status, cleanupStatus: environmentLeases.cleanupStatus, releasedAt: environmentLeases.releasedAt })
+      .from(environmentLeases)
+      .where(eq(environmentLeases.id, leaseId))
+      .then((rows) => rows[0]);
+    expect(row?.status).toBe("released");
+    expect(row?.cleanupStatus).toBe("success");
+    expect(row?.releasedAt).toBeInstanceOf(Date);
+  });
+
   it("test_pending_cleanup_sweep_respects_backoff_and_page_size", async () => {
     const { companyId, environmentId } = await seedCompanyAndEnvironment();
 
