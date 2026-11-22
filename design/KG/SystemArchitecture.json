@@ -6029,6 +6029,19 @@
         {
           "name": "cti80Recovery",
           "value": "2026-11-22 15:00：CTI-80 确认卡住。链条：人类 14:52 要求尽快结束；但(1) run a9a37ea4 的 ssh 租约 d4074469 处于 pending_cleanup+cleanup_status=failed，wake 被 remote_cleanup 挂住；(2) 已 resolved/blocked 的 recovery action bbf49f5c 仍被 execution_recovery 引用；(3) 清理后 CTI-80 的 run 又排在 agent 级 timer run 后面（maxConcurrent=1）。处置：直接释放 ssh 租约；recovery resolve（restored/todo + a9a37ea4 对账）→ CTI-80 v6 todo；取消占槽的 agent 级 timer run abf0fcf2；CTI-80 run 82c137d1 于 14:59:37 开跑、in_progress、输出 135KB+。CTI-75/72 仍被 CTI-80 阻断，归因正确，等其 done 自动放行（CTI-71 已 done）。遗留缺陷：ssh 租约在非 settle 的释放路径仍会进 pending_cleanup 并失败，需在 environment-runtime 释放路径同样直接 released。"
+        },
+        {
+          "name": "commit",
+          "value": "950c897b98fd767d0839908370d0c9044b914688",
+          "description": "fix(recovery): release SSH workspace leases in the pending-cleanup sweep"
+        },
+        {
+          "name": "sshSweepFix",
+          "value": "非侵入式最小修：在 heartbeat/recovery.ts 的 pending_cleanup 扫描中，对 ssh 租约（provider=ssh 或 metadata.driver=ssh）直接 releaseLease(released, cleanupStatus=success)，不再进入注定失败的 sandbox teardown；复用 environment-run-lease-settlement.ts 导出的 sharesRemoteWorkspaceInsteadOfSandbox（不新增模块）。新增单测 heartbeat-pending-cleanup-sweep：ssh 租约 swept=1/destroyed=0，destroyRunLease 不被调用，状态 released。已有 4 个该文件旧用例在本机预先失败（与改动无关，已用 stash 验证）。"
+        },
+        {
+          "name": "deploy950c",
+          "value": "mirror 950c897b98 已构建、传输、部署到 47；health status=ok commit=950c897b98；重启后无 process_detached、无 pending_cleanup，5 条 live run 正常产出；CTI-85/86/87、QWE-359/361 新队列自动推进；CTI-75 已转 backlog。保留 fc8b2022cc 作回滚镜像。"
         }
       ],
       "description": "【背景】47 部署 f37a83ec 后，巡检全部公司任务，处理异常。\n\n【发现】部署重启加上更早的崩溃留下 6 条 running/process_detached：AIC（效率质量/交付/AIC-160/首席顾问）自 11-20 01:00 卡了 ~46h；QwenPaw（commander/QWE-312 红队/平台架构）自 11-21 17:14 卡 ~6h；对应记录 pid 全部不存在，执行机上无 opencode run 进程，但有 25+ 个 qwenpaw/aic 孤儿 bridge server。另有 CTI-71 在部署 SIGTERM 下 interrupted，重试 run 23:11 已 succeeded。\n\n【处置】1) 杀掉全部孤儿 bridge（无活跃 run 进程）；2) 临时 board key 取消 6 条 detached run；3) 释放它们的 lease；4) 对 AIC-160（action ce264aae / run 11e41ed7）与 QWE-257（action b098fd66 / run 87af1e33）走 recovery-actions/resolve（restored/todo）；QWE-312 的 resolve 返回 409 recovery_governed_approval_pending（存在待审批 approval 17a02835，不能绕过）；5) 部署后监听到 AIC-161 的 wake 被 deferred（execution_recovery，原因是该 issue 的 ssh lease 处于 pending_cleanup + cleanup_status=failed，从未 released），于是将全实例 35 条 ssh pending_cleanup lease 标为 released（cleanup_status=null）。释放后 AIC-161 的 deferred wake 自动 promoted，23:30 启动新 run。\n\n【当前状态】running-with-error=0；无 pending_cleanup lease；5 条活跃 run（AIC-161、AIC-163/agent、QWE-277、QWE-313、平台架构）均有输出；AIC-160 todo 等 AIC-161/AIC-163；QWE-257 todo 被 QWE-310（in_review+审批）阻塞；QWE-312 in_review 等审批 17a02835；QWE-310 in_review 等审批 01e411f4；QWE-237(in_review) 阻塞 244/270/186，属等待人工/评审；CTI-71 in_progress 监控中（monitor_next 11-22 09:00），72/73/75 被其阻塞。\n\n【待人工】QWE-310/QWE-312 两个 board approval；QWE-186 需 Board 跑脚本；AIC-140 todo 无 assignee（monitor 11-19 已过期）；IPD-137 in_review 20 天；AIS-26/AIC-156/ARGA-3/QWE-306/QWE-237 待评审。\n\n【产品缺陷】settleEnvironmentRunLease 对 ssh 租约 flipped 到 pending_cleanup，而清理对 ssh 一直 destroy_failed，使 cleanup_status=failed 且 wake 被判定 lease 未释放而 deferred；应在结算时对无沙箱的 ssh 租约直接置 released（或让 queued-run gate 只认 released_at）。属于本次热修需补的后续代码修正。",
