@@ -10,6 +10,8 @@ INSTALL_SSHD=0
 APPLY_SSHD=0
 JSON=0
 REPORT_ONLY=0
+CA_BUNDLE=""
+INSECURE=0
 PUBKEYS=()
 
 usage() {
@@ -24,6 +26,9 @@ Options:
   --pubkey-file PATH    Read authorized public keys from a file
   --port N              sshd port Paperclip will dial (default 2222)
   --server-url URL      Paperclip base URL; checks this host -> Paperclip outbound
+                        (use the same https:// origin you log in to)
+  --ca-bundle PATH      Extra CA file for an https:// --server-url with a private CA
+  --insecure            Skip TLS verification for the --server-url check (self-signed)
   --harness NAME|PATH   Agent CLI that must resolve in Paperclip's SSH shell
                         (default opencode)
   --workspace PATH      Repo to report (default: current directory)
@@ -104,6 +109,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --report-only)
       REPORT_ONLY=1
+      shift
+      ;;
+    --ca-bundle)
+      [[ $# -ge 2 ]] || usage_error "--ca-bundle needs a path"
+      CA_BUNDLE="$2"
+      shift 2
+      ;;
+    --insecure)
+      INSECURE=1
       shift
       ;;
     -h|--help)
@@ -435,15 +449,43 @@ fi
 LIVENESS_CODE=""
 if [[ -n "$SERVER_URL" ]]; then
   url="${SERVER_URL%/}"
+  case "$url" in
+    http://*|https://*) ;;
+    *) warn "--server-url has no scheme; assuming https://" ; url="https://$url" ;;
+  esac
+  CURL_ARGS=(-sS -m 10 -o /dev/null -w '%{http_code}')
+  [[ -n "$CA_BUNDLE" ]] && CURL_ARGS+=(--cacert "$CA_BUNDLE")
+  [[ $INSECURE -eq 1 ]] && CURL_ARGS+=(-k)
+  CURL_ERR=""
   if command -v curl >/dev/null 2>&1; then
-    LIVENESS_CODE=$(curl -sS -m 8 -o /dev/null -w '%{http_code}' "$url/api/liveness" 2>/dev/null)
+    CURL_ERR=$(curl "${CURL_ARGS[@]}" "$url/api/liveness" 2>&1 >/tmp/.pc-liveness.$$)
+    CURL_RC=$?
+    LIVENESS_CODE=$(cat "/tmp/.pc-liveness.$$" 2>/dev/null)
+    rm -f "/tmp/.pc-liveness.$$"
   elif command -v wget >/dev/null 2>&1; then
-    if wget -q -T 8 -O /dev/null "$url/api/liveness" 2>/dev/null; then LIVENESS_CODE=200; else LIVENESS_CODE=000; fi
+    WGET_ARGS=(-q -T 10 -O /dev/null)
+    [[ $INSECURE -eq 1 ]] && WGET_ARGS+=(--no-check-certificate)
+    if wget "${WGET_ARGS[@]}" "$url/api/liveness" 2>/dev/null; then LIVENESS_CODE=200; else LIVENESS_CODE=000; fi
+    CURL_RC=0
+  else
+    LIVENESS_CODE=""
+    CURL_RC=-1
   fi
   case "$LIVENESS_CODE" in
-    200) ok "outbound this host -> Paperclip works ($url/api/liveness answered 200)" ;;
+    2??) ok "outbound this host -> Paperclip works ($url/api/liveness answered $LIVENESS_CODE)" ;;
+    3??) ok "reached Paperclip at $url (HTTP $LIVENESS_CODE redirect); check the redirect target is the app, not a login page" ;;
+    401|403) warn "reached Paperclip at $url but it answered HTTP $LIVENESS_CODE; check the host allowlist or a proxy that blocks /api/liveness" ;;
     503) warn "reached Paperclip at $url but it reports 503 (starting); connectivity is fine" ;;
-    000|"") fail "cannot reach Paperclip at $url; the agent cannot call back to PAPERCLIP_API_URL" ;;
+    000|"")
+      case "$CURL_RC" in
+        6) fail "DNS lookup failed for $url; the agent cannot call back to PAPERCLIP_API_URL" ;;
+        60|35|51) fail "TLS trust/handshake failed for $url; retry with --ca-bundle PATH or --insecure for a self-signed proxy" ;;
+        28) fail "timed out reaching $url; the agent cannot call back to PAPERCLIP_API_URL" ;;
+        5) fail "proxy resolution failed for $url; check http_proxy/https_proxy on this host" ;;
+        -1) warn "neither curl nor wget is installed; skipped the outbound check" ;;
+        *) fail "cannot reach Paperclip at $url (curl exit $CURL_RC)${CURL_ERR:+: $CURL_ERR}" ;;
+      esac
+      ;;
     *) warn "Paperclip at $url answered HTTP $LIVENESS_CODE; check host/proxy allowlists" ;;
   esac
 else
@@ -547,6 +589,10 @@ else
 
   printf '\n  the address above must be reachable from the Paperclip server process\n'
   printf '  (if Paperclip runs in Docker, from its container network - not from the Windows host)\n'
+  if [[ -n "$SERVER_URL" ]]; then
+    printf '\n  server-side: set PAPERCLIP_API_URL=%s on the Paperclip server\n' "${SERVER_URL%/}"
+    printf '  so the remote agent calls back to this origin instead of container-localhost\n'
+  fi
 
   if [[ $FAILS -gt 0 ]]; then
     printf '\n  NOT READY: fix the [FAIL] lines, then re-run this script.\n'
