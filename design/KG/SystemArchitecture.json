@@ -894,6 +894,11 @@
           "name": "commit",
           "value": "37560a4df37771a321c17a5c1b6d57d70dd36272",
           "description": "scripts/prepare-ssh-executor.sh — 设备侧 SSH 对接准备脚本"
+        },
+        {
+          "name": "commit",
+          "value": "badb36dd6e1284b10509958849c9b14e19fadc5c",
+          "description": "scripts/prepare-ssh-executor.sh — --server-url 接受 https:// 与无 scheme（自动补 https），新增 --ca-bundle/--insecure；区分 DNS/TLS/超时/代理失败，3xx 与 401/403 视为可达但被拦；输出中提示远端 agent 回调要求服务端 PAPERCLIP_API_URL 指向该公网源"
         }
       ],
       "subdiagram_views": [
