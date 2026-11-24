@@ -880,7 +880,7 @@
         },
         {
           "name": "files",
-          "value": "ui/src/pages/CompanyEnvironments.tsx, ui/src/components/AgentConfigForm.tsx, ui/src/pages/agent-detail-navigation.ts, packages/adapters/opencode-local/src/server/runtime-config.ts, server/src/services/environment-config.ts, server/src/services/heartbeat/workspaces.ts, scripts/prepare-ssh-executor.sh"
+          "value": "ui/src/pages/CompanyEnvironments.tsx, ui/src/components/AgentConfigForm.tsx, ui/src/pages/agent-detail-navigation.ts, packages/adapters/opencode-local/src/server/runtime-config.ts, server/src/services/environment-config.ts, server/src/services/heartbeat/workspaces.ts, scripts/prepare-ssh-executor.sh, doc/SSH-EXECUTOR-ONBOARDING.md"
         },
         {
           "name": "commit",
@@ -899,6 +899,11 @@
           "name": "commit",
           "value": "badb36dd6e1284b10509958849c9b14e19fadc5c",
           "description": "scripts/prepare-ssh-executor.sh — --server-url 接受 https:// 与无 scheme（自动补 https），新增 --ca-bundle/--insecure；区分 DNS/TLS/超时/代理失败，3xx 与 401/403 视为可达但被拦；输出中提示远端 agent 回调要求服务端 PAPERCLIP_API_URL 指向该公网源"
+        },
+        {
+          "name": "commit",
+          "value": "ac1e0d1eed6731172072ca124d20e0886983d3ce",
+          "description": "doc/SSH-EXECUTOR-ONBOARDING.md — prepare-ssh-executor.sh 用法归档（定位/前置/参数表/表单字段映射/https与PAPERCLIP_API_URL/WSL拓扑/退出码/安全/验证记录）"
         }
       ],
       "subdiagram_views": [
