@@ -1894,6 +1894,15 @@
         {
           "name": "deployed47_20261103",
           "value": "image paperclip-fork:50fb2810c (commit 50fb2810cf582b0893334cd4454e553dfd336a1c, 1.53GB tar); container paperclip; health ok; public https 200; UI 200; plugin-loader 1/1; 47 checkout synced; download http://47.107.161.168/downloads/paperclip-fork-50fb2810c.tar sha256=489723ef27cd25c2cda91e86fd59950d5aeca436af88ee46b0ab399b67350a64; ACR push running"
+        },
+        {
+          "name": "commit",
+          "value": "7f282133e9d726041c0558829f5d2855a7db0b32",
+          "description": "revert(tasks): remove the fork execution view — deleted ui/src/components/IssueExecutionTimeline{,.test}.tsx and IssueExecutionPanel{,.test}.tsx; reverted the execution hunks in ui/src/{pages/Issues.tsx,pages/IssueDetail.tsx,components/IssuesList.tsx,components/IssuesList.test.tsx,lib/task-views.ts,lib/task-views.test.ts,api/workTimeline.ts}, server/src/{services/work-timeline.ts,routes/companies.ts,routes/openapi.ts,__tests__/work-timeline-service.test.ts}, packages/shared/src/types/work-timeline.ts and the task maps. Feature commits reverted: 87d4233b9f, 865ffa3320, b4f9494c56, 17ef9ac721, a57264224a, 671a05d89b, bff9f0573c. Element fork-cap-execution-timeline tombstoned."
+        },
+        {
+          "name": "forkAreaRemoval20261125",
+          "value": "D 执行时间线 (execution view) removed. Fork areas no longer include the execution timeline; the remaining fork areas are A project-agent binding, E ArchGraph graph evidence, F project-tree plugin, G OpenCode per-agent skills, H direct remote workspace, I agent assignment guard, J ops/deploy, K ARGO memory."
         }
       ]
     },
@@ -2161,60 +2170,6 @@
           "acceptanceCriteria": "server/src/__tests__/issues-service.test.ts",
           "description": "GIVEN a blocked issue with one done blocker, WHEN autoReleaseBlockedDependent runs, THEN status becomes todo, statusVersion increments by exactly one, and blockedTransitionAt is cleared; dependents with unfinished blockers are never returned.",
           "name": "Blocked issue is released exactly once per status version",
-          "type": "Acceptance Test"
-        }
-      ],
-      "type": "Application Service"
-    },
-    {
-      "attributes": [
-        {
-          "name": "files",
-          "value": "server/src/services/work-timeline.ts, packages/shared/src/types/work-timeline.ts, ui/src/api/workTimeline.ts, ui/src/components/IssueExecutionTimeline.tsx, ui/src/components/IssueExecutionPanel.tsx, ui/src/components/IssuesList.tsx, ui/src/pages/Issues.tsx, ui/src/lib/task-views.ts"
-        },
-        {
-          "name": "deliveryStatus",
-          "value": "delivered"
-        },
-        {
-          "name": "entryPoints",
-          "value": "Organization 视图（All/Active/Backlog/Done）的工具栏 List/Board/Execution 开关；Inbox 表面（默认 Mine）也有同一组开关，点击后跳转 /issues?view=all&mode=<list|board|execution>，由 IssuesList 的 initialViewMode 一次性应用。"
-        },
-        {
-          "name": "commit",
-          "value": "bff9f0573cde308a12e3197edf1fa73acd57d64e | fix(tasks): expose list/board/execution from the inbox surface"
-        }
-      ],
-      "description": "任务集合可切换为按 Agent 分组的执行时间线：每个任务从创建到完成是一条矩形，按 backlog/blocked、queue、execution、paused 分段着色，支持 24h/7d/30d 窗口与 1x-8x 缩放，并在图下列出 delegation/assignment 交接。\n\n【2026-10-24 入口修复】默认 /issues 解析为 ?view=mine（Inbox 表面），该表面此前没有 List/Board/Execution 开关，用户看到“只剩 list”。现在 Inbox 工具栏也渲染同一组开关，点击 Board/Execution 会跳转 ?view=all&mode=...，IssuesList 新增 initialViewMode 一次性覆盖存储态；组织视图原有开关不变。已在 47 用真实浏览器验证：默认页三个按钮可见，Execution 跳到 view=all&mode=execution 并渲染 Backlog/blocked、Queue、Execution、Paused/waiting 四条泳道。",
-      "id": "fork-cap-execution-timeline",
-      "name": "任务执行时间线（分段/缩放/交接）",
-      "testcases": [
-        {
-          "Input": "pnpm vitest run server/src/__tests__/work-timeline-service.test.ts",
-          "acceptanceCriteria": "server/src/__tests__/work-timeline-service.test.ts",
-          "description": "GIVEN issues with backlog/blocked/queue/execution segments, WHEN the timeline service builds spans, THEN each span reports the correct interval, agent grouping and handoffs.",
-          "name": "Work timeline service segments status intervals",
-          "type": "Acceptance Test"
-        },
-        {
-          "Input": "pnpm vitest run ui/src/components/IssueExecutionTimeline.test.tsx",
-          "acceptanceCriteria": "ui/src/components/IssueExecutionTimeline.test.tsx",
-          "description": "GIVEN timeline data, WHEN the operator switches window and zoom, THEN the chart keeps one bar per task, splits segments, and keeps agent lanes stable.",
-          "name": "Timeline renders segments, zoom and agent lanes",
-          "type": "Acceptance Test"
-        },
-        {
-          "Input": "pnpm vitest run ui/src/components/IssueExecutionPanel.test.tsx",
-          "acceptanceCriteria": "ui/src/components/IssueExecutionPanel.test.tsx",
-          "description": "GIVEN a task with runs, WHEN the execution panel opens, THEN it lists the run chain with expandable run events.",
-          "name": "Execution panel shows the run chain and run events",
-          "type": "Acceptance Test"
-        },
-        {
-          "Input": "pnpm vitest run ui/src/components/IssuesList.test.tsx",
-          "acceptanceCriteria": "ui/src/components/IssuesList.test.tsx",
-          "description": "GIVEN a filtered task list, WHEN the operator switches to the execution view, THEN filters and selection survive the switch.",
-          "name": "Task list switches to the execution view without losing context",
           "type": "Acceptance Test"
         }
       ],
@@ -6265,7 +6220,6 @@
         "fork-cap-project-tree",
         "fork-cap-direct-remote-workspace",
         "fork-cap-dependency-auto-release",
-        "fork-cap-execution-timeline",
         "fork-cap-decision-graph",
         "fork-cap-project-agent-poller",
         "fork-cap-onboarding-binding",
@@ -6370,7 +6324,8 @@
       "description": "公司/组织搬迁、跨组织复制与项目树重塑的长期记忆（T2）。",
       "included_elements": [
         "threat-intel-center-migration-2026-11-01"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-argo-economy-001",
@@ -6379,7 +6334,8 @@
       "description": "T2 长期记忆子视图：Argo economy 公司创建、Derek(CEO)、总项目、WSL 环境，以及 Agent 自建 Agent / 自建 skill 能力开通与 route 403 根因修复。",
       "included_elements": [
         "argo-economy-onboarding-2026-11-02"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-001-ltm-deployment-guide-001",
@@ -6388,7 +6344,8 @@
       "description": "T2 长期记忆子视图：Paperclip 单机 Ubuntu（WSL）全栈部署指南与 aGraph/ARGO 前置、SSH 环境、验收经验。",
       "included_elements": [
         "paperclip-single-machine-ubuntu-deployment-guide-2026-11-06"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "description": "T2 长期记忆子视图：47 实例新建「AI security研究组织」、共用 WSL 项目与两个 Agent 的上线记录。",
@@ -6412,7 +6369,8 @@
       "view_id": "qwenpaw",
       "included_elements": [
         "qwenpaw-website-onboarding-2026-11-08"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_name": "项目经理 · 威胁情报中心组织网站与漏洞情报记忆",
@@ -6422,7 +6380,8 @@
       "included_elements": [
         "cti-org-website-vuln-intel-onboarding-2026-11-08",
         "cti40-review-path-board-block-recovery-2026-11-09"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-biglaptop-001",
@@ -6432,7 +6391,8 @@
       "included_elements": [
         "biglaptop-paperclip-demo-onboarding-2026-11-10",
         "big-laptop-authorized-keys-2026-11-18"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-org-rsi-001",
@@ -6494,7 +6454,8 @@
         "deploy-47-2026-11-21-f37a83ec",
         "abnormal-audit-47-2026-11-21",
         "upstream-prs-and-image-download-2026-11-22"
-      ]
+      ],
+      "included_relationships": []
     },
     {
       "view_id": "project-manager-cockpit-governance-001",
@@ -6504,7 +6465,8 @@
       "included_elements": [
         "cockpit-ceo-profile-kmer-snapshot-2026-11-18-8",
         "run-bridge-403-2026-11-18"
-      ]
+      ],
+      "included_relationships": []
     }
   ]
 }
