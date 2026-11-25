@@ -249,7 +249,6 @@ import { IssueFieldChangeReceipt } from "../components/IssueFieldChangeReceipt";
 import { IssueWriteDenialNotice } from "../components/IssueWriteDenialNotice";
 import { issueWriteDenialForActivity } from "../lib/issue-write-denial-activity";
 import { IssueRelatedWorkPanel } from "../components/IssueRelatedWorkPanel";
-import { IssueExecutionPanel } from "../components/IssueExecutionPanel";
 import {
   IssueMonitorBanner,
   IssueMonitorComposerStrip,
@@ -373,7 +372,6 @@ import {
   FileCode2,
   ListTree,
   MessageSquare,
-  GanttChartSquare,
   MoreHorizontal,
   MoreVertical,
   Paperclip,
@@ -3239,7 +3237,6 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
   const { pushToast } = useToastActions();
   const { isMobile } = useSidebar();
   const [moreOpen, setMoreOpen] = useState(false);
-  const [executionOpen, setExecutionOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
   const [artifactsOpenRequest, setArtifactsOpenRequest] = useState<{
@@ -7942,16 +7939,6 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-52 p-1" align="end">
-                <button
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/50"
-                  onClick={() => {
-                    setExecutionOpen(true);
-                    setMoreOpen(false);
-                  }}
-                >
-                  <GanttChartSquare className="h-3 w-3" />
-                  View execution
-                </button>
                 {taskChatShellEnabled && !historyExpanded ? (
                   <button
                     className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent/50"
@@ -8486,10 +8473,6 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
                   <ActivityIcon className="h-3.5 w-3.5" />
                   Activity
                 </TabsTrigger>
-                <TabsTrigger value="execution" className="gap-1.5">
-                  <GanttChartSquare className="h-3.5 w-3.5" />
-                  Execution
-                </TabsTrigger>
                 <TabsTrigger value="related-work" className="gap-1.5">
                   <ListTree className="h-3.5 w-3.5" />
                   Related work
@@ -8851,17 +8834,6 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               ) : null}
             </TabsContent>
 
-            <TabsContent value="execution" className={shellSectionClass}>
-              {detailTab === "execution" ? (
-                <IssueExecutionPanel
-                  issue={issue}
-                  agentMap={agentMap}
-                  userProfileMap={userProfileMap}
-                  currentUserId={currentUserId}
-                />
-              ) : null}
-            </TabsContent>
-
             <TabsContent value="related-work" className={shellSectionClass}>
               <IssueRelatedWorkPanel
                 relatedWork={issue.relatedWork}
@@ -8907,25 +8879,6 @@ export function TaskDetailSurface({ conversation, tasksTab }: { tasksTab?: TaskS
               </TabsContent>
             )}
           </Tabs>
-
-          <Dialog open={executionOpen} onOpenChange={setExecutionOpen}>
-            <DialogContent className="max-w-5xl">
-              <DialogHeader>
-                <DialogTitle>Execution</DialogTitle>
-                <DialogDescription>
-                  Run history, status changes, and handoffs for this task.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="max-h-(--sz-85dvh) overflow-y-auto pr-1">
-                <IssueExecutionPanel
-                  issue={issue}
-                  agentMap={agentMap}
-                  userProfileMap={userProfileMap}
-                  currentUserId={currentUserId}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
 
           <TaskTreeControlDialog
             open={treeControlOpen}

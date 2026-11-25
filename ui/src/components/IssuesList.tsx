@@ -84,8 +84,6 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { CircleDot, Plus, ArrowUpDown, Layers, Check, ChevronRight, List, ListTree, User, Search, CircleSlash2, ChevronsDownUp, PanelTopClose, RotateCcw, ListCollapse,
   SquareKanban,
-  GanttChartSquare,
-  Clock3,
 } from "lucide-react";
 import {
   KanbanBoard,
@@ -95,7 +93,6 @@ import {
   KANBAN_COLUMN_PAGE_SIZE_OPTIONS,
   type KanbanColumnPageSize,
 } from "./KanbanBoard";
-import { IssueExecutionTimeline } from "./IssueExecutionTimeline";
 import { buildIssueTree, countDescendants } from "../lib/issue-tree";
 import { getInboxKeyboardSelectionIndex } from "../lib/inbox";
 import { hasBlockingShortcutDialog, isKeyboardShortcutTextInputTarget } from "../lib/keyboardShortcuts";
@@ -167,20 +164,18 @@ const progressSegmentClasses: Record<IssueDisplayStatus, string> = {
   cancelled: "bg-neutral-400",
 };
 
-/* 鈹€鈹€ View state 鈹€鈹€ */
+/* ── View state ── */
 
 export type { IssueSortField } from "../lib/issue-sort";
 export type BoardCardDensity = "auto" | "compact" | "comfortable";
 export type BoardColdLaneMode = "auto" | "collapsed" | "expanded";
 export type BoardColumnPageSize = KanbanColumnPageSize;
-export type ExecutionWindow = "24h" | "7d" | "30d";
 
 export type IssueViewState = IssueFilterState & {
   sortField: IssueSortField;
   sortDir: "asc" | "desc";
   groupBy: "status" | "priority" | "assignee" | "project" | "workspace" | "parent" | "none";
-  viewMode: "list" | "board" | "execution";
-  executionWindow: ExecutionWindow;
+  viewMode: "list" | "board";
   nestingEnabled: boolean;
   showDateGroupSeparators: boolean;
   collapsedGroups: string[];
@@ -196,7 +191,6 @@ const defaultViewState: IssueViewState = {
   sortDir: "desc",
   groupBy: "none",
   viewMode: "list",
-  executionWindow: "24h",
   nestingEnabled: true,
   showDateGroupSeparators: true,
   collapsedGroups: [],
@@ -236,10 +230,7 @@ function normalizeIssueViewState(value: unknown): IssueViewState {
     groupBy: ["status", "priority", "assignee", "project", "workspace", "parent", "none"].includes(parsed.groupBy ?? "")
       ? parsed.groupBy as IssueViewState["groupBy"]
       : defaultViewState.groupBy,
-    viewMode: parsed.viewMode === "board" || parsed.viewMode === "execution" ? parsed.viewMode : "list",
-    executionWindow: parsed.executionWindow === "7d" || parsed.executionWindow === "30d"
-      ? parsed.executionWindow
-      : "24h",
+    viewMode: parsed.viewMode === "board" ? "board" : "list",
     nestingEnabled: parsed.nestingEnabled !== false,
     showDateGroupSeparators: parsed.showDateGroupSeparators !== false,
     collapsedGroups: Array.isArray(parsed.collapsedGroups)
@@ -276,7 +267,6 @@ function getInitialWorkspaceViewState(
   initialWorkspaces?: string[],
   defaultSortField?: IssueSortField,
   initialStatuses?: string[],
-  initialViewMode?: IssueViewState["viewMode"],
 ): IssueViewState {
   const initial = getInitialViewState(stored, initialAssignees, defaultSortField);
   const scoped = initialWorkspaces
@@ -285,10 +275,7 @@ function getInitialWorkspaceViewState(
   // A status preset (Active / Backlog / Done, and All as the empty set) is the
   // view's definition, so it wins over whatever the last session persisted.
   // `undefined` means "no preset" and leaves the stored statuses alone.
-  const withStatuses = initialStatuses ? { ...scoped, statuses: initialStatuses } : scoped;
-  // A URL-driven mode (Tasks -> Board/Execution from the inbox surface) is a
-  // one-shot entry override; the user's later toggle persists as usual.
-  return initialViewMode ? { ...withStatuses, viewMode: initialViewMode } : withStatuses;
+  return initialStatuses ? { ...scoped, statuses: initialStatuses } : scoped;
 }
 
 function getIssueColumnsStorageKey(key: string): string {
@@ -308,7 +295,7 @@ function loadIssueCollectionPreferences(
 }
 
 
-// Only recency sorts (newest first) get date separators 鈥?for any other
+// Only recency sorts (newest first) get date separators — for any other
 // sort/direction the boundaries would be meaningless.
 function issueDateSeparatorField(state: IssueViewState): "createdAt" | "updatedAt" | null {
   if (state.sortDir !== "desc") return null;
@@ -448,7 +435,7 @@ function shouldSuppressSinglePreviousSiblingBlockerChip(
   );
 }
 
-/* 鈹€鈹€ Component 鈹€鈹€ */
+/* ── Component ── */
 
 interface Agent {
   id: string;
@@ -487,8 +474,6 @@ interface IssuesListProps {
    * Used by the Tasks view presets (PAP-670).
    */
   initialStatuses?: string[];
-  /** One-shot entry override for the view mode (list | board | execution). */
-  initialViewMode?: IssueViewState["viewMode"];
   routineTasksOnly?: boolean;
   onRoutineTasksOnlyChange?: (checked: boolean) => void;
   /** URL sorting overrides the saved collection preference when supplied. */
@@ -520,7 +505,7 @@ interface IssuesListProps {
   /** Opt in per surface while the shared collection toolbar rolls out. */
   toolbarPresentation?: "legacy" | "collection";
   /**
-   * Rendered before the create button in the toolbar's context slot 鈥?the hook
+   * Rendered before the create button in the toolbar's context slot — the hook
    * the merged Tasks surface uses to put its Views control there (PAP-670).
    */
   toolbarContext?: ReactNode;
@@ -743,7 +728,6 @@ function StreamlinedIssuesList({
   initialAssignees,
   initialWorkspaces,
   initialStatuses,
-  initialViewMode,
   routineTasksOnly,
   onRoutineTasksOnlyChange,
   sort,
@@ -787,7 +771,7 @@ function StreamlinedIssuesList({
   // Which entry the cursor is over, tracked WITHOUT React state so scrubbing the
   // list costs zero re-renders (hover paints via CSS `:hover`). Keyboard nav
   // reads this to continue from the hovered row. Key-based, so it self-heals if
-  // the entry disappears (findIndex 鈫?-1).
+  // the entry disappears (findIndex → -1).
   const hoveredNavKeyRef = useRef<string | null>(null);
   const setNavSelectionFromPointer = useCallback((navKey: string) => {
     if (!pointerMovedSinceKeyNavRef.current) return;
@@ -828,7 +812,6 @@ function StreamlinedIssuesList({
   const initialAssigneesKey = initialAssignees?.join("|") ?? "";
   const initialWorkspacesKey = initialWorkspaces?.join("|") ?? "";
   const initialStatusesKey = initialStatuses ? `set:${initialStatuses.join("|")}` : "";
-  const initialViewModeKey = initialViewMode ?? "";
   const initialPreferencesRef = useRef<ReturnType<typeof loadIssueCollectionPreferences> | null>(null);
   if (initialPreferencesRef.current === null) {
     initialPreferencesRef.current = loadIssueCollectionPreferences(preferenceLocation);
@@ -842,7 +825,6 @@ function StreamlinedIssuesList({
       initialWorkspaces,
       defaultSortField,
       initialStatuses,
-      initialViewMode,
     ),
   );
   // The Tasks URL owns this filter; other collections keep their saved state.
@@ -874,10 +856,10 @@ function StreamlinedIssuesList({
 
   // Reload view state whenever the persisted context changes.
   const prevViewStateContextKey = useRef(
-    `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}::${initialViewModeKey}`,
+    `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}`,
   );
   useEffect(() => {
-    const nextContextKey = `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}::${initialViewModeKey}`;
+    const nextContextKey = `${scopedKey}::${initialAssigneesKey}::${initialWorkspacesKey}::${initialStatusesKey}`;
     if (prevViewStateContextKey.current !== nextContextKey) {
       prevViewStateContextKey.current = nextContextKey;
       const preferences = loadIssueCollectionPreferences(preferenceLocation);
@@ -887,7 +869,6 @@ function StreamlinedIssuesList({
         initialWorkspaces,
         defaultSortField,
         initialStatuses,
-        initialViewMode,
       ));
       setVisibleIssueColumns(preferences.columns);
     }
@@ -899,8 +880,6 @@ function StreamlinedIssuesList({
     initialWorkspacesKey,
     initialStatuses,
     initialStatusesKey,
-    initialViewMode,
-    initialViewModeKey,
     defaultSortField,
     preferenceLocation.companyId,
     preferenceLocation.collectionKey,
@@ -1468,7 +1447,8 @@ function StreamlinedIssuesList({
   const visibleListRowCount = groupedContent.reduce((total, group) => total + group.items.length, 0);
 
 
-  // Flattened visible order (group headers, then tree DFS per group 鈥?  // collapsed groups keep their header entry but skip their rows) 鈥?must
+  // Flattened visible order (group headers, then tree DFS per group —
+  // collapsed groups keep their header entry but skip their rows) — must
   // match render order below for keyboard traversal. `budgetOrdinal` counts
   // rows the way the progressive renderer consumes its budget (collapsed
   // groups still consume rows; collapsed parents' subtrees do not).
@@ -1572,7 +1552,7 @@ function StreamlinedIssuesList({
       const st = listNavStateRef.current;
       if (st.viewMode !== "list" || st.flatNavEntries.length === 0) return;
       // The row a keystroke acts on: the hovered row when the mouse moved since
-      // the last key nav (so "hover a row 鈫?press Arrow/Enter" acts on it),
+      // the last key nav (so "hover a row → press Arrow/Enter" acts on it),
       // otherwise the keyboard selection. Hover no longer writes selection
       // state, so this threads the pointer position into every handler.
       const indexOfKey = (key: string | null) =>
@@ -1634,7 +1614,7 @@ function StreamlinedIssuesList({
           if (!entry || entry.type !== "issue") return;
           e.preventDefault();
           // Navigate from the entry data (like the inbox) rather than the DOM
-          // row 鈥?the selected row may sit past the mounted render batch.
+          // row — the selected row may sit past the mounted render batch.
           const issue = entry.issue;
           const pathId = issue.identifier ?? issue.id;
           const detailState = withIssueDetailHeaderSeed(st.issueLinkState, issue);
@@ -1908,56 +1888,7 @@ function StreamlinedIssuesList({
             >
               <SquareKanban className="h-3.5 w-3.5" />
             </button>
-            <button
-              className={`flex h-8 w-8 items-center justify-center transition-colors ${viewState.viewMode === "execution" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              onClick={() => updateView({ viewMode: "execution" })}
-              title="Execution view"
-              aria-label="Execution view"
-              aria-pressed={viewState.viewMode === "execution"}
-            >
-              <GanttChartSquare className="h-3.5 w-3.5" />
-            </button>
           </div>
-
-          {viewState.viewMode === "execution" && (
-            <>
-              <Popover>
-
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8 shrink-0 gap-1.5 px-2"
-                    title="Execution window"
-                  >
-                    <Clock3 className="h-3.5 w-3.5" />
-                    <span className="text-xs tabular-nums">{viewState.executionWindow}</span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-40 p-0">
-                  <div className="space-y-0.5 p-2">
-                    {(["24h", "7d", "30d"] as const).map((window) => (
-                      <button
-                        key={window}
-                        type="button"
-                        className={cn(
-                          "flex w-full items-center justify-between rounded-sm px-2 py-1.5 text-sm",
-                          viewState.executionWindow === window
-                            ? "bg-accent/50 text-foreground"
-                            : "text-muted-foreground hover:bg-accent/50",
-                        )}
-                        onClick={() => updateView({ executionWindow: window })}
-                      >
-                        <span>{window}</span>
-                        {viewState.executionWindow === window && <Check className="h-3.5 w-3.5" />}
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </>
-          )}
 
           {viewState.viewMode === "list" && (
             <Button
@@ -2049,19 +1980,17 @@ function StreamlinedIssuesList({
             </>
           )}
 
-          {viewState.viewMode !== "execution" && (
-            <IssueColumnPicker
-              availableColumns={availableIssueColumns}
-              visibleColumnSet={visibleIssueColumnSet}
-              onToggleColumn={toggleIssueColumn}
-              showDateGroupSeparators={viewState.showDateGroupSeparators}
-              onToggleDateGroupSeparators={(enabled) => updateView({ showDateGroupSeparators: enabled })}
-              onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
-              title="Choose which task columns stay visible"
-              iconOnly
-              rowPresentation={rowPresentation}
-            />
-          )}
+          <IssueColumnPicker
+            availableColumns={availableIssueColumns}
+            visibleColumnSet={visibleIssueColumnSet}
+            onToggleColumn={toggleIssueColumn}
+            showDateGroupSeparators={viewState.showDateGroupSeparators}
+            onToggleDateGroupSeparators={(enabled) => updateView({ showDateGroupSeparators: enabled })}
+            onResetColumns={() => setIssueColumns(DEFAULT_INBOX_ISSUE_COLUMNS)}
+            title="Choose which task columns stay visible"
+            iconOnly
+            rowPresentation={rowPresentation}
+          />
 
           <IssueFiltersPopover
             enableRoutineTasksFilter={routineTasksOnly !== undefined}
@@ -2207,14 +2136,6 @@ function StreamlinedIssuesList({
           initialVisibleCount={viewState.boardColumnPageSize}
           revealIncrement={viewState.boardColumnPageSize}
           onUpdateIssue={onUpdateIssue}
-        />
-      ) : viewState.viewMode === "execution" ? (
-        <IssueExecutionTimeline
-          companyId={selectedCompanyId ?? ""}
-          issues={filtered}
-          issueIds={filtered.slice(0, 200).map((issue) => issue.id)}
-          timeWindow={viewState.executionWindow}
-          agents={agents}
         />
       ) : (
         <div className="-mx-2 sm:mx-0">

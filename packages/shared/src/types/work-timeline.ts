@@ -8,7 +8,7 @@ import type { AgentAppearance } from "../agent-appearance.js";
 
 export type TimelineActorType = "agent" | "user" | "system" | "plugin";
 /** `unassigned` records an explicit ownership clear and has no target edge. */
-export type TimelineEventKind = "created" | "commented" | "approved" | "delegated" | "assigned" | "unassigned" | "status_changed";
+export type TimelineEventKind = "created" | "commented" | "approved" | "delegated" | "assigned" | "unassigned";
 export type TimelineEdgeKind = "delegation" | "assignment" | "mention";
 
 export interface WorkTimelineActor {
@@ -43,8 +43,6 @@ export interface WorkTimelineSpan {
     outputTokens: number;
     totalTokens: number;
   } | null;
-  /** Reported run cost in USD when the provider/ledger supplied one. */
-  costUsd?: number | null;
 }
 
 export interface WorkTimelineEvent {
@@ -53,10 +51,6 @@ export interface WorkTimelineEvent {
   issueId: string;
   /** ISO timestamp. */
   at: string;
-  /** Present for `status_changed`; previous status, or null for the initial status. */
-  fromStatus?: string | null;
-  /** Present for `status_changed`; new status. */
-  toStatus?: string | null;
 }
 
 export interface WorkTimelineEdge {

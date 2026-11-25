@@ -45,8 +45,6 @@ export interface WorkTimelineQuery {
   goalId?: string;
   projectId?: string;
   issueId?: string;
-  /** Optional bounded set of issue ids (max 200) to scope the timeline. */
-  issueIds?: string[];
   limit?: number;
   offset?: number;
   canReadIssue?: (issue: WorkTimelineIssueAccessInput) => Promise<boolean>;
@@ -99,13 +97,6 @@ function normalizeLimit(value: number | undefined) {
 function normalizeOffset(value: number | undefined) {
   if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.floor(value ?? 0));
-}
-
-const MAX_ISSUE_IDS = 200;
-
-function normalizeIssueIds(value: string[] | undefined) {
-  if (value === undefined) return undefined;
-  return Array.from(new Set(value.filter((id) => id.trim().length > 0))).slice(0, MAX_ISSUE_IDS);
 }
 
 export function normalizeTimelineWindow(input: { from?: Date; to?: Date }, now = new Date()) {
@@ -186,10 +177,6 @@ function timelineOwnershipProjection() {
   };
 }
 
-function readString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() !== "" ? value : null;
-}
-
 function readNumber(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim() !== "") {
@@ -221,18 +208,6 @@ function normalizeRunUsage(usageJson: unknown): RunUsage | null {
   const outputTokens = readUsageToken(source, "outputTokens", "output_tokens", "rawOutputTokens", "raw_output_tokens");
   const totalTokens = inputTokens + cachedInputTokens + outputTokens;
   return totalTokens > 0 ? { inputTokens, cachedInputTokens, outputTokens, totalTokens } : null;
-}
-
-function normalizeRunCost(usageJson: unknown, resultJson: unknown): number | null {
-  for (const source of [resultJson, usageJson]) {
-    if (!source || typeof source !== "object" || Array.isArray(source)) continue;
-    const record = source as Record<string, unknown>;
-    for (const key of ["costUsd", "cost_usd", "total_cost_usd", "costUsdExact", "cacheAdjustedCostUsd"]) {
-      const value = readNumber(record[key]);
-      if (value != null) return Math.max(0, value);
-    }
-  }
-  return null;
 }
 
 function maybeUuidList(ids: Iterable<string>) {
@@ -279,13 +254,10 @@ export function workTimelineService(db: Db) {
 
   async function collectIssueIds(input: WorkTimelineQuery, from: Date, to: Date) {
     const ids = new Set<string>();
-    const issueIds = normalizeIssueIds(input.issueIds);
 
-    if (issueIds && issueIds.length === 0) return [];
     if (input.issueId) {
       ids.add(input.issueId);
     }
-    for (const id of issueIds ?? []) ids.add(id);
 
     const filterConditions = [
       eq(issues.companyId, input.companyId),
@@ -293,7 +265,6 @@ export function workTimelineService(db: Db) {
       input.goalId ? eq(issues.goalId, input.goalId) : undefined,
       input.projectId ? eq(issues.projectId, input.projectId) : undefined,
       input.issueId ? eq(issues.id, input.issueId) : undefined,
-      issueIds ? inArray(issues.id, issueIds) : undefined,
     ].filter(Boolean);
 
     const recentlyTouched = await db
@@ -320,7 +291,6 @@ export function workTimelineService(db: Db) {
           eq(heartbeatRuns.companyId, input.companyId),
           runOverlapsWindow(from, to),
           sql`${heartbeatRuns.contextSnapshot} ->> 'issueId' is not null`,
-          issueIds ? inArray(sql<string>`${heartbeatRuns.contextSnapshot} ->> 'issueId'`, issueIds) : undefined,
         ),
       )
       .orderBy(desc(heartbeatRuns.createdAt))
@@ -336,7 +306,6 @@ export function workTimelineService(db: Db) {
         and(
           eq(activityLog.companyId, input.companyId),
           eq(activityLog.entityType, "issue"),
-          issueIds ? inArray(activityLog.entityId, issueIds) : undefined,
           gte(activityLog.createdAt, from),
           lte(activityLog.createdAt, to),
         ),
@@ -352,7 +321,6 @@ export function workTimelineService(db: Db) {
         and(
           eq(issueComments.companyId, input.companyId),
           isNull(issueComments.deletedAt),
-          issueIds ? inArray(issueComments.issueId, issueIds) : undefined,
           gte(issueComments.createdAt, from),
           lte(issueComments.createdAt, to),
         ),
@@ -367,7 +335,6 @@ export function workTimelineService(db: Db) {
       .where(
         and(
           eq(issueThreadInteractions.companyId, input.companyId),
-          issueIds ? inArray(issueThreadInteractions.issueId, issueIds) : undefined,
           or(
             and(gte(issueThreadInteractions.createdAt, from), lte(issueThreadInteractions.createdAt, to)),
             and(gte(issueThreadInteractions.resolvedAt, from), lte(issueThreadInteractions.resolvedAt, to)),
@@ -385,7 +352,6 @@ export function workTimelineService(db: Db) {
       .where(
         and(
           eq(issueApprovals.companyId, input.companyId),
-          issueIds ? inArray(issueApprovals.issueId, issueIds) : undefined,
           or(
             and(gte(approvals.createdAt, from), lte(approvals.createdAt, to)),
             and(gte(approvals.decidedAt, from), lte(approvals.decidedAt, to)),
@@ -426,7 +392,6 @@ export function workTimelineService(db: Db) {
           input.goalId ? eq(issues.goalId, input.goalId) : undefined,
           input.projectId ? eq(issues.projectId, input.projectId) : undefined,
           input.issueId ? eq(issues.id, input.issueId) : undefined,
-          input.issueIds ? inArray(issues.id, normalizeIssueIds(input.issueIds) ?? []) : undefined,
         ),
       );
   }
@@ -599,7 +564,6 @@ export function workTimelineService(db: Db) {
           continuationAttempt: heartbeatRuns.continuationAttempt,
           invocationSource: heartbeatRuns.invocationSource,
           usageJson: heartbeatRuns.usageJson,
-          resultJson: heartbeatRuns.resultJson,
         })
         .from(heartbeatRuns)
         .where(
@@ -622,7 +586,6 @@ export function workTimelineService(db: Db) {
           continuationAttempt: heartbeatRuns.continuationAttempt,
           invocationSource: heartbeatRuns.invocationSource,
           usageJson: heartbeatRuns.usageJson,
-          resultJson: heartbeatRuns.resultJson,
         })
         .from(activityLog)
         .innerJoin(heartbeatRuns, eq(activityLog.runId, heartbeatRuns.id))
@@ -708,7 +671,6 @@ export function workTimelineService(db: Db) {
           assignmentRecorded: ownership.recorded,
           assignmentAgentId: ownership.agentId,
           assignmentUserId: ownership.userId,
-          details: activityLog.details,
           createdAt: activityLog.createdAt,
         })
         .from(activityLog)
@@ -742,7 +704,6 @@ export function workTimelineService(db: Db) {
         continuationAttempt: row.continuationAttempt,
         invocationSource: row.invocationSource ?? null,
         usage: normalizeRunUsage(row.usageJson),
-        costUsd: normalizeRunCost(row.usageJson, row.resultJson),
       });
     }
 
@@ -805,46 +766,13 @@ export function workTimelineService(db: Db) {
       const logActorType = row.actorType === "agent" || row.actorType === "user" || row.actorType === "plugin"
         ? row.actorType : "system";
       const fromActorId = actorId(logActorType, row.actorId);
-      actorIds.add(fromActorId);
-      const details = row.details && typeof row.details === "object" && !Array.isArray(row.details)
-        ? row.details as Record<string, unknown>
-        : {};
-      if (row.action === "issue.created") {
-        const status = readString(details.status);
-        if (status) {
-          events.push({
-            actorId: fromActorId,
-            kind: "status_changed",
-            issueId: row.issueId,
-            at: row.createdAt.toISOString(),
-            fromStatus: null,
-            toStatus: status,
-          });
-        }
-      }
-      if (row.action === "issue.updated") {
-        const previous = details._previous && typeof details._previous === "object" && !Array.isArray(details._previous)
-          ? details._previous as Record<string, unknown>
-          : {};
-        const fromStatus = readString(previous.status) ?? readString(details.reopenedFrom);
-        const toStatus = readString(details.status);
-        if (toStatus && toStatus !== fromStatus) {
-          events.push({
-            actorId: fromActorId,
-            kind: "status_changed",
-            issueId: row.issueId,
-            at: row.createdAt.toISOString(),
-            fromStatus,
-            toStatus,
-          });
-        }
-      }
       if (row.action === "issue.created" || row.action === "issue.child_created") {
         const issue = issueById.get(row.issueId);
         if (creationReceipts.get(row.issueId) !== row || !row.creationRecorded || !issue
           || issue.createdAt < from || issue.createdAt > to) continue;
         const toActorId = row.creationAgentId ? actorId("agent", row.creationAgentId)
           : actorId("user", row.creationUserId!);
+        actorIds.add(fromActorId);
         actorIds.add(toActorId);
         edges.push({ fromActorId, toActorId, issueId: row.issueId, at: row.createdAt.toISOString(), kind: "assignment" });
         // Delegation is the recorded creating agent's action under a readable
@@ -852,7 +780,8 @@ export function workTimelineService(db: Db) {
         if (logActorType === "agent" && row.creationParentId
           && row.creationParentId !== row.issueId && issueById.has(row.creationParentId) && fromActorId !== toActorId) {
           edges.push({ fromActorId, toActorId, issueId: row.issueId, at: row.createdAt.toISOString(), kind: "delegation" });
-          events.push({ actorId: fromActorId, kind: "delegated", issueId: row.issueId, at: row.createdAt.toISOString() });        }
+          events.push({ actorId: fromActorId, kind: "delegated", issueId: row.issueId, at: row.createdAt.toISOString() });
+        }
         continue;
       }
       if (!row.assignmentRecorded) continue;
