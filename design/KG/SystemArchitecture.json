@@ -6078,6 +6078,52 @@
         }
       ],
       "type": "Requirement"
+    },
+    {
+      "id": "paperclip-execution-view-removal-2026-11-25",
+      "type": "Requirement",
+      "name": "2026-11-25 移除 execution 执行视图并回退上游侵入修改",
+      "description": "【结果与证据】分支自研的 execution（执行视图）整体移除，分支行为回到更接近 upstream 的形态。代码提交 7f282133e9d726041c0558829f5d2855a7db0b32（revert(tasks): remove the fork execution view，18 files，+34/-1803）；KG 墓碑提交 208e72f6a3。删除 IssueExecutionTimeline.tsx/.test.tsx、IssueExecutionPanel.tsx/.test.tsx；回退 Issues/IssueDetail/IssuesList/task-views/workTimeline server 与 shared 类型中的 execution 改动；删除 feature/agent-access maps 的 execution-view 条目。回退的 7 个 feature 提交：87d4233b9f、865ffa3320、b4f9494c56、17ef9ac721、a57264224a、671a05d89b、bff9f0573c。验证：pnpm exec vitest run（work-timeline-service、IssuesList、Issues、task-views）4 文件 155 测试全过；shared typecheck 通过；server/ui typecheck 仍有既存环境错误（plugin-orchestration-smoke-example 的 @paperclipai/shared 符号链接 EPERM，导致 plugin-sdk 解析失败；ui 大量 TS7006/QueryClient 错误均在未改动文件），非本次改动引入。pnpm verify 因 Windows 符号链接 EPERM 在 preflight 中止。\n\n【关键决策】1) 逐条 git revert 7 个 feature 提交（新→旧）并解决冲突，最后 soft reset 合并为单个提交，便于审阅。2) 对完全由该 feature 改变的 work-timeline service 与 shared 类型，直接恢复到最近一次上游合并快照 b93df4ca3，而不是保留 revert 产生的旧版文件（旧提交的父版本落后于上游演进，会丢失上游改动）。3) openapi/IssueDetail/IssuesList 采用外科式回退，保留无关的后续改动（routine webhook 指引、task activity 按钮、routine 过滤/排序等）。4) 删除 KG 能力元素 fork-cap-execution-timeline（acknowledgeLoss + 墓碑），在 fork-capabilities-2026-10-21 登记 commit 与 forkAreaRemoval20261125。\n\n【坑与修复】a) 回退 10-19 的旧提交会把该文件带回旧版；对纯 feature 文件应以合并基快照为准。b) PowerShell Get-Content/Set-Content 往返破坏 UTF-8（BOM/乱码）并把 LF 变 CRLF；改用 node fs 以 utf8 做换行归一，或直接 git checkout 上游快照。c) maps/feature-map 冲突的 HEAD 侧含后续 map 更新，不能整块取 parent；只删 execution 条目。d) Windows 上 pnpm verify preflight 的 symlink EPERM 使 verify/typecheck 无法全量运行，改跑定向 vitest 与包级 typecheck。\n\n【目标 T2 元素】paperclip-execution-view-removal-2026-11-25（挂载 view project-manager-fork-decoupling-001）。memory-capture: argo:design/KG/SystemArchitecture.json#paperclip-execution-view-removal-2026-11-25",
+      "attributes": [
+        {
+          "name": "createdAt",
+          "value": "2026-11-25"
+        },
+        {
+          "name": "status",
+          "value": "COMPLETED"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "sessionDate",
+          "value": "2026-11-25"
+        },
+        {
+          "name": "lastSummaryAt",
+          "value": "2026-11-25"
+        },
+        {
+          "name": "commit",
+          "value": "7f282133e9d726041c0558829f5d2855a7db0b32",
+          "description": "revert(tasks): remove the fork execution view — 18 files, +34/-1803; deleted IssueExecutionTimeline/IssueExecutionPanel and their tests; reverted execution hunks in Issues/IssueDetail/IssuesList/task-views/workTimeline server+shared+routes+maps"
+        },
+        {
+          "name": "commit",
+          "value": "208e72f6a3a7e4739e1f5af097d32ee9626cfb8e",
+          "description": "chore(argo): tombstone the removed execution-view capability"
+        },
+        {
+          "name": "verification",
+          "value": "vitest 4 files / 155 tests passed (work-timeline-service, IssuesList, Issues, task-views); shared typecheck passed; server/ui typecheck failures are pre-existing environment (stale workspace symlink EPERM, errors in untouched files); pnpm verify blocked at preflight by Windows symlink EPERM"
+        },
+        {
+          "name": "tombstonedElement",
+          "value": "fork-cap-execution-timeline"
+        }
+      ]
     }
   ],
   "relationships": [
@@ -6277,7 +6323,8 @@
         "2026-10-25-47-3cb59953eb38-acr",
         "paperclip-done-memory-gate-2026-11-03",
         "graph-review-plugin-proposal-2026-11-17",
-        "knowledge-lens-proposal-2026-11-17"
+        "knowledge-lens-proposal-2026-11-17",
+        "paperclip-execution-view-removal-2026-11-25"
       ],
       "included_relationships": []
     },
