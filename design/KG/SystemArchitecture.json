@@ -6152,6 +6152,11 @@
           "name": "commit",
           "value": "9ed7630786",
           "description": "dev/local-install: design/KG/SystemArchitecture.json + paperclip.qea（QWE 导出交付 + 断点记忆）"
+        },
+        {
+          "name": "commit",
+          "value": "7171eca2f1",
+          "description": "dev/local-install: 补记 commit ledger + T1 断点摘要（design/KG/SystemArchitecture.json + paperclip.qea）"
         }
       ]
     }
