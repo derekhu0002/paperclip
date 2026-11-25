@@ -634,7 +634,7 @@
           "value": "paperclip-upstream-merge-assessment-2026-10-21（本次事实属性）, threat-intel-center-migration-2026-11-01（上一会话）"
         }
       ],
-      "description": "【分支】hotfix/2026-11-20-restart-recovery-secrets（基于 dev/local-install@5fc0122c85），未推送、未部署。\n\n【已完成】1) 热修：上游 #22389/#21948/#21341/#21330/#21253/#21651；自研 EPIPE 守卫与 SSH 共享租约互锁修复。2) 项目树 P1：子 PM 同时留在父团队（双身份）+ parent 完整性校验（同公司/非自身/父未归档/无环）。3) 项目树 P2：SVG 树图 + 拖拽换父 + 折叠/缩放/搜索 + Parent 下拉；新增窄能力 projects.structure.write（仅 reparent，host 复用项目服务校验并写 activity）。4) P3：Business Cockpit 指标归属项目。\n\n【P3 细节】MetricDefinition 新增 ownerProjectId（单一负责项目，UUID 校验）；CockpitPayload 新增 projects（ctx.projects.list）；新增 metricsForProject/projectNameFor 纯函数；cockpit 支持 ?projectId= 作用域 + 横幅 + 指标详情 Owner project 链接；新增项目详情 detailTab “Business metrics”（entityTypes=[project]），展示项目负责的指标并可跳转作用域 cockpit；manifest 加 projects.read/ui.detailTab.register；插件 1.9.0；esbuild 额外输出 dist/shared.js；bundled skill 补 ownerProjectId 说明；catalog 重建（18 skills）。\n\n【验证】热修：socket-guard 5/5、lease 红→绿、issues-service 155/155 等。项目树：plugin 13/13、ui binding 4/4、server parent 6/6、build 28.5KB。P3：business-status 19/19、typecheck 绿、catalog validate 通过。token gates CLEAN。`pnpm verify --explain` 仍为 exit 2（分支含大量上游提交，宽验证交 CI）。ui 包 typecheck 仍有既有无关报错。\n\n【坑】PowerShell 改写文本会把 UTF-8 破坏（引号丢失→esbuild 解析失败）并改行尾；插件 UI 改用 Node fs 写 UTF-8/LF 才恢复。\n\n【待办】人类验收后 push + PR（含 Model Used）→ 按 doc/DEPLOYMENT-47.md 部署（工作站构建 ui/plugin dist）→ 后续全量 merge/upstream-20261120（18 冲突）。\n\n【T2】#fork-cap-project-tree；#business-status-plugin-2026-11-13；#hotfix-branch-2026-11-20-restart-recovery-secrets；#instance-epipe-detach-recovery-2026-11-20。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#business-status-plugin-2026-11-13",
+      "description": "【当前断点 2026-11-25 · QWE 内网迁移】\n人类将把本 Agent 迁到公司内网后唤醒，续谈\"QwenPaw 攻防实验室（QWE）organization 内网部署\"。已完成且不要重做：\n1) QWE 整套导出：http://47.107.161.168/downloads/qwe-export-20261125-4f7a21/（README/REPOS.md/repos.json/tree.tar.gz/company-export.json/SHA256SUMS），2026-12-02 20:18 CST 自动过期；内网不可达 47 时须提前下载带走。\n2) 7 个 workspace 仓全部已 push（ahead/behind=0）：command/red/blue/remediation/hardening/website/kg-management，均 PRIVATE·derekhu0002。\n3) import preview 200 验证可导入；临时 board key 已吊销；包内无凭据。\n下一步见 T2 断点卡 #qwe-2026-11-25-002（含待办、已知缺口、环境事实）。\n\n【遗留（上一工作流，未完成）】hotfix/2026-11-20-restart-recovery-secrets：热修 + 项目树 P1/P2/P3 已完成并本地验证，待人类验收后 push + PR → 按 doc/DEPLOYMENT-47.md 部署。细节见 T2 #hotfix-branch-2026-11-20-restart-recovery-secrets。#fork-cap-project-tree、#business-status-plugin-2026-11-13 亦保留在 T2。\n\n【已提交】dev/local-install 9ed7630786（design/KG/SystemArchitecture.json + paperclip.qea）。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#qwe-2026-11-25-002",
       "id": "project-manager-session-summary",
       "name": "T1 会话总结（2026-11-17：QwenPaw 攻防实验室卡死恢复）",
       "type": "Requirement"
@@ -6133,13 +6133,27 @@
       "description": "【目标】把 47（47.107.161.168，Paperclip 950c897b98）上的 QwenPaw 攻防实验室（QWE，company 1ba5e77b-d25b-42fc-8eea-7762210b1422）整套 organization 导出，供公司内网重建；执行体在 WSL（100.87.205.43），包内只要 GitHub 地址不要仓库内容。\n\n【推送门禁结果（全部已推送，ahead/behind=0）】blue +20、command +411、hardening +7、red +147、remediation +236 推送成功；qwenpaw-website（无 remote，新建私有仓，+42，main）、qwenpaw-anti-defend-kg-management（无 remote，新建私有仓，+132，master）。7 仓均 PRIVATE、属 derekhu0002。target-official=上游 agentscope-ai/QwenPaw 只读克隆，不在清单。项目↔仓：command 由 攻防指挥部 + 平台·qwenpaw-platform 共用；未提交残留：command 1 个 untracked pptx、remediation 2 个 untracked 目录（.paperclip/、.qwe346-verify/），无 tracked 改动。\n\n【交付物】/var/www/downloads/qwe-export-20261125-4f7a21/（http://47.107.161.168/downloads/qwe-export-20261125-4f7a21/，7 天后 systemd timer 自动清理）：qwenpaw-lab-company-export.json（15.7MB，官方 portability：15 agents/8 projects/394 issues/1602 comments/12 skills/41 blobs）、qwenpaw-lab-export-tree.tar.gz（882 文件树）、REPOS.md、repos.json、README.md、SHA256SUMS（json c66aed67…、tar 1eaaca9f…）。包内无任何 secret 值。\n\n【验证】用 47 实例 API POST /api/companies/:id/imports/preview（source inline, 882 files, target new_company）返回 200，证明包可导入；本地+外网 HTTP 200。\n\n【决策】(1) 用官方 portability export（可回导、含 issue 评论历史）而非自拼 JSON；(2) 临时 board key 用 DB 直插（user=owner/instance_admin，sha256、8h TTL）并镜像写 activity_log，用完 revoke，避免走需人工审批的 CLI login；(3) 下载走 /var/www/downloads + 独立 systemd timer，不改 nginx 配置，避免影响运行中的 Paperclip；(4) 导出包剔除凭据（仅 envInputs 键名）。\n\n【坑】(1) 47 上 API 有 hostname allowlist，容器地址 172.18.2.191:3100 必须带 Host: paperclip…/localhost；node fetch 无法覆盖 Host，需用 curl。(2) 容器内无 psql，只有 embedded-postgres 的 initdb/pg_ctl/postgres；用 /app/node_modules/.pnpm/pg@8.18.0 直连 127.0.0.1:54329（user/password=paperclip/paperclip）。(3) PowerShell 管道给 ssh 会插 CRLF，改用 base64 传输脚本。(4) 导出器会省略无 repoUrl 的 remote_path workspace（qwenpaw-website），需导入后手工绑定。\n\n【待办】人类在内网按 README 导入并重新绑定 workspace/SSH 环境与 AI 密钥。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#qwe-2026-11-25",
       "name": "QWE 攻防实验室整体导出与内网迁移交付（2026-11-25）",
       "type": "Requirement",
-      "id": "qwe-2026-11-25"
+      "id": "qwe-2026-11-25",
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "9ed7630786",
+          "description": "dev/local-install: design/KG/SystemArchitecture.json + paperclip.qea"
+        }
+      ]
     },
     {
       "description": "【断点时间】2026-11-25 20:2x（CST）。人类即将把本 Agent 迁到公司内网后重新唤醒，续谈\"QWE 组织内网部署\"。\n\n【已完成（不要再重做）】\n1) QWE（company 1ba5e77b-d25b-42fc-8eea-7762210b1422）整套导出完成：http://47.107.161.168/downloads/qwe-export-20261125-4f7a21/（文件：README.md / REPOS.md / repos.json / qwenpaw-lab-export-tree.tar.gz / qwenpaw-lab-company-export.json / SHA256SUMS）。服务器目录 /var/www/downloads/qwe-export-20261125-4f7a21，源目录 /root/qwe-export。下载有效至 2026-12-02 20:18 CST（systemd timer paperclip-dl-qwe-export-20261125-4f7a21.timer 自动删除）。\n2) 7 个 workspace 仓全部 push 到位（ahead/behind=0）：qwenpaw-command(893e3b3) / qwenpaw-red(a58e518) / qwenpaw-blue(8f05fdf) / qwenpaw-remediation(9448df9) / qwenpaw-hardening(aa9f14d) / qwenpaw-website(b05763b, 本次新建) / qwenpaw-anti-defend-kg-management(6129662, master, 本次新建)。均为 PRIVATE，derekhu0002。\n3) 用实例 API imports/preview 验证过整包可导入（200，882 文件）；临时 board key 8324a4e0 已吊销。\n4) 未提交但未跟踪的产物（有意未提交）：command 的 pptx；remediation 的 .paperclip/、.qwe346-verify/。\n5) 本仓库 dev/local-install 已提交断点与导出记忆（design/KG/SystemArchitecture.json + paperclip.qea）。\n\n【断点待办（内网唤醒后续谈）】\n- 在内网部署 Paperclip 后：paperclipai company import ./qwenpaw --target new --api-base <内网> --dry-run → 正式 import。\n- 按 REPOS.md 重建项目 workspace 的 repoUrl/defaultRef，并在新执行机 clone；注意 command 被 攻防指挥部+平台 共用，kg 仓分支为 master。\n- 重新配置 AI 连接与密钥（envInputs 键：DEEPSEEK_API_KEY 等，包内无值）、重新绑定 SSH 执行环境。\n- 已知缺口：qwenpaw-website 的 remote_path workspace 被导出器省略；53 个 work product 与 8 个任务引用的运行工作区不可移植。\n- 若内网无法访问 47，导出包需提前从上述 URL 下载带走（2026-12-02 20:18 CST 前）。\n\n【环境事实（内网可能变化，需重验）】47=47.107.161.168（Paperclip 950c897b98，embedded PG 54329，user/password=paperclip/paperclip，API 需 Host 白名单）；执行体 WSL ocpc=100.87.205.43:2222，仓库在 /home/repos/qwenpaw-lab/* 与 /root/repos/qwenpaw-anti-defend-kg-management。\n\nmemory-capture: argo:design/KG/SystemArchitecture.json#qwe-2026-11-25-002",
       "name": "断点：QWE 导出已交付，等待内网唤醒续谈（2026-11-25）",
       "type": "Requirement",
-      "id": "qwe-2026-11-25-002"
+      "id": "qwe-2026-11-25-002",
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "9ed7630786",
+          "description": "dev/local-install: design/KG/SystemArchitecture.json + paperclip.qea（QWE 导出交付 + 断点记忆）"
+        }
+      ]
     }
   ],
   "relationships": [
