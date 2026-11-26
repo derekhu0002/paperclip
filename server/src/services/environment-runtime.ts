@@ -28,6 +28,7 @@ import { JsonRpcCallError, readEnvironmentAcquisitionDiagnostic, readEnvironment
 import { preserveEnvironmentSyncOutErrorDiagnostic } from "./environment-sync-out-error.js";
 import { remoteTerminationReceipt } from "./remote-execution-termination.js";
 import { inspectCloudSandboxCleanupAbsence } from "./sandbox-absence-proof.js";
+import { resolveSshRemoteTermination, sshReleaseOptions } from "../fork/ssh-remote-termination.js";
 import { hasNativeWorkspaceExportResume, releaseCompletedNativeWorkspaceExportRetention } from "./native-runtime/native-workspace-export-resume.js";
 import { createHash, randomUUID } from "node:crypto";
 import { currentControllerProcess } from "./controller-process-identity.js";
@@ -1233,7 +1234,8 @@ function createSshEnvironmentDriver(db: Db): EnvironmentRuntimeDriver {
     },
 
     async releaseRunLease(input) {
-      return await environmentsSvc.releaseLease(input.lease.id, input.status);
+      const termination = await resolveSshRemoteTermination(db, input.lease);
+      return await environmentsSvc.releaseLease(input.lease.id, input.status, sshReleaseOptions(termination));
     },
 
     async realizeWorkspace(input) {

@@ -1,4 +1,5 @@
 import { createProviderStoppedBoundary } from "@paperclipai/adapter-utils/provider-stopped-boundary";
+import { fencePreDispatchCancellation } from "./fork/pre-dispatch-cancellation.js";
 import { createUsageCheckpointLog } from "@paperclipai/adapter-utils/usage-checkpoint";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -230,6 +231,8 @@ async function buildOpenCodeSkillsDir(config: Record<string, unknown>): Promise<
 }
 
 export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExecutionResult> {
+  const preDispatchCancellation = await fencePreDispatchCancellation(ctx);
+  if (preDispatchCancellation.cancelled) return preDispatchCancellation.result;
   const providerStop = createProviderStoppedBoundary(ctx.onProviderStopped);
   const { runId, agent, runtime, config, context, onLog, onMeta, onSpawn, authToken } = ctx;
   const executionTarget = readAdapterExecutionTarget({
