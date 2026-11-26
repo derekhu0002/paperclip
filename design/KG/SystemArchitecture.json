@@ -6159,6 +6159,55 @@
           "description": "dev/local-install: 补记 commit ledger + T1 断点摘要（design/KG/SystemArchitecture.json + paperclip.qea）"
         }
       ]
+    },
+    {
+      "id": "ssh-legacy-cancel-remote-cleanup-fix-2026-11-26",
+      "type": "Requirement",
+      "name": "2026-11-26 取消 legacy SSH run 卡 remote_cleanup 修复（P0 取消 fence + P1 终止回执）",
+      "description": "【任务】修复 GitHub issue derekhu0002/paperclip#1：operator 取消 legacy SSH（opencode_local, directRemoteWorkspace）run 后，issue 永久 blocked，Retry/新消息卡在 remote_cleanup。\n\n【根因】\nA) SSH driver 的 releaseRunLease 只调 releaseLease(id,status)，不写 paperclip.remote-termination.v1 回执，也没有 provider 停止握手（SSH 是持久远程工作区，非可销毁 sandbox），导致 explicit-native-continuation.ts:504 的 hasRemoteTerminationReceipt 恒为 false → remote_cleanup 永不清除。\nB) opencode-local execute 未接 onCancellationReady / 未在 onMeta(adapter.invoke) 前检查 signal，取消与 dispatch 竞态 → 取消后仍 adapter.invoke + 记录 process identity → legacy_execution_requires_reconciliation → preserve_without_replay_v1 blocked。\n\n【修复（全部收进 fork 模块，上游各 1 个挂载点）】\nP0：packages/adapters/opencode-local/src/server/fork/pre-dispatch-cancellation.ts（fencePreDispatchCancellation）。仅对远程目标(executionTarget.kind=remote)：调用 onCancellationReady 注册取消控制，若 signal 已 abort 则返回 bootstrap cancelled（providerWorkStarted:false），不发 adapter.invoke、不起进程；sandbox 有 stopRemoteStartup 时先释放。execute.ts 仅开头 2 行挂载。\nP1：server/src/fork/ssh-remote-termination.ts（sshRunProvesProviderStopped / resolveSshRemoteTermination / sshReleaseOptions）。SSH driver releaseRunLease 仅一处挂载。仅对 legacy、终态、且无 execution-start 事件（executionStartedEventPredicate: adapter.invoke/process identity/session/turn/tool）的 run 签发 state=stopped 回执并置 cleanupStatus=success；native/plugin/sandbox 路径不变；DB 读取失败 fail-open，不阻断释放。\n\n【验证】opencode-local fence+execute 29 passed；server fork 纯测 4 passed（DB 集成在 Linux CI，Windows 管理员账户下 embedded Postgres 拒绝启动）；聚焦 server 批 140 passed（environment-run-orchestrator/capability/config/legacy-continuation 等）；adapter typecheck 通过；server 分层 typecheck 仅既存无关错误（chat-publication-text-parts 隐式 any、boxd 缺 plugin-sdk）。\n\n【关键决策】1) P0 限远程目标，本地 Stop 语义零改动。2) P1 限 legacy 且无执行证据，保留 preserve_without_replay_v1；静态核对 environment-runtime-driver-contract.test.ts:199 的 native SSH cleanupStatus:null 契约，避免误伤。3) P1 fail-open，回执是增量证明，读失败不改变原释放。4) 300+ 行全部进 fork 文件，上游只留挂载点，便于 upstream merge。\n\n【坑】Windows 管理员账户下 embedded Postgres 起不来（administrative permissions not permitted），DB 套件须走 Linux CI；pnpm store 有大量失效 junction 导致 pnpm verify 输入遍历 EACCES，已用 fsutil reparsepoint delete 清理失效链接。\n\n【目标 T2 元素】ssh-legacy-cancel-remote-cleanup-fix-2026-11-26（挂载 view project-manager-fork-decoupling-001）。",
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "47ff5f1585",
+          "description": "fix(runs): unblock cancelled legacy SSH runs stuck in remote_cleanup — packages/adapters/opencode-local/src/server/execute.ts, packages/adapters/opencode-local/src/server/execute.cancellation-fence.test.ts, packages/adapters/opencode-local/src/server/fork/pre-dispatch-cancellation.ts, packages/adapters/opencode-local/src/server/fork/pre-dispatch-cancellation.test.ts, server/src/services/environment-runtime.ts, server/src/fork/ssh-remote-termination.ts, server/src/fork/ssh-remote-termination.test.ts"
+        },
+        {
+          "name": "files",
+          "value": "packages/adapters/opencode-local/src/server/execute.ts; packages/adapters/opencode-local/src/server/execute.cancellation-fence.test.ts; packages/adapters/opencode-local/src/server/fork/pre-dispatch-cancellation.ts; packages/adapters/opencode-local/src/server/fork/pre-dispatch-cancellation.test.ts; server/src/services/environment-runtime.ts; server/src/fork/ssh-remote-termination.ts; server/src/fork/ssh-remote-termination.test.ts"
+        },
+        {
+          "name": "status",
+          "value": "COMMITTED"
+        },
+        {
+          "name": "date",
+          "value": "2026-11-26"
+        },
+        {
+          "name": "memoryTier",
+          "value": "T2"
+        },
+        {
+          "name": "verification",
+          "value": "opencode-local fence/execute 29 passed; server fork 4 passed + DB skip(Windows); focused server batch 140 passed; adapter typecheck pass; server layered typecheck only pre-existing unrelated errors"
+        }
+      ],
+      "testcases": [
+        {
+          "name": "Pre-start remote cancel never invokes the provider",
+          "type": "Acceptance Test",
+          "description": "GIVEN a remote (SSH/sandbox) opencode run already cancelled at dispatch, WHEN execute starts, THEN onCancellationReady is called, no adapter.invoke/onSpawn occurs, and the result is a bootstrap cancellation (providerWorkStarted:false); GIVEN a local run, THEN the fence does nothing.",
+          "Input": "pnpm exec vitest run packages/adapters/opencode-local/src/server/execute.cancellation-fence.test.ts packages/adapters/opencode-local/src/server/fork/pre-dispatch-cancellation.test.ts",
+          "acceptanceCriteria": "Provider process is never spawned when the run is cancelled before startup; local targets are unaffected."
+        },
+        {
+          "name": "Legacy SSH lease certified stopped only without execution evidence",
+          "type": "Acceptance Test",
+          "description": "GIVEN a released legacy SSH lease whose run is terminal with no execution-start event, WHEN the SSH driver releases it, THEN a paperclip.remote-termination.v1 stopped receipt is written and remoteExecutionHasStopped is true; GIVEN any execution-start event, a non-terminal run, or a native runtime, THEN no receipt is written.",
+          "Input": "pnpm exec vitest run server/src/fork/ssh-remote-termination.test.ts",
+          "acceptanceCriteria": "Receipt appears only for proven stopped legacy SSH runs; native/plugin/sandbox and provider-work cases stay uncertified."
+        }
+      ]
     }
   ],
   "relationships": [
@@ -6359,7 +6408,8 @@
         "paperclip-done-memory-gate-2026-11-03",
         "graph-review-plugin-proposal-2026-11-17",
         "knowledge-lens-proposal-2026-11-17",
-        "paperclip-execution-view-removal-2026-11-25"
+        "paperclip-execution-view-removal-2026-11-25",
+        "ssh-legacy-cancel-remote-cleanup-fix-2026-11-26"
       ],
       "included_relationships": []
     },
