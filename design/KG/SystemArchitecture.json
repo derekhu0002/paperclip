@@ -6177,7 +6177,7 @@
         },
         {
           "name": "status",
-          "value": "COMMITTED"
+          "value": "DEPLOYED"
         },
         {
           "name": "date",
@@ -6190,6 +6190,22 @@
         {
           "name": "verification",
           "value": "opencode-local fence/execute 29 passed; server fork 4 passed + DB skip(Windows); focused server batch 140 passed; adapter typecheck pass; server layered typecheck only pre-existing unrelated errors"
+        },
+        {
+          "name": "deployedAt",
+          "value": "2026-11-26T11:39Z (47 container paperclip)"
+        },
+        {
+          "name": "image",
+          "value": "paperclip-fork:a055d014ef (6.55GB; built --target production --build-arg USER_UID=998 USER_GID=998 PAPERCLIP_SKIP_PROVIDER_PACK=1 from a055d014ef)"
+        },
+        {
+          "name": "deployVerified",
+          "value": "health status=ok commit=a055d014efb65e42dc697a8c89c3618ba54f97eb; /api/ready=200; / =200; container up restarts=0; 47 checkout HEAD=a055 (via thin git bundle; 47 GitHub SSH key missing); disk 66%"
+        },
+        {
+          "name": "pitfall",
+          "value": "UID: old prod image baked USER_UID=1000 and the volume was 1000. Building new image with 998 but running as 1000 left /app (owned 998) unwritable: embedded-postgres libcrypto.so.1.1 symlink EACCES -> crash loop. Fix: run as the image's uid (998) so the entrypoint chowns the 15GB volume to 998; volume is now 998, so keep building future images with USER_UID=998. Deploy fallback: 47 cannot fetch GitHub (missing /home/paperclip/.paperclip/graph-hub/ssh/id_ed25519, Permission denied) -> build a thin git bundle on the workstation (range ^50fb2810cf) and fetch/reset on 47. Startup recovery took ~6-8 min before /api/health flipped starting->ok (large stale ownership backlog), so poll readiness; /api/ready and /api/health read the same phase."
         }
       ],
       "testcases": [
