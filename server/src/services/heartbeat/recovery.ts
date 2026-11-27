@@ -49,6 +49,7 @@ import {
   revokeExpiredLegacyControllerWithState,
 } from "../legacy-controller-lease.js";
 import { remoteTerminationReceipt } from "../remote-execution-termination.js";
+import { resolveSshRemoteTermination } from "../../fork/ssh-remote-termination.js";
 import { readEnvironmentStopFailure, type PluginEnvironmentStopFailure } from "@paperclipai/plugin-sdk";
 import { runUsedConversationAdapter } from "../conversation-continuation.js";
 import { legacyExecutionNeedsReconciliationWithEvidence, terminalizeLegacyExecution } from "../legacy-execution-recovery.js";
@@ -1776,9 +1777,17 @@ export function createHeartbeatRecovery(db: Db, dependencies: HeartbeatRecoveryD
       // keeps blocking later wakes with "waiting for the previous environment
       // to stop". Release it here instead of starting a doomed teardown.
       if (sharesRemoteWorkspaceInsteadOfSandbox(lease)) {
+        // An SSH lease points at a remote workspace, not a sandbox this process
+        // can tear down, and its release path has no provider stop handshake.
+        // Record the certified stop receipt when the run never started; a run
+        // that did start keeps the safety gate closed until a real stop proof
+        // exists. Releasing the lease is still required so it does not stay in
+        // pending_cleanup forever.
+        const termination = await resolveSshRemoteTermination(db, lease);
         await environmentsSvc.releaseLease(row.id, "released", {
           cleanupStatus: "success",
           failureReason: "pending_cleanup_retry",
+          ...(termination ? { remoteExecutionTermination: termination } : {}),
         });
         continue;
       }

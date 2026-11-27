@@ -16,7 +16,7 @@ import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } fro
 import { resolveExternalTestDatabaseUrl } from "../__tests__/helpers/external-test-database.js";
 import { environmentService } from "../services/environments.js";
 import { remoteExecutionHasStopped } from "../services/remote-execution-termination.js";
-import { resolveSshRemoteTermination, sshReleaseOptions, sshRunProvesProviderStopped } from "./ssh-remote-termination.js";
+import { resolveSshRemoteTermination, sshReleasedLeaseProvesStopped, sshReleaseOptions, sshRunProvesProviderStopped } from "./ssh-remote-termination.js";
 
 describe("sshRunProvesProviderStopped", () => {
   it("accepts a terminal legacy run with no provider execution evidence", () => {
@@ -113,6 +113,36 @@ const support = external ? { supported: true } : embeddedSupport;
     expect(released.metadata?.remoteExecutionTermination).toBeTruthy();
 
     expect(await remoteExecutionHasStopped(db, company.id, run.id)).toBe(true);
+  });
+
+  it("certifies a released SSH lease without a stored receipt when the run never started", async (ctx) => {
+    if (!db) return ctx.skip();
+    const { company, run, lease } = await fixture();
+    await db.update(environmentLeases).set({ status: "released", releasedAt: new Date(), cleanupStatus: "success" })
+      .where(eq(environmentLeases.id, lease.id));
+    const [released] = await db.select().from(environmentLeases).where(eq(environmentLeases.id, lease.id));
+
+    expect(await sshReleasedLeaseProvesStopped(db, released!)).toBe(true);
+    expect(await remoteExecutionHasStopped(db, company.id, run.id)).toBe(false);
+  });
+
+  it("does not certify a released SSH lease when the run recorded execution evidence", async (ctx) => {
+    if (!db) return ctx.skip();
+    const { company, agent, run, lease } = await fixture();
+    await db.insert(heartbeatRunEvents).values({
+      companyId: company.id, agentId: agent.id, runId: run.id, seq: 1, eventType: "adapter.invoke",
+    });
+    await db.update(environmentLeases).set({ status: "released", releasedAt: new Date(), cleanupStatus: "success" })
+      .where(eq(environmentLeases.id, lease.id));
+    const [released] = await db.select().from(environmentLeases).where(eq(environmentLeases.id, lease.id));
+
+    expect(await sshReleasedLeaseProvesStopped(db, released!)).toBe(false);
+  });
+
+  it("does not certify a lease that is still pending cleanup", async (ctx) => {
+    if (!db) return ctx.skip();
+    const { lease } = await fixture();
+    expect(await sshReleasedLeaseProvesStopped(db, { ...lease, status: "pending_cleanup", releasedAt: null })).toBe(false);
   });
 
   it("keeps the safety gate closed when the run recorded provider execution evidence", async (ctx) => {

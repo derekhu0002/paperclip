@@ -11,6 +11,7 @@ import { OWNER_GONE_ATTESTATION_KEY } from "./recovery/owner-gone-attestation.js
 import type { InProgressRecord, SettleOutcome } from "./recovery/ownership-registry.js";
 import { isBuiltinSandboxProvider } from "./sandbox-provider-runtime.js";
 import { prepareSandboxStopAndRetain } from "./sandbox-stop-and-retain.js";
+import { resolveSshRemoteTermination } from "../fork/ssh-remote-termination.js";
 
 /** Failure reason written on a run lease the shared ownership path settled. */
 export const ORPHANED_RUN_LEASE_FAILURE_REASON = "orphaned_active_lease_recovered";
@@ -78,16 +79,19 @@ export async function settleEnvironmentRunLease(db: Db, record: InProgressRecord
     // a sandbox this process can tear down. Routing it through pending_cleanup
     // leaves a destroy that always fails, and its failed cleanup makes every
     // later wake wait on "the previous execution has not released its
-    // environment lease". Release it outright: the lease's own release marker
-    // is what the queued-run gate and recovery reconciliation require.
+    // environment lease". Release it outright. When the run never started, also
+    // record the certified stop receipt so continuation gates and retries do not
+    // wait forever on a stop proof the SSH driver cannot produce.
     if (sharesRemoteWorkspaceInsteadOfSandbox(lease)) {
+      const termination = await resolveSshRemoteTermination(tx as unknown as Db, lease);
       const released = await tx.update(environmentLeases)
         .set({
           status: "released",
           releasedAt: context.now,
-          cleanupStatus: null,
+          cleanupStatus: termination ? "success" : null,
           failureReason: ORPHANED_RUN_LEASE_FAILURE_REASON,
           updatedAt: context.now,
+          ...(termination ? { metadata: sql`coalesce(${environmentLeases.metadata}, '{}'::jsonb) || ${JSON.stringify({ remoteExecutionTermination: termination })}::jsonb` } : {}),
         })
         .where(and(eq(environmentLeases.id, lease.id), eq(environmentLeases.status, "active"),
           eq(environmentLeases.heartbeatRunId, runId),

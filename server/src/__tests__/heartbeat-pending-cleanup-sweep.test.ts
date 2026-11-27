@@ -59,6 +59,7 @@ vi.mock("../middleware/logger.js", () => ({
 import { logger } from "../middleware/logger.ts";
 import { heartbeatService, type HeartbeatEnvironmentRuntime } from "../services/heartbeat.ts";
 import { hasPendingRunCleanup } from "../services/execution-blocker.js";
+import { remoteExecutionHasStopped } from "../services/remote-execution-termination.js";
 import { currentControllerProcess } from "../services/controller-process-identity.js";
 import { environmentStopErrorData, JsonRpcCallError, PLUGIN_RPC_ERROR_CODES, PluginEnvironmentStopError } from "@paperclipai/plugin-sdk";
 
@@ -312,6 +313,63 @@ describeEmbeddedPostgres("heartbeat sweepPendingCleanupLeases", () => {
     expect(row?.status).toBe("released");
     expect(row?.cleanupStatus).toBe("success");
     expect(row?.releasedAt).toBeInstanceOf(Date);
+  });
+
+  it("records a certified stop receipt for an SSH lease whose legacy run never started", async () => {
+    const { companyId, environmentId } = await seedCompanyAndEnvironment();
+    const agentId = randomUUID(), runId = randomUUID(), leaseId = randomUUID();
+    const when = new Date(Date.now() - 60 * 60 * 1000);
+    await db.insert(agents).values({ id: agentId, companyId, name: "SSH cleanup", role: "engineer",
+      status: "idle", adapterType: "opencode_local", adapterConfig: {}, runtimeConfig: {}, permissions: {} });
+    await db.insert(heartbeatRuns).values({ id: runId, companyId, agentId, invocationSource: "on_demand",
+      status: "cancelled", runtimeMode: "legacy", errorCode: "legacy_disposition_repair_suppressed", finishedAt: when });
+    await db.insert(environmentLeases).values({
+      id: leaseId, companyId, environmentId, heartbeatRunId: runId, status: "pending_cleanup",
+      leasePolicy: "ephemeral", provider: "ssh",
+      providerLeaseId: `ssh://root@executor.test:22/home/repos/${leaseId}`,
+      cleanupStatus: "failed", metadata: { driver: "ssh" },
+      acquiredAt: when, lastUsedAt: when, releasedAt: when, createdAt: when, updatedAt: when,
+    });
+    const heartbeat = heartbeatService(db, { environmentRuntime: fakeRuntime(vi.fn() as unknown as
+      HeartbeatEnvironmentRuntime["destroyRunLease"]) });
+
+    const result = await heartbeat.sweepPendingCleanupLeases({ backoffMs: 0 });
+
+    expect(result).toEqual({ swept: 1, destroyed: 0, capped: 0 });
+    const [row] = await db.select().from(environmentLeases).where(eq(environmentLeases.id, leaseId));
+    expect(row).toMatchObject({ status: "released", cleanupStatus: "success" });
+    expect(row?.metadata?.remoteExecutionTermination).toMatchObject({
+      schema: "paperclip.remote-termination.v1", state: "stopped", runId, leaseId, provider: "ssh",
+    });
+    expect(await remoteExecutionHasStopped(db, companyId, runId)).toBe(true);
+  });
+
+  it("leaves the SSH safety gate closed when the legacy run produced execution evidence", async () => {
+    const { companyId, environmentId } = await seedCompanyAndEnvironment();
+    const agentId = randomUUID(), runId = randomUUID(), leaseId = randomUUID();
+    const when = new Date(Date.now() - 60 * 60 * 1000);
+    await db.insert(agents).values({ id: agentId, companyId, name: "SSH cleanup", role: "engineer",
+      status: "idle", adapterType: "opencode_local", adapterConfig: {}, runtimeConfig: {}, permissions: {} });
+    await db.insert(heartbeatRuns).values({ id: runId, companyId, agentId, invocationSource: "on_demand",
+      status: "cancelled", runtimeMode: "legacy", finishedAt: when });
+    await db.insert(heartbeatRunEvents).values({ companyId, agentId, runId, seq: 1, eventType: "adapter.invoke" });
+    await db.insert(environmentLeases).values({
+      id: leaseId, companyId, environmentId, heartbeatRunId: runId, status: "pending_cleanup",
+      leasePolicy: "ephemeral", provider: "ssh",
+      providerLeaseId: `ssh://root@executor.test:22/home/repos/${leaseId}`,
+      cleanupStatus: "failed", metadata: { driver: "ssh" },
+      acquiredAt: when, lastUsedAt: when, releasedAt: when, createdAt: when, updatedAt: when,
+    });
+    const heartbeat = heartbeatService(db, { environmentRuntime: fakeRuntime(vi.fn() as unknown as
+      HeartbeatEnvironmentRuntime["destroyRunLease"]) });
+
+    const result = await heartbeat.sweepPendingCleanupLeases({ backoffMs: 0 });
+
+    expect(result).toEqual({ swept: 1, destroyed: 0, capped: 0 });
+    const [row] = await db.select().from(environmentLeases).where(eq(environmentLeases.id, leaseId));
+    expect(row).toMatchObject({ status: "released", cleanupStatus: "success" });
+    expect(row?.metadata?.remoteExecutionTermination).toBeUndefined();
+    expect(await remoteExecutionHasStopped(db, companyId, runId)).toBe(false);
   });
 
   it("test_pending_cleanup_sweep_respects_backoff_and_page_size", async () => {

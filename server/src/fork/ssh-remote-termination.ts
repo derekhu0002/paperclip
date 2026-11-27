@@ -110,3 +110,19 @@ export function sshReleaseOptions(
 ): { cleanupStatus?: "success"; remoteExecutionTermination?: Record<string, unknown> } | undefined {
   return termination ? { cleanupStatus: "success", remoteExecutionTermination: termination } : undefined;
 }
+
+/**
+ * A released or expired SSH lease can be treated as stopped even when no receipt
+ * was stored at release time, but only when the run never produced execution
+ * evidence. This is the same proof the release helpers use; it lets a consumer
+ * (the explicit-continuation gate) certify a lease an older release path let
+ * through without a receipt. A lease that is still pending, or whose run
+ * recorded provider work, stays uncertified.
+ */
+export async function sshReleasedLeaseProvesStopped(
+  db: Db,
+  lease: SshLeaseIdentity & { status: string; releasedAt: unknown },
+): Promise<boolean> {
+  if (!lease.releasedAt || !["released", "expired"].includes(lease.status)) return false;
+  return (await resolveSshRemoteTermination(db, lease)) !== undefined;
+}

@@ -9,6 +9,7 @@ import {
   createDb,
   environmentLeases,
   environments,
+  heartbeatRunEvents,
   heartbeatRuns,
   issues,
   nativeRunFinalizations,
@@ -263,6 +264,39 @@ suite("environment_run_lease_active on the shared ownership path", () => {
     expect((await row(firstLease)).releasedAt).toBeInstanceOf(Date);
     expect((await row(secondLease)).releasedAt).toBeInstanceOf(Date);
     expect((await row(firstLease)).cleanupStatus).toBeNull();
+  });
+
+  it("records a stop receipt when settling an orphaned SSH lease whose legacy run never started", async () => {
+    const workspace = "ssh://root@executor.example.test:2222/home/repos/lab";
+    const runId = await run("cancelled", { runtimeMode: "legacy", finishedAt: new Date() });
+    const leaseId = randomUUID();
+    await db.insert(environmentLeases).values({ id: leaseId, companyId, heartbeatRunId: runId,
+      status: "active", leasePolicy: "ephemeral", provider: "ssh", providerLeaseId: workspace,
+      metadata: { driver: "ssh", [ENVIRONMENT_LEASE_CONTROLLER_KEY]: await deadHolder() } });
+    const [record] = await OWNABLE_KINDS.find(kind => kind.id === "environment_run_lease_active")!.listForRuns!(db, [runId]);
+    expect(await settleEnvironmentRunLease(db, record!, { now: new Date(), proof: { verdict: "gone", reason: "pid_dead" } }))
+      .toEqual({ settled: true, reason: "pid_dead" });
+    const settled = await row(leaseId);
+    expect(settled).toMatchObject({ status: "released", cleanupStatus: "success" });
+    expect(settled.metadata?.remoteExecutionTermination).toMatchObject({
+      schema: "paperclip.remote-termination.v1", state: "stopped", runId, leaseId, provider: "ssh",
+    });
+  });
+
+  it("keeps the SSH gate closed when settling a lease whose legacy run started", async () => {
+    const workspace = "ssh://root@executor.example.test:2222/home/repos/lab";
+    const runId = await run("cancelled", { runtimeMode: "legacy", finishedAt: new Date() });
+    await db.insert(heartbeatRunEvents).values({ companyId, agentId, runId, seq: 1, eventType: "adapter.invoke" });
+    const leaseId = randomUUID();
+    await db.insert(environmentLeases).values({ id: leaseId, companyId, heartbeatRunId: runId,
+      status: "active", leasePolicy: "ephemeral", provider: "ssh", providerLeaseId: workspace,
+      metadata: { driver: "ssh", [ENVIRONMENT_LEASE_CONTROLLER_KEY]: await deadHolder() } });
+    const [record] = await OWNABLE_KINDS.find(kind => kind.id === "environment_run_lease_active")!.listForRuns!(db, [runId]);
+    expect(await settleEnvironmentRunLease(db, record!, { now: new Date(), proof: { verdict: "gone", reason: "pid_dead" } }))
+      .toEqual({ settled: true, reason: "pid_dead" });
+    const settled = await row(leaseId);
+    expect(settled).toMatchObject({ status: "released", cleanupStatus: null });
+    expect(settled.metadata?.remoteExecutionTermination).toBeUndefined();
   });
 
   it("never settles on a read-only pass", async () => {
