@@ -5605,7 +5605,7 @@
       "attributes": [
         {
           "name": "status",
-          "value": "discussion-draft"
+          "value": "deployed-47"
         },
         {
           "name": "artifactPath",
@@ -5634,6 +5634,54 @@
         {
           "name": "openQuestions",
           "value": "class meaning; single vs cross-project; current vs pinned; presets; relationship selection; env coordinates manual vs zero-config; sharing scope"
+        },
+        {
+          "name": "firstCompany",
+          "value": "Argo economy"
+        },
+        {
+          "name": "packageScope",
+          "value": "@argo"
+        },
+        {
+          "name": "pluginId",
+          "value": "paperclip.knowledge-lens"
+        },
+        {
+          "name": "routePath",
+          "value": "knowledge-lens"
+        },
+        {
+          "name": "sourceRepoPath",
+          "value": "D:/Projects/paperclip-plugins/knowledge-lens"
+        },
+        {
+          "name": "decision20261128",
+          "value": "P1 直接交付 Lens（Gallery/Builder/Viewer）；数据源走 B 控制面 SSH 只读强制命令导出；先独立仓验证后复制进 fork 并接 bundled-plugins.ts + Dockerfile；Agent 只读（插件工具 + board-or-agent 路由）；Overlaps 进 P1；首个目标公司 Argo economy；P1 预设只做 Architecture。"
+        },
+        {
+          "name": "scaffold20261128",
+          "value": "独立仓已建：@argo/paperclip-plugin-knowledge-lens v0.1.0；manifest(page/sidebar/routeSidebar knowledge-lens, local folder, 4 read-only tools, 4 board-or-agent routes)；worker(data/actions/tools/onApiRequest)；SSH forced-command export script；snapshot 原子落盘；graph parse/ontology/overlaps；SVG Lens viewer + builder + sources + settings；build/typecheck pass，tests 9/9 pass。"
+        },
+        {
+          "name": "verification20261128",
+          "value": "pnpm install(ignore-scripts) ok; pnpm build ok; pnpm test 9/9 pass; pnpm typecheck ok. 未做真实 SSH 同步与 47 安装验收。"
+        },
+        {
+          "name": "deploy47",
+          "value": "2026-11-28 部署到 47 (https://paperclip.derekworkspacev5.com)：plugin paperclip.knowledge-lens v0.1.0 status=ready（local-path /home/paperclip/.paperclip/plugins/knowledge-lens）；company Argo economy 1d978dc8-9b88-4cc8-a5eb-a5135d59e580；local folder /home/paperclip/.paperclip/instances/default/knowledge-lens；source argo-economy（/root/repos/argo-economy/argo-economy, design/KG/SystemArchitecture.json, commit 218d4062, dirty）；真实 SSH sync 成功（klens@100.87.205.43:2222，company secret c352a642-28c6-4795-8be2-007e23c695b0，host key 已 pin）；bundle 27 el / 8 rel / 8 views；lens da6c2f4a-a977-4d2a-b08e-c4671712c25f「Argo economy - commercial deliverables」11 el / 6 rel / drift false / broken 0；页面 /ARGA/knowledge-lens 200，UI bundle 200。"
+        },
+        {
+          "name": "knownLimitations",
+          "value": "secret 需在 company_secret_bindings 手工绑定到 sources.<sourceKey>.keySecretRef（计划改为 instanceConfigSchema 让保存配置自动建绑定）；2222 sshd 全局 ForceCommand 覆盖 per-key command，改用受限用户 klens + sudo 白名单 + wrapper 用户分支；P1 预设仅 Architecture；无定时同步；Sources 仍手填环境坐标。"
+        },
+        {
+          "name": "verificationDeployed20261128",
+          "value": "install/ready 200; folder configured healthy; save-source 200; real SSH sync 200 commit 218d4062; lens data 11/6 no drift; page 200; ui bundle 200; temp board keys all revoked; root 临时授权已移除，klens 单条 key。"
+        },
+        {
+          "name": "pluginRepoCommits",
+          "value": "knowledge-lens@e0eb815 (scaffold), knowledge-lens@4bc674f (export argv + host binding docs); artifact: dist/(worker,manifest,logic,ui)+package.json+README"
         }
       ]
     },
@@ -6224,6 +6272,28 @@
           "acceptanceCriteria": "Receipt appears only for proven stopped legacy SSH runs; native/plugin/sandbox and provider-work cases stay uncertified."
         }
       ]
+    },
+    {
+      "type": "Requirement",
+      "name": "2026-11-27 opencode_local vs native runner 真实 A/B 与 remote provider-pack 阻塞",
+      "description": "【场景】47 生产实例（镜像 paperclip-fork:a055d014ef），opencode_local + SSH direct remote workspace，149/149 agent 均为 SSH 远程。\n\n【真实对照】选取低风险 agent 假设与分析方法师 · aic-insight-method（e69f6312-6ca2-4e88-8b28-6b0d9c93d363，0 运行、非项目 lead、env WSL2 · aic-insight）执行可控 A/B：同 issue 先跑 opencode_local，再临时切 paperclip_runner(provider=opencode, model=deepseek/deepseek-flash, 同 env)。\n\n【opencode_local 实测】trivial 回复 run 75fdf8cb：startup 9.0s，created→首次模型活动 16.1s（进程→活动 6.1s），整轮 20.0s；另一次 20.6s→23s。\n\n【native runner 实测】两次 run（04ab2a1a assignment、0d1e07f1 automation）均在 ~5s 内失败：runner_remote_provider_artifact_incompatible: provider-pack.json is unreadable (missing)。\n\n【根因】镜像内 /opt/paperclip-runner/provider-pack 目录存在但为空；PAPERCLIP_RUNNER_REMOTE_PROVIDER_PACK_PATH=/opt/paperclip-runner/provider-pack。部署构建未携带 remote provider pack（与既有经验“不传 PAPERCLIP_BUILD_COMMIT 以跳过 provider pack”一致）。\n\n【结论】当前 47 无法运行 remote native runner，选 1 的即时速度收益为 0；需先修复镜像 provider pack 构建再复测。上游 Daytona native remote opencode 冷 TTFT 15.2s，对比本机 16.1s，预计冷启动仅省 1–3s；warm(4.2s) 默认仅 local，SSH 远程未验证。另 native runner 要求 issue workMode ∈ standard/planning/ask/skill_test（issue-less wake 会被拒）。\n\n【清理】agent 已回滚 opencode_local（status idle）；AIC-199/AIC-200 已 cancelled；临时 board_api_keys 已吊销；临时脚本已删除。",
+      "id": "2026-11-27-opencode-local-vs-native-runner-a-b-remote-provider-pack"
+    },
+    {
+      "type": "Requirement",
+      "name": "2026-11-27 GitHub issue #2 SSH void-teardown 无回执：确认未修复与扩散面",
+      "description": "【结论】fork GitHub issue #2（SSH/void-return provider cleanup 释放 lease 但无 remote-termination 回执，remote_cleanup 永久阻塞）**未修复**，issue open、无 PR。\n\n【为什么 #1 的修复不覆盖】47ff5f1585 新增 server/src/fork/ssh-remote-termination.ts，只挂在 environment-runtime.ts:1237 的 releaseRunLease；且 sshRunProvesProviderStopped 只认证 runtimeMode=legacy + run 终结 + **无执行开始证据**。\n\n【未覆盖的产生路径】\n1) pending_cleanup sweep：server/src/services/heartbeat/recovery.ts:1880 仍直接 remoteTerminationReceipt(lease, receipt)；void teardown → undefined，但 cleanupStatus=success 照写 → 正是 issue #2 状态。\n2) environment-run-lease-settlement.ts 的 SSH 分支：released + cleanupStatus=null + 无 receipt（注释声称 release marker 足够，与 gate 不一致）。\n3) 已开始的 mid-flight cancel：releaseRunLease 无远端 kill/停证（仅 stopRemoteStartup 可用），helper 不认证 → 无 receipt。代码无通用 SSH 远程 pkill/stop。\n\n【消费端（要求 receipt 或 recovered）】explicit-native-continuation.ts:504、chat-channels/task-retry-authority.ts:79、acknowledged-native-stop.ts:102、agent-execution-stop.ts:40、execution-blocker.ts、workspace-recovery-fallback.ts:158、remote-workspace-writer-hold.ts:80、remote-workspaces.ts:1156。\n\n【47 实例实测数据】released/expired + provider!=local + 无 receipt + run 终结 = 5021 条（cleanup_status null 5013 / success 8）；其中 run cancelled 102 条；8 条 success 无回执全部为 2026-11-02 QWE stuck-state 恢复遗留。issue #2 的 company 966214da / issue dfbc6fdf 不在 47（另一测试实例）。\n\n【安全反驳】issue 提议方案 A（用 cleanup success 合成 stopped receipt）对 SSH 不安全：SSH 的 release 只是租约释放，不是远端进程停止；mid-flight cancel 时远端进程可能仍占用真实 checkout，合成回执会导致后续 run 并发进入，违反 directRemoteWorkspace 单写者前提。\n\n【建议】统一 SSH 停证契约：要么取消/停止时真正终止远端进程组并记录 receipt，要么仅在 no-start/已证明停止时合成；gate 对“SSH released 但未证明停止”给出可执行等待/人工和解，不自动放行；补 sweep/settlement/mid-flight red-green 测试；对存量 5021 条无回执 lease 做安全和解。",
+      "attributes": [
+        {
+          "name": "commit",
+          "value": "analysis-only (no code change)"
+        },
+        {
+          "name": "githubIssue",
+          "value": "derekhu0002/paperclip#2"
+        }
+      ],
+      "id": "2026-11-27-github-issue-2-ssh-void-teardown"
     }
   ],
   "relationships": [
@@ -6425,7 +6495,9 @@
         "graph-review-plugin-proposal-2026-11-17",
         "knowledge-lens-proposal-2026-11-17",
         "paperclip-execution-view-removal-2026-11-25",
-        "ssh-legacy-cancel-remote-cleanup-fix-2026-11-26"
+        "ssh-legacy-cancel-remote-cleanup-fix-2026-11-26",
+        "2026-11-27-opencode-local-vs-native-runner-a-b-remote-provider-pack",
+        "2026-11-27-github-issue-2-ssh-void-teardown"
       ],
       "included_relationships": []
     },
