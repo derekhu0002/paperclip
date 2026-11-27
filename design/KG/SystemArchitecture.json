@@ -5681,7 +5681,7 @@
         },
         {
           "name": "pluginRepoCommits",
-          "value": "knowledge-lens@e0eb815 (scaffold), knowledge-lens@4bc674f (export argv + host binding docs), knowledge-lens@d3a4afa (Overlaps UI); artifact: dist/(worker,manifest,logic,ui)+package.json+README"
+          "value": "knowledge-lens@e0eb815 (scaffold), knowledge-lens@4bc674f (export argv + host binding docs), knowledge-lens@d3a4afa (Overlaps UI), knowledge-lens@0a9e2d4 (v0.2.1 plugin config key, table view, templates)"
         },
         {
           "name": "commit",
@@ -5695,6 +5695,22 @@
         {
           "name": "overlapsUi",
           "value": "exposed in P1; read-only table over two source snapshots; empty state until a second source exists"
+        },
+        {
+          "name": "deployedVersion",
+          "value": "0.2.1"
+        },
+        {
+          "name": "configBinding",
+          "value": "v0.2.1 instanceConfigSchema: privateKeySecretRef (string, format secret-ref) + sshDefaults + sourceDefaults；保存配置自动建 company_secret_bindings(privateKeySecretRef) 并替换手工/旧 sources.* 绑定；source 只存 host/workspace/project 等非敏感坐标；sync 用 configPath=privateKeySecretRef 解析私钥。已验证：config-save 200；bindings=[privateKeySecretRef]；sync 200 commit 218d4062。"
+        },
+        {
+          "name": "usability20261128",
+          "value": "新增 Table 模式（搜索、按 type/aspect 分组、列选择=内置字段+任意属性、CSV 导出、行详情、列选择持久化）与 5 个 Lens 模板（Architecture graph / Inventory table / Attributes table / Evidence table / Organization table）；Graph/Table 切换持久化；已创建 table lens「Argo economy - inventory (table)」14 el / 6 rel，页面与 UI bundle 200。"
+        },
+        {
+          "name": "knownLimitationsV021",
+          "value": "每公司一个 SSH 私钥（可授权多主机）；插件配置保存需 instance admin；列选择按 Lens 保存，无全局默认列；暂无保存的过滤器/排序；表格只展示单源，无跨源合并表。"
         }
       ]
     },
