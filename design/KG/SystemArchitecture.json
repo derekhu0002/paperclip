@@ -5681,12 +5681,20 @@
         },
         {
           "name": "pluginRepoCommits",
-          "value": "knowledge-lens@e0eb815 (scaffold), knowledge-lens@4bc674f (export argv + host binding docs); artifact: dist/(worker,manifest,logic,ui)+package.json+README"
+          "value": "knowledge-lens@e0eb815 (scaffold), knowledge-lens@4bc674f (export argv + host binding docs), knowledge-lens@d3a4afa (Overlaps UI); artifact: dist/(worker,manifest,logic,ui)+package.json+README"
         },
         {
           "name": "commit",
           "value": "ef9790fdef",
           "description": "chore(argo): record knowledge lens deployment on the phase-4 instance; files: design/KG/SystemArchitecture.json, paperclip.qea"
+        },
+        {
+          "name": "deploy47Update",
+          "value": "2026-11-28 热重载：Overlaps UI 已暴露（section overlaps，需 >=2 sources）；页面 /ARGA/knowledge-lens 200，UI bundle 200；plugin ready v0.1.0；overview ready=true sources=1 lenses=1；ui-contributions sidebar+page+routeSidebar。"
+        },
+        {
+          "name": "overlapsUi",
+          "value": "exposed in P1; read-only table over two source snapshots; empty state until a second source exists"
         }
       ]
     },
