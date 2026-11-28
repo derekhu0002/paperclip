@@ -46,8 +46,11 @@ const external = resolveExternalTestDatabaseUrl("PAPERCLIP_SSH_TERMINATION_TEST_
 // Windows hosts commonly run tests as an administrator, where embedded Postgres
 // refuses to start. CI's Linux lanes exercise the integration cases; local
 // Windows runs verify the pure predicate and skip the database suite.
-const embeddedSupport = process.platform === "win32" ? { supported: false } : await getEmbeddedPostgresTestSupport();
-const support = external ? { supported: true } : embeddedSupport;
+const support = external
+  ? { supported: true }
+  : process.platform === "win32"
+    ? { supported: false }
+    : await getEmbeddedPostgresTestSupport();
 (support.supported ? describe : describe.skip)("SSH remote termination proof (db)", () => {
   let database: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>> | undefined;
   let db: Db | undefined;

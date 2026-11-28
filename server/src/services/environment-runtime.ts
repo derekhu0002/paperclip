@@ -29,6 +29,7 @@ import { preserveEnvironmentSyncOutErrorDiagnostic } from "./environment-sync-ou
 import { remoteTerminationReceipt } from "./remote-execution-termination.js";
 import { inspectCloudSandboxCleanupAbsence } from "./sandbox-absence-proof.js";
 import { resolveSshRemoteTermination, sshReleaseOptions } from "../fork/ssh-remote-termination.js";
+import { resolveSshRemoteStopReceipt } from "../fork/ssh-remote-stop.js";
 import { hasNativeWorkspaceExportResume, releaseCompletedNativeWorkspaceExportRetention } from "./native-runtime/native-workspace-export-resume.js";
 import { createHash, randomUUID } from "node:crypto";
 import { currentControllerProcess } from "./controller-process-identity.js";
@@ -1234,7 +1235,8 @@ function createSshEnvironmentDriver(db: Db): EnvironmentRuntimeDriver {
     },
 
     async releaseRunLease(input) {
-      const termination = await resolveSshRemoteTermination(db, input.lease);
+      const termination = await resolveSshRemoteTermination(db, input.lease)
+        ?? await resolveSshRemoteStopReceipt(db, input.lease);
       return await environmentsSvc.releaseLease(input.lease.id, input.status, sshReleaseOptions(termination));
     },
 
